@@ -55,14 +55,14 @@ function LoginForm() {
               <Wrench className="h-5 w-5 text-white" />
             </div>
             <span className="text-2xl font-bold text-[#1E3A5F]">
-              Fix<span className="text-[#F97316]">MyCar</span>
+              Quote<span className="text-[#F97316]">MyGarage</span>
             </span>
           </Link>
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
           <h1 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h1>
-          <p className="text-slate-500 text-sm mb-6">Sign in to your FixMyCar account</p>
+          <p className="text-slate-500 text-sm mb-6">Sign in to your Quote My Garage account</p>
 
           {(error || formError) && (
             <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-5 text-sm text-red-700">

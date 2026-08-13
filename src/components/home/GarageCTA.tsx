@@ -62,11 +62,11 @@ export function GarageCTA() {
                   backgroundClip: "text",
                 }}
               >
-                Business with FixMyCar
+                Business with Quote My Garage
               </span>
             </h2>
             <p className="text-blue-200/80 text-lg mb-8 leading-relaxed max-w-lg">
-              Join <strong className="text-white">15,000+ garages</strong> already on FixMyCar.
+              Join <strong className="text-white">15,000+ garages</strong> already on Quote My Garage.
               Reach thousands of local customers searching for exactly the services you offer.
             </p>
 

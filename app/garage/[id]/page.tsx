@@ -8,7 +8,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props) {
   return {
-    title: `${params.id.replace(/-/g, " ")} | FixMyCar`,
+    title: `${params.id.replace(/-/g, " ")} | Quote My Garage`,
     description: "View garage profile, services, pricing and book an appointment.",
   }
 }

@@ -48,7 +48,7 @@ const testimonials = [
     rating: 5,
     saved: 120,
     review:
-      "Was nervous finding a trusted garage for my BMW. FixMyCar's verified garages gave me confidence. Saved £120 and quality was just as good as the BMW dealer.",
+      "Was nervous finding a trusted garage for my BMW. Quote My Garage's verified garages gave me confidence. Saved £120 and quality was just as good as the BMW dealer.",
     avatar: "DC",
     color: "#F97316",
     date: "1 month ago",
@@ -74,7 +74,7 @@ const testimonials = [
     rating: 5,
     saved: 200,
     review:
-      "Fantastic for finding EV specialists! Found an excellent certified garage at a fraction of the Tesla service centre price. Will always use FixMyCar first.",
+      "Fantastic for finding EV specialists! Found an excellent certified garage at a fraction of the Tesla service centre price. Will always use Quote My Garage first.",
     avatar: "MB",
     color: "#14B8A6",
     date: "3 weeks ago",

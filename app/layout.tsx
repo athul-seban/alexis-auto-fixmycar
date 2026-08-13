@@ -7,8 +7,8 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: {
-    default: "FixMyCar – Find Trusted Local Garages & Mechanics",
-    template: "%s | FixMyCar",
+    default: "Quote My Garage – Find Trusted Local Garages & Mechanics",
+    template: "%s | Quote My Garage",
   },
   description:
     "Compare quotes from 15,000+ local garages, mobile mechanics and dealerships. Book online, save money, and get your car fixed fast.",
@@ -25,14 +25,14 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_GB",
     url: process.env.NEXT_PUBLIC_APP_URL,
-    siteName: "FixMyCar",
-    title: "FixMyCar – Find Trusted Local Garages & Mechanics",
+    siteName: "Quote My Garage",
+    title: "Quote My Garage – Find Trusted Local Garages & Mechanics",
     description:
       "Compare quotes from 15,000+ local garages, mobile mechanics and dealerships.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "FixMyCar – Find Trusted Local Garages & Mechanics",
+    title: "Quote My Garage – Find Trusted Local Garages & Mechanics",
     description:
       "Compare quotes from 15,000+ local garages and mechanics. Book online and save.",
   },

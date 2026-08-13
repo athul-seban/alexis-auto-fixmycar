@@ -77,7 +77,7 @@ export function AdminDashboard({ user }: Props) {
               <Wrench className="h-5 w-5 text-white" />
             </div>
             <div>
-              <div className="text-white font-bold">FixMyCar</div>
+              <div className="text-white font-bold">Quote My Garage</div>
               <div className="text-slate-400 text-xs">Admin Panel</div>
             </div>
           </div>

@@ -1,2 +1,2 @@
-// Legacy agent config - not used by FixMyCar marketplace
+// Legacy agent config - not used by Quote My Garage marketplace
 export {}

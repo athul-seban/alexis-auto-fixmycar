@@ -58,7 +58,7 @@ export function Header() {
               <Wrench className="h-5 w-5 text-white" />
             </div>
             <span className="text-xl font-extrabold text-[#1E3A5F] tracking-tight">
-              Fix<span className="text-[#F97316]">MyCar</span>
+              Quote<span className="text-[#F97316]">MyGarage</span>
             </span>
           </Link>
 

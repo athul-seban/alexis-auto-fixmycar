@@ -45,7 +45,7 @@ export function HowItWorks() {
             Simple Process
           </span>
           <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 mb-4 tracking-tight">
-            How FixMyCar Works
+            How Quote My Garage Works
           </h2>
           <p className="text-lg text-slate-500 max-w-xl mx-auto leading-relaxed">
             Getting your car fixed has never been easier. Three steps from problem to sorted.
