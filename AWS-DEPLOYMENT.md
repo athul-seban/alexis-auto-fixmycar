@@ -2,11 +2,12 @@
 
 ## Architecture Overview
 
+Cost-effective by design: **no ALB** — App Runner has load balancing and HTTPS built in, so there's no separate load balancer to provision, manage, or pay for.
+
 ```
-Internet → Route 53 → CloudFront → ALB → ECS Fargate (Next.js)
+Internet → Route 53 → CloudFront → App Runner (Next.js, containerised)
                                               ↓
                                     RDS PostgreSQL (Private VPC)
-                                    ElastiCache Redis (Optional)
                                     S3 Bucket (Assets)
                                     SES (Email)
 ```
@@ -15,16 +16,15 @@ Internet → Route 53 → CloudFront → ALB → ECS Fargate (Next.js)
 
 | Service | Purpose | Config |
 |---------|---------|--------|
-| **ECS Fargate** | Host the Next.js app (containerised) | 1 vCPU, 2GB RAM minimum |
-| **RDS PostgreSQL** | Primary database | `db.t3.medium`, Multi-AZ for prod |
+| **App Runner** | Host the Next.js app (containerised, auto-scaling, built-in HTTPS + load balancing) | 1 vCPU, 2GB RAM minimum |
+| **RDS PostgreSQL** | Primary database | `db.t4g.micro`, single-AZ (upgrade to Multi-AZ if needed) |
 | **S3** | Garage images, user avatars | `quotemygarage-assets` bucket |
-| **CloudFront** | CDN for static assets + caching | Distribution over ALB |
-| **ALB** | Load balancer with HTTPS | SSL cert from ACM |
+| **CloudFront** | CDN for static assets + caching | Distribution over App Runner |
 | **Route 53** | DNS management | A record → CloudFront |
 | **SES** | Transactional emails | Verify domain first |
-| **Secrets Manager** | Store env secrets | Inject into ECS task |
+| **Secrets Manager** | Store env secrets | Inject into App Runner service |
 | **ECR** | Docker image registry | Push images here |
-| **ACM** | SSL/TLS certificates | Free with AWS |
+| **ACM** | SSL/TLS certificates | Free with AWS (used by CloudFront) |
 
 ## Quick Deploy Steps
 
@@ -36,10 +36,10 @@ aws ecr create-repository --repository-name quotemygarage --region ap-southeast-
 
 # Create RDS instance (use console or Terraform)
 # - Engine: PostgreSQL 16
-# - Instance: db.t3.medium
-# - Multi-AZ: Yes (production)
+# - Instance: db.t4g.micro (upgrade only if traffic needs it)
+# - Multi-AZ: No (single-AZ keeps cost down; enable later if needed)
 # - VPC: Private subnets only
-# - Security group: Allow port 5432 from ECS security group only
+# - Security group: Allow port 5432 from App Runner's VPC connector only
 
 # Create S3 bucket
 aws s3 mb s3://quotemygarage-assets-prod --region ap-southeast-1
@@ -62,7 +62,7 @@ docker push YOUR_ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/quotemygarage:l
 
 ### 3. Environment Variables (Secrets Manager)
 
-Store these in AWS Secrets Manager and reference in ECS task definition:
+Store these in AWS Secrets Manager and reference in the App Runner service:
 
 ```
 DATABASE_URL=postgresql://user:pass@rds-endpoint:5432/quotemygarage
@@ -81,38 +81,34 @@ EMAIL_SERVER_PASSWORD=<SES SMTP password>
 EMAIL_FROM=noreply@quotemygarage.com
 ```
 
-### 4. ECS Task Definition (key settings)
+### 4. App Runner Service (key settings)
 
-```json
-{
-  "family": "quotemygarage",
-  "cpu": "1024",
-  "memory": "2048",
-  "requiresCompatibilities": ["FARGATE"],
-  "networkMode": "awsvpc",
-  "containerDefinitions": [{
-    "name": "quotemygarage",
-    "image": "YOUR_ECR_URI/quotemygarage:latest",
-    "portMappings": [{"containerPort": 3000}],
-    "environment": [{"name": "NODE_ENV", "value": "production"}],
-    "secrets": [
-      {"name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:..."}
-    ],
-    "logConfiguration": {
-      "logDriver": "awslogs",
-      "options": {
-        "awslogs-group": "/ecs/quotemygarage",
-        "awslogs-region": "ap-southeast-1",
-        "awslogs-stream-prefix": "ecs"
+```bash
+aws apprunner create-service \
+  --service-name quotemygarage \
+  --source-configuration '{
+    "ImageRepository": {
+      "ImageIdentifier": "YOUR_ECR_URI/quotemygarage:latest",
+      "ImageRepositoryType": "ECR",
+      "ImageConfiguration": {
+        "Port": "3000",
+        "RuntimeEnvironmentVariables": {"NODE_ENV": "production"},
+        "RuntimeEnvironmentSecrets": {
+          "DATABASE_URL": "arn:aws:secretsmanager:..."
+        }
       }
-    }
-  }]
-}
+    },
+    "AutoDeploymentsEnabled": true
+  }' \
+  --instance-configuration '{"Cpu": "1024", "Memory": "2048"}' \
+  --network-configuration '{"EgressConfiguration": {"EgressType": "VPC", "VpcConnectorArn": "YOUR_VPC_CONNECTOR_ARN"}}'
 ```
+
+App Runner provisions HTTPS and load balancing automatically — no ALB, target group, or listener config needed. A VPC connector is only required so App Runner can reach RDS in a private subnet.
 
 ### 5. Database Migration
 
-Run once after RDS is ready (from a bastion host or ECS exec):
+Run once after RDS is ready (from a bastion host or a one-off App Runner/ECS task):
 
 ```bash
 npx prisma migrate deploy
@@ -120,31 +116,23 @@ npx prisma migrate deploy
 npx prisma db push
 ```
 
-### 6. ALB & HTTPS
+### 6. CloudFront
 
-1. Create an Application Load Balancer (internet-facing)
-2. Add HTTPS listener on port 443 with ACM certificate
-3. Target group → ECS service on port 3000
-4. HTTP → HTTPS redirect rule
-
-### 7. CloudFront
-
-- Origin: ALB
+- Origin: App Runner service's default domain
 - Cache behaviour: `/_next/static/*` — long cache (1 year)
 - Cache behaviour: `/api/*` — no cache
-- Default: pass through to ALB
+- Default: pass through to App Runner
 
 ## Estimated Monthly Cost (small-medium traffic)
 
 | Service | Est. Cost |
 |---------|-----------|
-| ECS Fargate (2 tasks) | ~$30 |
-| RDS db.t3.medium | ~$60 |
-| ALB | ~$20 |
+| App Runner (1 vCPU / 2GB, low traffic) | ~$25 |
+| RDS db.t4g.micro (single-AZ) | ~$15 |
 | CloudFront | ~$5 |
 | S3 | ~$3 |
 | Route 53 | ~$1 |
-| **Total** | **~$120/month** |
+| **Total** | **~$49/month** |
 
 ## CI/CD with GitHub Actions
 

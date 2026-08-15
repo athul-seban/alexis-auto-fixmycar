@@ -115,6 +115,13 @@ export function Header() {
             </div>
 
             <Link
+              href="/post-job"
+              className="px-4 py-2 text-[13px] font-semibold text-slate-600 hover:text-[#1E3A5F] hover:bg-slate-50 rounded-lg transition-colors"
+            >
+              Post a Job
+            </Link>
+
+            <Link
               href="/how-it-works"
               className="px-4 py-2 text-[13px] font-semibold text-slate-600 hover:text-[#1E3A5F] hover:bg-slate-50 rounded-lg transition-colors"
             >
@@ -253,6 +260,13 @@ export function Header() {
               )}
             </div>
 
+            <Link
+              href="/post-job"
+              className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl"
+              onClick={() => setMobileOpen(false)}
+            >
+              Post a Job
+            </Link>
             <Link
               href="/how-it-works"
               className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl"

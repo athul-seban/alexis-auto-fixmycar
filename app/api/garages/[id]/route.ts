@@ -63,8 +63,8 @@ export async function PATCH(req: Request, { params }: Params) {
         city: body.city,
         postcode: body.postcode?.toUpperCase(),
         isMobile: body.isMobile,
-        services: body.services,
-        openingHours: body.openingHours,
+        services: body.services ? JSON.stringify(body.services) : undefined,
+        openingHours: body.openingHours ? JSON.stringify(body.openingHours) : undefined,
       },
     })
 

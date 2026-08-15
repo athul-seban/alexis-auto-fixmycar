@@ -56,7 +56,7 @@ export async function POST(req: Request) {
             postcode: data.postcode.toUpperCase(),
             description: data.description,
             isMobile: data.isMobile,
-            services: data.services as any,
+            services: JSON.stringify(data.services),
             status: "PENDING",
           },
         },

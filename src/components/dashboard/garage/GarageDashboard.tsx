@@ -1,13 +1,32 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   BarChart3, Car, MessageSquare, Star, CheckCircle, Clock,
-  TrendingUp, Eye, Send, XCircle, ChevronRight, Phone, MapPin
+  TrendingUp, Eye, Send, XCircle, ChevronRight, Phone, MapPin, Briefcase
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { RespondToJobForm } from "@/components/dashboard/garage/RespondToJobForm"
 import { formatCurrency, formatDateShort, getServiceLabel, getStatusColor } from "@/lib/utils"
+
+interface JobRequestItem {
+  id: string
+  serviceType: string
+  description: string
+  registration: string
+  make: string
+  model: string
+  year: number
+  city: string
+  postcode: string
+  guestName: string
+  guestPhone: string
+  status: string
+  createdAt: string
+  hasResponded: boolean
+  myResponse: { price: number } | null
+}
 
 interface User {
   name?: string | null
@@ -53,12 +72,24 @@ interface Props {
 }
 
 export function GarageDashboard({ user }: Props) {
-  const [activeTab, setActiveTab] = useState<"quotes" | "bookings" | "profile">("quotes")
+  const [activeTab, setActiveTab] = useState<"quotes" | "jobs" | "bookings" | "profile">("quotes")
+  const [jobRequests, setJobRequests] = useState<JobRequestItem[]>([])
+  const [jobsLoading, setJobsLoading] = useState(true)
+
+  useEffect(() => {
+    fetch("/api/job-requests")
+      .then((res) => res.json())
+      .then((data) => setJobRequests(data.jobRequests ?? []))
+      .catch(() => setJobRequests([]))
+      .finally(() => setJobsLoading(false))
+  }, [])
+
+  const newLeadCount = jobRequests.filter((j) => !j.hasResponded).length
 
   const stats = [
     { label: "Quote Requests", value: "8", icon: MessageSquare, color: "text-blue-500", bg: "bg-blue-50", change: "+3 today" },
+    { label: "New Job Leads", value: String(newLeadCount), icon: Briefcase, color: "text-purple-500", bg: "bg-purple-50", change: "Posted by guests" },
     { label: "Active Bookings", value: "12", icon: Car, color: "text-orange-500", bg: "bg-orange-50", change: "4 this week" },
-    { label: "Revenue (Month)", value: "£2,340", icon: TrendingUp, color: "text-green-500", bg: "bg-green-50", change: "+12% vs last" },
     { label: "Avg Rating", value: "4.8★", icon: Star, color: "text-yellow-500", bg: "bg-yellow-50", change: "342 reviews" },
   ]
 
@@ -90,8 +121,8 @@ export function GarageDashboard({ user }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-white rounded-xl p-1 border border-gray-200 mb-6 w-fit">
-        {(["quotes", "bookings", "profile"] as const).map((tab) => (
+      <div className="flex gap-1 bg-white rounded-xl p-1 border border-gray-200 mb-6 w-fit flex-wrap">
+        {(["quotes", "jobs", "bookings", "profile"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -99,7 +130,11 @@ export function GarageDashboard({ user }: Props) {
               activeTab === tab ? "bg-[#1E3A5F] text-white" : "text-slate-600 hover:bg-slate-50"
             }`}
           >
-            {tab === "quotes" ? `Quote Requests (${mockQuoteRequests.filter(q => q.status === "PENDING").length})` : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab === "quotes"
+              ? `Quote Requests (${mockQuoteRequests.filter((q) => q.status === "PENDING").length})`
+              : tab === "jobs"
+              ? `Job Requests (${newLeadCount})`
+              : tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
@@ -144,6 +179,70 @@ export function GarageDashboard({ user }: Props) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {activeTab === "jobs" && (
+        <div className="space-y-4">
+          {jobsLoading ? (
+            [1, 2].map((i) => <div key={i} className="h-32 bg-white rounded-xl border border-gray-200 animate-pulse" />)
+          ) : jobRequests.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+              <Briefcase className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-slate-900 mb-1">No job requests yet</h3>
+              <p className="text-slate-500 text-sm">Guest-posted jobs matching your services and location will show up here.</p>
+            </div>
+          ) : (
+            jobRequests.map((job) => (
+              <div key={job.id} className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h3 className="font-bold text-slate-900">{getServiceLabel(job.serviceType)}</h3>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getStatusColor(job.status)}`}>
+                        {job.status}
+                      </span>
+                      <span className="text-xs text-slate-400 ml-auto">{formatDateShort(job.createdAt)}</span>
+                    </div>
+                    <p className="text-sm text-slate-600 mb-3">{job.description}</p>
+                    <div className="flex flex-wrap gap-3 text-sm text-slate-500">
+                      <div className="flex items-center gap-1.5">
+                        <div className="plate-number text-xs">{job.registration}</div>
+                        <span>{job.year} {job.make} {job.model}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        <span>{job.city}, {job.postcode}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Phone className="h-3.5 w-3.5" />
+                        <span>{job.guestName} · {job.guestPhone}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {job.hasResponded ? (
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-green-600">{formatCurrency(job.myResponse?.price ?? 0)}</div>
+                        <div className="text-xs text-slate-400">Quote sent</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2 sm:items-end">
+                      <RespondToJobForm
+                        jobRequestId={job.id}
+                        onSent={(jobResponse) =>
+                          setJobRequests((prev) =>
+                            prev.map((j) => (j.id === job.id ? { ...j, hasResponded: true, myResponse: jobResponse } : j))
+                          )
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 

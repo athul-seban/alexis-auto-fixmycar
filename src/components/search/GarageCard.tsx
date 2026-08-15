@@ -1,16 +1,22 @@
+"use client"
+
 import Link from "next/link"
-import { MapPin, Star, Shield, Clock, ChevronRight, Car } from "lucide-react"
+import { MapPin, Star, Shield, Clock, ChevronRight, Car, GitCompareArrows, CheckSquare } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getServiceLabel } from "@/lib/utils"
-import type { GarageProfile } from "@/types"
+import { useCompare } from "@/context/CompareContext"
+import type { GarageListItem } from "@/types"
 
 interface GarageCardProps {
-  garage: GarageProfile
+  garage: GarageListItem
   distance?: number
 }
 
 export function GarageCard({ garage, distance }: GarageCardProps) {
+  const { isSelected, toggleGarage, maxReached } = useCompare()
+  const selected = isSelected(garage.id)
+
   const initials = garage.name
     .split(" ")
     .map((w: string) => w[0])
@@ -120,17 +126,32 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-gray-100 px-5 py-3 bg-slate-50 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1 text-xs text-slate-500">
+      <div className="border-t border-gray-100 px-5 py-3 bg-slate-50 flex items-center justify-between gap-3 flex-wrap">
+        <div className="hidden sm:flex items-center gap-1 text-xs text-slate-500">
           <Clock className="h-3.5 w-3.5" />
           <span>Usually responds within 1 hour</span>
         </div>
-        <Link href={`/garage/${garage.slug}`}>
-          <Button size="sm" className="gap-1.5 text-xs">
-            Get Quote
-            <ChevronRight className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-2 ml-auto">
+          <Button
+            variant={selected ? "primary" : "outline"}
+            size="sm"
+            className="gap-1.5 text-xs"
+            disabled={!selected && maxReached}
+            title={!selected && maxReached ? "You can compare up to 4 garages at once" : undefined}
+            onClick={() =>
+              toggleGarage({ id: garage.id, name: garage.name, slug: garage.slug, logo: garage.logo, city: garage.city })
+            }
+          >
+            {selected ? <CheckSquare className="h-3.5 w-3.5" /> : <GitCompareArrows className="h-3.5 w-3.5" />}
+            <span className="hidden sm:inline">{selected ? "Added" : "Compare"}</span>
           </Button>
-        </Link>
+          <Link href={`/garage/${garage.slug}`}>
+            <Button size="sm" className="gap-1.5 text-xs">
+              Get Quote
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
+        </div>
       </div>
     </div>
   )

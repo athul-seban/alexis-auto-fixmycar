@@ -30,7 +30,7 @@ export interface User {
   createdAt: Date
 }
 
-export interface GarageProfile {
+export interface GarageListItem {
   id: string
   name: string
   slug: string
@@ -39,8 +39,6 @@ export interface GarageProfile {
   images: string[]
   phone: string
   email: string
-  website: string | null
-  address: string
   city: string
   postcode: string
   latitude: number | null
@@ -49,11 +47,16 @@ export interface GarageProfile {
   isVerified: boolean
   isMobile: boolean
   services: ServiceType[]
-  openingHours: OpeningHours | null
   totalReviews: number
   averageRating: number
   totalBookings: number
-  createdAt: Date
+  createdAt: string
+}
+
+export interface GarageProfile extends GarageListItem {
+  address: string
+  website: string | null
+  openingHours: OpeningHours | null
   user?: User
 }
 

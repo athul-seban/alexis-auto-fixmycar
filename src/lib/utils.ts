@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import type { OpeningHours } from "@/types"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -87,6 +88,17 @@ export function getStatusColor(status: string): string {
 export function truncate(text: string, length: number): string {
   if (text.length <= length) return text
   return text.slice(0, length) + "..."
+}
+
+const DAY_KEYS: (keyof OpeningHours)[] = [
+  "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
+]
+
+export function getTodayOpeningHoursLabel(openingHours: OpeningHours | null): string {
+  if (!openingHours) return "Hours not specified"
+  const today = openingHours[DAY_KEYS[new Date().getDay()]]
+  if (!today?.open) return "Closed today"
+  return `${today.from} – ${today.to}`
 }
 
 export function distanceInKm(

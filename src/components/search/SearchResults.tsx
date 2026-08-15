@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { Search, MapPin, SlidersHorizontal, Car, Star, Shield, X } from "lucide-react"
+import { Search, MapPin, Car, Shield, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { GarageCard } from "@/components/search/GarageCard"
+import type { GarageListItem } from "@/types"
 
 const serviceOptions = [
   { value: "", label: "All Services" },
@@ -23,58 +24,8 @@ const serviceOptions = [
   { value: "AIR_CON", label: "Air Con" },
 ]
 
-const mockGarages = [
-  {
-    id: "1", name: "Premier Auto Services", slug: "premier-auto-services",
-    description: "Family-run garage with 20+ years experience. Specialists in all makes and models.",
-    logo: null, images: [], phone: "020 7123 4567", email: "info@premier.com", website: null,
-    address: "123 High Street", city: "London", postcode: "SW1A 1AA", latitude: 51.5, longitude: -0.12,
-    status: "APPROVED" as const, isVerified: true, isMobile: false,
-    services: ["MOT", "FULL_SERVICE", "BRAKES", "TYRES", "REPAIR"] as any,
-    openingHours: null, totalReviews: 342, averageRating: 4.9, totalBookings: 1205,
-    createdAt: new Date(), updatedAt: new Date(),
-  },
-  {
-    id: "2", name: "QuickFix Mobile Mechanics", slug: "quickfix-mobile",
-    description: "Mobile mechanics who come to you. Available 7 days a week across Manchester.",
-    logo: null, images: [], phone: "0161 234 5678", email: "hello@quickfix.com", website: null,
-    address: "Mobile Service", city: "Manchester", postcode: "M1 1AA", latitude: 53.48, longitude: -2.24,
-    status: "APPROVED" as const, isVerified: true, isMobile: true,
-    services: ["DIAGNOSTICS", "BATTERY", "TYRES", "BRAKES"] as any,
-    openingHours: null, totalReviews: 218, averageRating: 4.8, totalBookings: 876,
-    createdAt: new Date(), updatedAt: new Date(),
-  },
-  {
-    id: "3", name: "Elite Car Care Centre", slug: "elite-car-care",
-    description: "Award-winning garage specialising in premium and performance vehicles.",
-    logo: null, images: [], phone: "0121 456 7890", email: "info@elitecar.com", website: null,
-    address: "45 Industrial Way", city: "Birmingham", postcode: "B1 1AA", latitude: 52.48, longitude: -1.89,
-    status: "APPROVED" as const, isVerified: true, isMobile: false,
-    services: ["MOT", "CAMBELT", "CLUTCH", "FULL_SERVICE", "REPAIR"] as any,
-    openingHours: null, totalReviews: 185, averageRating: 4.7, totalBookings: 654,
-    createdAt: new Date(), updatedAt: new Date(),
-  },
-  {
-    id: "4", name: "Citygate Garage", slug: "citygate-garage",
-    description: "Trusted local garage serving Leeds for over 15 years. Free collection available.",
-    logo: null, images: [], phone: "0113 789 0123", email: "info@citygate.com", website: null,
-    address: "78 Park Road", city: "Leeds", postcode: "LS1 1AA", latitude: 53.8, longitude: -1.55,
-    status: "APPROVED" as const, isVerified: false, isMobile: false,
-    services: ["FULL_SERVICE", "EXHAUST", "AIR_CON", "MOT"] as any,
-    openingHours: null, totalReviews: 156, averageRating: 4.6, totalBookings: 423,
-    createdAt: new Date(), updatedAt: new Date(),
-  },
-  {
-    id: "5", name: "Rapid Repair Centre", slug: "rapid-repair-centre",
-    description: "Fast turnaround repairs with competitive pricing. Same day service available.",
-    logo: null, images: [], phone: "0117 234 5678", email: "info@rapid.com", website: null,
-    address: "22 Union Street", city: "Bristol", postcode: "BS1 1AA", latitude: 51.45, longitude: -2.59,
-    status: "APPROVED" as const, isVerified: true, isMobile: false,
-    services: ["BRAKES", "TYRES", "BATTERY", "WINDSCREEN", "EXHAUST"] as any,
-    openingHours: null, totalReviews: 134, averageRating: 4.5, totalBookings: 398,
-    createdAt: new Date(), updatedAt: new Date(),
-  },
-]
+// A postcode-shaped query (e.g. "SW1A", "M1") starts with 1-2 letters then a digit.
+const POSTCODE_PATTERN = /^[A-Za-z]{1,2}\d/
 
 export function SearchResults() {
   const searchParams = useSearchParams()
@@ -87,9 +38,44 @@ export function SearchResults() {
   const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [minRating, setMinRating] = useState("")
   const [sortBy, setSortBy] = useState("rating")
-  const [filtersOpen, setFiltersOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [garages, setGarages] = useState(mockGarages)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [garages, setGarages] = useState<GarageListItem[]>([])
+  const [total, setTotal] = useState(0)
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function fetchGarages() {
+      setLoading(true)
+      setError("")
+      try {
+        const params = new URLSearchParams()
+        if (location) {
+          if (POSTCODE_PATTERN.test(location.trim())) params.set("postcode", location.trim())
+          else params.set("city", location.trim())
+        }
+        if (serviceType) params.set("service", serviceType)
+        if (mobileOnly) params.set("mobile", "true")
+        if (verifiedOnly) params.set("verified", "true")
+        if (minRating) params.set("minRating", minRating)
+        if (sortBy) params.set("sort", sortBy)
+
+        const res = await fetch(`/api/garages?${params.toString()}`, { signal: controller.signal })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? "Failed to load garages")
+        setGarages(data.garages)
+        setTotal(data.total)
+      } catch (err: any) {
+        if (err.name !== "AbortError") setError(err.message ?? "Failed to load garages")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchGarages()
+    return () => controller.abort()
+  }, [location, serviceType, mobileOnly, verifiedOnly, minRating, sortBy])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -100,20 +86,6 @@ export function SearchResults() {
     if (mobileOnly) params.set("mobile", "true")
     router.push(`/search?${params.toString()}`)
   }
-
-  const filteredGarages = garages
-    .filter((g) => {
-      if (mobileOnly && !g.isMobile) return false
-      if (verifiedOnly && !g.isVerified) return false
-      if (minRating && g.averageRating < parseFloat(minRating)) return false
-      if (serviceType && !g.services.includes(serviceType as any)) return false
-      return true
-    })
-    .sort((a, b) => {
-      if (sortBy === "rating") return b.averageRating - a.averageRating
-      if (sortBy === "reviews") return b.totalReviews - a.totalReviews
-      return 0
-    })
 
   return (
     <div>
@@ -182,7 +154,7 @@ export function SearchResults() {
                   >
                     <option value="rating">Highest Rated</option>
                     <option value="reviews">Most Reviewed</option>
-                    <option value="distance">Nearest First</option>
+                    <option value="bookings">Most Booked</option>
                   </select>
                 </div>
 
@@ -237,12 +209,25 @@ export function SearchResults() {
           <div className="flex-1">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-slate-600">
-                <span className="font-bold text-slate-900">{filteredGarages.length}</span> garages found
+                <span className="font-bold text-slate-900">{total}</span> garages found
                 {location && <span className="text-slate-500"> near <strong>{location}</strong></span>}
               </p>
             </div>
 
-            {filteredGarages.length === 0 ? (
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-40 bg-white rounded-xl border border-gray-200 animate-pulse" />
+                ))}
+              </div>
+            ) : error ? (
+              <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+                <AlertCircle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-1">Something went wrong</h3>
+                <p className="text-slate-500 text-sm mb-4">{error}</p>
+                <Button variant="outline" onClick={() => setSortBy((s) => s)}>Retry</Button>
+              </div>
+            ) : garages.length === 0 ? (
               <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
                 <Search className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                 <h3 className="text-lg font-semibold text-slate-900 mb-1">No garages found</h3>
@@ -250,7 +235,7 @@ export function SearchResults() {
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredGarages.map((garage) => (
+                {garages.map((garage) => (
                   <GarageCard key={garage.id} garage={garage} />
                 ))}
               </div>
