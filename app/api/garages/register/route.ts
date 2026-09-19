@@ -6,12 +6,12 @@ import { z } from "zod"
 
 const schema = z.object({
   name: z.string().min(2),
-  email: z.string().email(),
+  email: z.string().email().trim().toLowerCase(),
   password: z.string().min(8),
   phone: z.string().min(10),
   garageName: z.string().min(2),
   garagePhone: z.string().min(10),
-  garageEmail: z.string().email(),
+  garageEmail: z.string().email().trim().toLowerCase(),
   address: z.string().min(5),
   city: z.string().min(2),
   postcode: z.string().min(5),

@@ -85,7 +85,7 @@ export function JobRequestTracker({ jobRequest: initialJobRequest }: Props) {
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <Clock className="h-12 w-12 text-slate-300 mx-auto mb-3" />
           <h3 className="text-lg font-semibold text-slate-900 mb-1">No quotes yet</h3>
-          <p className="text-slate-500 text-sm">Garages usually respond within a few hours. We'll email you as quotes arrive.</p>
+          <p className="text-slate-500 text-sm">Garages usually respond within a few hours. We&apos;ll email you as quotes arrive.</p>
         </div>
       ) : (
         <CompareTable

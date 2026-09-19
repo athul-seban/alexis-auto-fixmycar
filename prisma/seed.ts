@@ -111,6 +111,27 @@ const garages = [
   },
 ]
 
+const owners = [
+  {
+    email: "sarah.mitchell@example.com",
+    name: "Sarah Mitchell",
+    phone: "07700 900111",
+    vehicle: { registration: "AB12 CDE", make: "Ford", model: "Focus", year: 2019, fuel: "PETROL", color: "Blue", mileage: 42000 },
+  },
+  {
+    email: "james.patel@example.com",
+    name: "James Patel",
+    phone: "07700 900112",
+    vehicle: { registration: "XY56 JKL", make: "BMW", model: "3 Series", year: 2021, fuel: "DIESEL", color: "Black", mileage: 18000 },
+  },
+  {
+    email: "emma.turner@example.com",
+    name: "Emma Turner",
+    phone: "07700 900113",
+    vehicle: { registration: "MN34 OPQ", make: "Toyota", model: "Yaris", year: 2018, fuel: "HYBRID", color: "White", mileage: 51000 },
+  },
+]
+
 async function main() {
   const adminPassword = await bcrypt.hash("admin123", 10)
   const admin = await prisma.user.upsert({
@@ -169,6 +190,83 @@ async function main() {
   }
 
   console.log(`✅ Seeded ${garages.length} garages (password for all garage logins: garage123)`)
+
+  const ownerPassword = await bcrypt.hash("owner123", 10)
+
+  for (const o of owners) {
+    const user = await prisma.user.upsert({
+      where: { email: o.email },
+      update: {},
+      create: {
+        email: o.email,
+        name: o.name,
+        password: ownerPassword,
+        phone: o.phone,
+        role: "OWNER",
+      },
+    })
+
+    await prisma.vehicle.upsert({
+      where: { id: `seed-${o.vehicle.registration}` },
+      update: {},
+      create: {
+        id: `seed-${o.vehicle.registration}`,
+        ownerId: user.id,
+        registration: o.vehicle.registration,
+        make: o.vehicle.make,
+        model: o.vehicle.model,
+        year: o.vehicle.year,
+        fuel: o.vehicle.fuel,
+        color: o.vehicle.color,
+        mileage: o.vehicle.mileage,
+      },
+    })
+  }
+
+  console.log(`✅ Seeded ${owners.length} owners (password for all owner logins: owner123)`)
+
+  // Sample bookings so admin/dashboard views have real data to show
+  const sarah = await prisma.user.findUnique({ where: { email: "sarah.mitchell@example.com" } })
+  const james = await prisma.user.findUnique({ where: { email: "james.patel@example.com" } })
+  const premier = await prisma.garage.findUnique({ where: { slug: "premier-auto-services" } })
+  const quickfix = await prisma.garage.findUnique({ where: { slug: "quickfix-mobile" } })
+
+  if (sarah && premier) {
+    await prisma.booking.upsert({
+      where: { id: "seed-booking-1" },
+      update: {},
+      create: {
+        id: "seed-booking-1",
+        ownerId: sarah.id,
+        vehicleId: "seed-AB12 CDE",
+        garageId: premier.id,
+        serviceType: "MOT",
+        status: "COMPLETED",
+        scheduledAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        completedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
+        totalPrice: 54.99,
+      },
+    })
+  }
+
+  if (james && quickfix) {
+    await prisma.booking.upsert({
+      where: { id: "seed-booking-2" },
+      update: {},
+      create: {
+        id: "seed-booking-2",
+        ownerId: james.id,
+        vehicleId: "seed-XY56 JKL",
+        garageId: quickfix.id,
+        serviceType: "BATTERY",
+        status: "CONFIRMED",
+        scheduledAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        totalPrice: 120,
+      },
+    })
+  }
+
+  console.log("✅ Seeded 2 sample bookings")
 }
 
 main()
