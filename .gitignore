@@ -13,3 +13,5 @@ prisma/dev.db-journal
 prisma/*.db
 prisma/*.db-shm
 prisma/*.db-wal
+.vercel
+.env*
