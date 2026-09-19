@@ -6,12 +6,13 @@ import { prisma } from "@/lib/prisma"
 import type { TrackedJobRequest } from "@/components/post-job/types"
 
 interface Props {
-  params: { token: string }
+  params: Promise<{ token: string }>
 }
 
 export const metadata = { title: "Track My Quotes", robots: { index: false, follow: false } }
 
-export default async function TrackJobRequestPage({ params }: Props) {
+export default async function TrackJobRequestPage(props: Props) {
+  const params = await props.params;
   const jobRequest = await prisma.jobRequest.findUnique({
     where: { token: params.token },
     include: {

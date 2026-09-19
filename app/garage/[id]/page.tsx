@@ -3,17 +3,19 @@ import { Footer } from "@/components/layout/Footer"
 import { GarageProfilePage } from "@/components/garage/GarageProfilePage"
 
 interface Props {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata(props: Props) {
+  const params = await props.params;
   return {
     title: `${params.id.replace(/-/g, " ")} | Quote My Garage`,
     description: "View garage profile, services, pricing and book an appointment.",
-  }
+  };
 }
 
-export default function GaragePage({ params }: Props) {
+export default async function GaragePage(props: Props) {
+  const params = await props.params;
   return (
     <>
       <Header />

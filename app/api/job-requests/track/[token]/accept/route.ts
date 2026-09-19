@@ -9,10 +9,11 @@ const acceptSchema = z.object({
 })
 
 interface Params {
-  params: { token: string }
+  params: Promise<{ token: string }>
 }
 
-export async function POST(req: Request, { params }: Params) {
+export async function POST(req: Request, props: Params) {
+  const params = await props.params;
   try {
     const body = await req.json()
     const { jobResponseId } = acceptSchema.parse(body)

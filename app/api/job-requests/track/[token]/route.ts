@@ -2,10 +2,11 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
 interface Params {
-  params: { token: string }
+  params: Promise<{ token: string }>
 }
 
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(_req: Request, props: Params) {
+  const params = await props.params;
   try {
     const jobRequest = await prisma.jobRequest.findUnique({
       where: { token: params.token },
