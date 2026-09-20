@@ -32,7 +32,11 @@ function LoginForm() {
     })
 
     if (result?.error) {
-      setFormError("Invalid email or password. Please try again.")
+      setFormError(
+        result.error === "CredentialsSignin"
+          ? "Invalid email or password. Please try again."
+          : result.error
+      )
       setLoading(false)
       return
     }
