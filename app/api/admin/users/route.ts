@@ -12,6 +12,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const role = searchParams.get("role")
   const q = searchParams.get("q")?.trim().toLowerCase()
+  const page = Math.max(1, Number(searchParams.get("page")) || 1)
+  const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || 10))
 
   const users = await prisma.user.findMany({
     where: role ? { role } : undefined,
@@ -33,8 +35,12 @@ export async function GET(req: Request) {
       )
     : users
 
+  const total = filtered.length
+  const start = (page - 1) * pageSize
+  const pageItems = filtered.slice(start, start + pageSize)
+
   return NextResponse.json({
-    users: filtered.slice(0, 100).map((u) => ({
+    users: pageItems.map((u) => ({
       id: u.id,
       name: u.name,
       email: u.email,
@@ -42,5 +48,9 @@ export async function GET(req: Request) {
       joinedAt: u.createdAt,
       bookings: u.role === "GARAGE" ? u.garage?.totalBookings ?? 0 : u._count.bookings,
     })),
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
   })
 }

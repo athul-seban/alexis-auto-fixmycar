@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from "react"
 import {
   LayoutDashboard, Building2, Users, Calendar, TrendingUp,
   CheckCircle, XCircle, AlertCircle, Search,
-  LogOut, Wrench, ChevronUp, ChevronDown, Ban, RotateCcw
+  LogOut, Wrench, ChevronUp, ChevronDown, Ban, RotateCcw,
+  ChevronLeft, ChevronRight, X,
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { formatCurrency, formatDateShort, getStatusColor } from "@/lib/utils"
@@ -58,6 +59,11 @@ interface BookingRow {
   customer: string
 }
 
+interface Toast {
+  message: string
+  type: "success" | "error"
+}
+
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", id: "overview" },
   { icon: Building2, label: "Garages", id: "garages" },
@@ -67,6 +73,8 @@ const navItems = [
 ]
 
 const GARAGE_STATUS_TABS = ["PENDING", "APPROVED", "SUSPENDED"] as const
+const BOOKING_STATUS_TABS = ["", "PENDING", "CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const
+const PAGE_SIZE = 8
 
 function parseServices(json: string): string[] {
   try {
@@ -77,12 +85,45 @@ function parseServices(json: string): string[] {
   }
 }
 
+function Pagination({
+  page, totalPages, onChange,
+}: { page: number; totalPages: number; onChange: (page: number) => void }) {
+  if (totalPages <= 1) return null
+  return (
+    <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-800">
+      <span className="text-xs text-slate-500">Page {page} of {totalPages}</span>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onChange(page - 1)}
+          disabled={page <= 1}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" /> Prev
+        </button>
+        <button
+          onClick={() => onChange(page + 1)}
+          disabled={page >= totalPages}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+        >
+          Next <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 interface Props {
   user: User
 }
 
 export function AdminDashboard({ user }: Props) {
   const [activeSection, setActiveSection] = useState("overview")
+  const [toast, setToast] = useState<Toast | null>(null)
+
+  const showToast = useCallback((message: string, type: Toast["type"] = "success") => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), type === "error" ? 5000 : 3000)
+  }, [])
 
   const [stats, setStats] = useState<Stats | null>(null)
   const [pendingPreview, setPendingPreview] = useState<GarageRow[]>([])
@@ -92,15 +133,26 @@ export function AdminDashboard({ user }: Props) {
   const [garages, setGarages] = useState<GarageRow[]>([])
   const [garagesLoading, setGaragesLoading] = useState(false)
   const [garageSearch, setGarageSearch] = useState("")
+  const [garagePage, setGaragePage] = useState(1)
+  const [garageTotalPages, setGarageTotalPages] = useState(1)
+  const [garageCounts, setGarageCounts] = useState({ PENDING: 0, APPROVED: 0, SUSPENDED: 0 })
   const [garageActionPending, setGarageActionPending] = useState<string | null>(null)
 
   const [users, setUsers] = useState<UserRow[]>([])
   const [usersLoading, setUsersLoading] = useState(false)
   const [userSearch, setUserSearch] = useState("")
   const [userRole, setUserRole] = useState<"" | "OWNER" | "GARAGE" | "ADMIN">("")
+  const [userPage, setUserPage] = useState(1)
+  const [userTotalPages, setUserTotalPages] = useState(1)
 
   const [bookings, setBookings] = useState<BookingRow[]>([])
   const [bookingsLoading, setBookingsLoading] = useState(false)
+  const [bookingStatus, setBookingStatus] = useState<(typeof BOOKING_STATUS_TABS)[number]>("")
+  const [bookingFrom, setBookingFrom] = useState("")
+  const [bookingTo, setBookingTo] = useState("")
+  const [bookingPage, setBookingPage] = useState(1)
+  const [bookingTotalPages, setBookingTotalPages] = useState(1)
+  const [bookingCounts, setBookingCounts] = useState<Record<string, number>>({})
 
   const refreshStats = useCallback(() => {
     fetch("/api/admin/stats")
@@ -111,51 +163,83 @@ export function AdminDashboard({ user }: Props) {
 
   useEffect(() => {
     refreshStats()
-    fetch("/api/admin/garages?status=PENDING")
+    fetch("/api/admin/garages?status=PENDING&pageSize=3")
       .then((res) => res.json())
-      .then((data) => setPendingPreview((data.garages ?? []).slice(0, 3)))
+      .then((data) => setPendingPreview(data.garages ?? []))
       .catch(() => {})
-    fetch("/api/admin/bookings?limit=4")
+    fetch("/api/admin/bookings?pageSize=4")
       .then((res) => res.json())
       .then((data) => setRecentBookings(data.bookings ?? []))
       .catch(() => {})
   }, [refreshStats])
 
+  // Garages: reset to page 1 whenever the status tab or search term changes
+  useEffect(() => { setGaragePage(1) }, [garageStatus, garageSearch])
+
+  const fetchGarages = useCallback(() => {
+    const params = new URLSearchParams({ status: garageStatus, page: String(garagePage), pageSize: String(PAGE_SIZE) })
+    if (garageSearch.trim()) params.set("q", garageSearch.trim())
+    return fetch(`/api/admin/garages?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setGarages(data.garages ?? [])
+        setGarageTotalPages(data.totalPages ?? 1)
+        if (data.counts) setGarageCounts(data.counts)
+      })
+      .catch(() => setGarages([]))
+  }, [garageStatus, garageSearch, garagePage])
+
   useEffect(() => {
     if (activeSection !== "garages") return
     setGaragesLoading(true)
-    fetch(`/api/admin/garages?status=${garageStatus}`)
-      .then((res) => res.json())
-      .then((data) => setGarages(data.garages ?? []))
-      .catch(() => setGarages([]))
-      .finally(() => setGaragesLoading(false))
-  }, [activeSection, garageStatus])
+    const timeout = setTimeout(() => {
+      fetchGarages().finally(() => setGaragesLoading(false))
+    }, 250)
+    return () => clearTimeout(timeout)
+  }, [activeSection, fetchGarages])
+
+  // Users: reset to page 1 whenever role or search changes
+  useEffect(() => { setUserPage(1) }, [userRole, userSearch])
 
   useEffect(() => {
     if (activeSection !== "users") return
     setUsersLoading(true)
     const timeout = setTimeout(() => {
-      const params = new URLSearchParams()
+      const params = new URLSearchParams({ page: String(userPage), pageSize: String(PAGE_SIZE) })
       if (userSearch.trim()) params.set("q", userSearch.trim())
       if (userRole) params.set("role", userRole)
       fetch(`/api/admin/users?${params.toString()}`)
         .then((res) => res.json())
-        .then((data) => setUsers(data.users ?? []))
+        .then((data) => {
+          setUsers(data.users ?? [])
+          setUserTotalPages(data.totalPages ?? 1)
+        })
         .catch(() => setUsers([]))
         .finally(() => setUsersLoading(false))
     }, 250)
     return () => clearTimeout(timeout)
-  }, [activeSection, userSearch, userRole])
+  }, [activeSection, userSearch, userRole, userPage])
+
+  // Bookings: reset to page 1 whenever status or date filters change
+  useEffect(() => { setBookingPage(1) }, [bookingStatus, bookingFrom, bookingTo])
 
   useEffect(() => {
     if (activeSection !== "bookings") return
     setBookingsLoading(true)
-    fetch("/api/admin/bookings?limit=50")
+    const params = new URLSearchParams({ page: String(bookingPage), pageSize: String(PAGE_SIZE) })
+    if (bookingStatus) params.set("status", bookingStatus)
+    if (bookingFrom) params.set("from", bookingFrom)
+    if (bookingTo) params.set("to", bookingTo)
+    fetch(`/api/admin/bookings?${params.toString()}`)
       .then((res) => res.json())
-      .then((data) => setBookings(data.bookings ?? []))
+      .then((data) => {
+        setBookings(data.bookings ?? [])
+        setBookingTotalPages(data.totalPages ?? 1)
+        if (data.counts) setBookingCounts(data.counts)
+      })
       .catch(() => setBookings([]))
       .finally(() => setBookingsLoading(false))
-  }, [activeSection])
+  }, [activeSection, bookingStatus, bookingFrom, bookingTo, bookingPage])
 
   async function handleGarageAction(garageId: string, action: "approve" | "reject" | "suspend") {
     setGarageActionPending(garageId)
@@ -166,24 +250,36 @@ export function AdminDashboard({ user }: Props) {
         body: JSON.stringify({ garageId, action }),
       })
       if (!res.ok) throw new Error("Action failed")
-      setGarages((prev) => prev.filter((g) => g.id !== garageId))
       setPendingPreview((prev) => prev.filter((g) => g.id !== garageId))
+      await fetchGarages()
       refreshStats()
+      showToast(
+        action === "approve" ? "Garage approved" : action === "reject" ? "Garage rejected" : "Garage suspended"
+      )
     } catch {
-      // no-op: garage stays in the list so the admin can retry
+      showToast("Something went wrong. Please try again.", "error")
     } finally {
       setGarageActionPending(null)
     }
   }
 
-  const filteredGarages = garageSearch.trim()
-    ? garages.filter((g) =>
-        [g.name, g.city, g.email].some((f) => f.toLowerCase().includes(garageSearch.trim().toLowerCase()))
-      )
-    : garages
-
   return (
     <div className="flex h-screen overflow-hidden">
+      {/* Toast */}
+      {toast && (
+        <div
+          className={`fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
+            toast.type === "success" ? "bg-green-600 text-white" : "bg-red-600 text-white"
+          }`}
+        >
+          {toast.type === "success" ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+          {toast.message}
+          <button onClick={() => setToast(null)} className="cursor-pointer opacity-80 hover:opacity-100">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside className="w-64 bg-slate-900 flex-shrink-0 flex flex-col">
         <div className="p-5 border-b border-slate-800">
@@ -286,7 +382,7 @@ export function AdminDashboard({ user }: Props) {
                     <AlertCircle className="h-5 w-5 text-orange-400" />
                     Pending Garage Approvals
                     <span className="bg-orange-500/20 text-orange-400 text-xs font-bold px-2 py-0.5 rounded-full">
-                      {pendingPreview.length}
+                      {stats?.pendingApprovals ?? pendingPreview.length}
                     </span>
                   </h2>
                   <button
@@ -388,7 +484,7 @@ export function AdminDashboard({ user }: Props) {
                         garageStatus === s ? "bg-[#F97316] text-white" : "bg-slate-800 text-slate-400 hover:text-white"
                       }`}
                     >
-                      {s.charAt(0) + s.slice(1).toLowerCase()}
+                      {s.charAt(0) + s.slice(1).toLowerCase()} ({garageCounts[s] ?? 0})
                     </button>
                   ))}
                 </div>
@@ -405,11 +501,11 @@ export function AdminDashboard({ user }: Props) {
 
               {garagesLoading ? (
                 <p className="text-slate-500 text-sm text-center py-10">Loading…</p>
-              ) : filteredGarages.length === 0 ? (
+              ) : garages.length === 0 ? (
                 <p className="text-slate-500 text-sm text-center py-10">No {garageStatus.toLowerCase()} garages.</p>
               ) : (
                 <div className="space-y-3">
-                  {filteredGarages.map((garage) => (
+                  {garages.map((garage) => (
                     <div key={garage.id} className="flex items-center justify-between p-4 bg-slate-800 rounded-xl">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-[#1E3A5F] rounded-xl flex items-center justify-center text-white font-bold">
@@ -457,6 +553,7 @@ export function AdminDashboard({ user }: Props) {
                   ))}
                 </div>
               )}
+              <Pagination page={garagePage} totalPages={garageTotalPages} onChange={setGaragePage} />
             </div>
           )}
 
@@ -526,16 +623,60 @@ export function AdminDashboard({ user }: Props) {
                   </table>
                 </div>
               )}
+              <Pagination page={userPage} totalPages={userTotalPages} onChange={setUserPage} />
             </div>
           )}
 
           {activeSection === "bookings" && (
             <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
-              <h2 className="text-lg font-bold text-white mb-5">All Bookings</h2>
+              <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
+                <h2 className="text-lg font-bold text-white">All Bookings</h2>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {BOOKING_STATUS_TABS.map((s) => (
+                    <button
+                      key={s || "ALL"}
+                      onClick={() => setBookingStatus(s)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        bookingStatus === s ? "bg-[#F97316] text-white" : "bg-slate-800 text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      {s === "" ? "All" : s.replace(/_/g, " ")} ({s === "" ? Object.values(bookingCounts).reduce((a, b) => a + b, 0) : bookingCounts[s] ?? 0})
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 mb-5 flex-wrap">
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  From
+                  <input
+                    type="date"
+                    value={bookingFrom}
+                    onChange={(e) => setBookingFrom(e.target.value)}
+                    className="h-8 px-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  To
+                  <input
+                    type="date"
+                    value={bookingTo}
+                    onChange={(e) => setBookingTo(e.target.value)}
+                    className="h-8 px-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-[#F97316]"
+                  />
+                </label>
+                {(bookingFrom || bookingTo) && (
+                  <button
+                    onClick={() => { setBookingFrom(""); setBookingTo("") }}
+                    className="text-xs text-slate-400 hover:text-white underline cursor-pointer"
+                  >
+                    Clear dates
+                  </button>
+                )}
+              </div>
               {bookingsLoading ? (
                 <p className="text-slate-500 text-sm text-center py-10">Loading…</p>
               ) : bookings.length === 0 ? (
-                <p className="text-slate-500 text-sm text-center py-10">No bookings yet.</p>
+                <p className="text-slate-500 text-sm text-center py-10">No bookings match these filters.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -568,6 +709,7 @@ export function AdminDashboard({ user }: Props) {
                   </table>
                 </div>
               )}
+              <Pagination page={bookingPage} totalPages={bookingTotalPages} onChange={setBookingPage} />
             </div>
           )}
 

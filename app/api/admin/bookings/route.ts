@@ -11,17 +11,38 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const status = searchParams.get("status")
-  const limit = Math.min(Number(searchParams.get("limit")) || 20, 100)
+  const from = searchParams.get("from")
+  const to = searchParams.get("to")
+  const page = Math.max(1, Number(searchParams.get("page")) || 1)
+  const legacyLimit = Number(searchParams.get("limit"))
+  const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || legacyLimit || 10))
 
-  const bookings = await prisma.booking.findMany({
-    where: status ? { status } : undefined,
-    include: {
-      owner: { select: { name: true, email: true } },
-      garage: { select: { name: true } },
-    },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-  })
+  const createdAt: { gte?: Date; lte?: Date } = {}
+  if (from) createdAt.gte = new Date(from)
+  if (to) createdAt.lte = new Date(`${to}T23:59:59.999Z`)
+
+  const where = {
+    ...(status ? { status } : {}),
+    ...(from || to ? { createdAt } : {}),
+  }
+
+  const [bookings, total, statusCounts] = await Promise.all([
+    prisma.booking.findMany({
+      where,
+      include: {
+        owner: { select: { name: true, email: true } },
+        garage: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.booking.count({ where }),
+    prisma.booking.groupBy({ by: ["status"], _count: { status: true } }),
+  ])
+
+  const counts: Record<string, number> = {}
+  for (const row of statusCounts) counts[row.status] = row._count.status
 
   return NextResponse.json({
     bookings: bookings.map((b) => ({
@@ -33,5 +54,10 @@ export async function GET(req: Request) {
       garage: b.garage.name,
       customer: b.owner.name ?? b.owner.email,
     })),
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    counts,
   })
 }
