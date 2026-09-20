@@ -66,6 +66,16 @@ interface Toast {
   type: "success" | "error"
 }
 
+interface ReviewRow {
+  id: string
+  rating: number
+  title: string | null
+  comment: string
+  createdAt: string
+  garage: string
+  customer: string
+}
+
 interface Overview {
   revenueTrend: { date: string; revenue: number }[]
   serviceBreakdown: { serviceType: string; label: string; count: number }[]
@@ -78,8 +88,11 @@ const navItems = [
   { icon: Building2, label: "Garages", id: "garages" },
   { icon: Users, label: "Users", id: "users" },
   { icon: Calendar, label: "Bookings", id: "bookings" },
+  { icon: Star, label: "Reviews", id: "reviews" },
   { icon: TrendingUp, label: "Analytics", id: "analytics" },
 ]
+
+const RATING_TABS = ["", "5", "4", "3", "2", "1"] as const
 
 const GARAGE_STATUS_TABS = ["PENDING", "APPROVED", "SUSPENDED"] as const
 const BOOKING_STATUS_TABS = ["", "PENDING", "CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED"] as const
@@ -101,6 +114,19 @@ function activityIcon(type: Overview["activity"][number]["type"]) {
   if (type === "booking") return <Calendar className="h-4 w-4 text-blue-400" />
   if (type === "garage") return <UserPlus className="h-4 w-4 text-orange-400" />
   return <Star className="h-4 w-4 text-yellow-400" />
+}
+
+function Stars({ rating }: { rating: number }) {
+  return (
+    <span className="flex items-center gap-0.5">
+      {Array.from({ length: 5 }, (_, i) => (
+        <Star
+          key={i}
+          className={`h-3.5 w-3.5 ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-white/15"}`}
+        />
+      ))}
+    </span>
+  )
 }
 
 function timeAgo(iso: string): string {
@@ -182,6 +208,15 @@ export function AdminDashboard({ user }: Props) {
   const [bookingPage, setBookingPage] = useState(1)
   const [bookingTotalPages, setBookingTotalPages] = useState(1)
   const [bookingCounts, setBookingCounts] = useState<Record<string, number>>({})
+
+  const [reviews, setReviews] = useState<ReviewRow[]>([])
+  const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [reviewSearch, setReviewSearch] = useState("")
+  const [reviewRating, setReviewRating] = useState<(typeof RATING_TABS)[number]>("")
+  const [reviewPage, setReviewPage] = useState(1)
+  const [reviewTotalPages, setReviewTotalPages] = useState(1)
+  const [reviewRatingCounts, setReviewRatingCounts] = useState<Record<number, number>>({})
+  const [reviewDeletePending, setReviewDeletePending] = useState<string | null>(null)
 
   const refreshStats = useCallback(() => {
     fetch("/api/admin/stats")
@@ -273,6 +308,51 @@ export function AdminDashboard({ user }: Props) {
       .catch(() => setBookings([]))
       .finally(() => setBookingsLoading(false))
   }, [activeSection, bookingStatus, bookingFrom, bookingTo, bookingPage])
+
+  // Reviews: reset to page 1 whenever rating filter or search changes
+  useEffect(() => { setReviewPage(1) }, [reviewRating, reviewSearch])
+
+  const fetchReviews = useCallback(() => {
+    const params = new URLSearchParams({ page: String(reviewPage), pageSize: String(PAGE_SIZE) })
+    if (reviewSearch.trim()) params.set("q", reviewSearch.trim())
+    if (reviewRating) params.set("rating", reviewRating)
+    return fetch(`/api/admin/reviews?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setReviews(data.reviews ?? [])
+        setReviewTotalPages(data.totalPages ?? 1)
+        if (data.ratingCounts) setReviewRatingCounts(data.ratingCounts)
+      })
+      .catch(() => setReviews([]))
+  }, [reviewPage, reviewSearch, reviewRating])
+
+  useEffect(() => {
+    if (activeSection !== "reviews") return
+    setReviewsLoading(true)
+    const timeout = setTimeout(() => {
+      fetchReviews().finally(() => setReviewsLoading(false))
+    }, 250)
+    return () => clearTimeout(timeout)
+  }, [activeSection, fetchReviews])
+
+  async function handleDeleteReview(reviewId: string) {
+    if (!confirm("Delete this review? This cannot be undone.")) return
+    setReviewDeletePending(reviewId)
+    try {
+      const res = await fetch("/api/admin/reviews", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewId }),
+      })
+      if (!res.ok) throw new Error("Delete failed")
+      await fetchReviews()
+      showToast("Review deleted")
+    } catch {
+      showToast("Something went wrong. Please try again.", "error")
+    } finally {
+      setReviewDeletePending(null)
+    }
+  }
 
   async function handleGarageAction(garageId: string, action: "approve" | "reject" | "suspend") {
     setGarageActionPending(garageId)
@@ -898,6 +978,76 @@ export function AdminDashboard({ user }: Props) {
                 </div>
               )}
               <Pagination page={bookingPage} totalPages={bookingTotalPages} onChange={setBookingPage} />
+            </div>
+          )}
+
+          {activeSection === "reviews" && (
+            <div className="rounded-2xl p-6" style={glass}>
+              <div className="flex items-center justify-between mb-5 gap-4 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {RATING_TABS.map((r) => (
+                    <button
+                      key={r || "ALL"}
+                      onClick={() => setReviewRating(r)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1 ${
+                        reviewRating === r ? "bg-[#F97316] text-white" : "bg-white/5 text-blue-200/60 hover:text-white"
+                      }`}
+                    >
+                      {r === "" ? (
+                        "All"
+                      ) : (
+                        <>
+                          {r} <Star className="h-3 w-3 fill-current" />
+                        </>
+                      )}
+                      {" "}({r === "" ? Object.values(reviewRatingCounts).reduce((a, b) => a + b, 0) : reviewRatingCounts[Number(r)] ?? 0})
+                    </button>
+                  ))}
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-200/40" />
+                  <input
+                    value={reviewSearch}
+                    onChange={(e) => setReviewSearch(e.target.value)}
+                    placeholder="Search reviews, garage, customer..."
+                    className="h-9 pl-9 pr-4 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316] placeholder:text-blue-200/40"
+                    style={glassSoft}
+                  />
+                </div>
+              </div>
+
+              {reviewsLoading ? (
+                <p className="text-blue-200/50 text-sm text-center py-10">Loading…</p>
+              ) : reviews.length === 0 ? (
+                <p className="text-blue-200/50 text-sm text-center py-10">No reviews found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {reviews.map((r) => (
+                    <div key={r.id} className="p-4 rounded-xl" style={glassSoft}>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <Stars rating={r.rating} />
+                            {r.title && <span className="text-white font-semibold text-sm">{r.title}</span>}
+                          </div>
+                          <p className="text-blue-100 text-sm leading-relaxed">{r.comment}</p>
+                          <div className="text-xs text-blue-200/50 mt-2">
+                            {r.customer} · {r.garage} · {formatDateShort(r.createdAt)}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteReview(r.id)}
+                          disabled={reviewDeletePending === r.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 flex-shrink-0"
+                        >
+                          <XCircle className="h-3.5 w-3.5" /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <Pagination page={reviewPage} totalPages={reviewTotalPages} onChange={setReviewPage} />
             </div>
           )}
 

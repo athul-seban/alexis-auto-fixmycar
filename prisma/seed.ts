@@ -267,6 +267,24 @@ async function main() {
   }
 
   console.log("✅ Seeded 2 sample bookings")
+
+  if (sarah && premier) {
+    await prisma.review.upsert({
+      where: { bookingId: "seed-booking-1" },
+      update: {},
+      create: {
+        id: "seed-review-1",
+        ownerId: sarah.id,
+        garageId: premier.id,
+        bookingId: "seed-booking-1",
+        rating: 5,
+        title: "Quick and thorough",
+        comment: "In and out in under an hour, and they explained everything clearly. Would book again.",
+      },
+    })
+  }
+
+  console.log("✅ Seeded 1 sample review")
 }
 
 main()
