@@ -18,6 +18,7 @@ model User {
   role          String    @default("OWNER")
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
+  suspendedAt   DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

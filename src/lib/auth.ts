@@ -35,6 +35,10 @@ export const authOptions: NextAuthOptions = {
 
         if (!user || !user.password) return null
 
+        if (user.suspendedAt) {
+          throw new Error("This account has been suspended. Contact support for help.")
+        }
+
         if (user.lockedUntil && user.lockedUntil > new Date()) {
           const minutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000)
           throw new Error(`Too many failed attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`)

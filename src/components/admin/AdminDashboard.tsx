@@ -66,6 +66,7 @@ interface UserRow {
   role: string
   bookings: number
   joinedAt: string
+  suspended: boolean
 }
 
 interface BookingRow {
@@ -97,14 +98,37 @@ interface Overview {
   revenueTrend: { date: string; revenue: number }[]
   serviceBreakdown: { serviceType: string; label: string; count: number }[]
   topCities: { city: string; garages: number; bookings: number; revenue: number }[]
-  activity: { type: "booking" | "garage" | "review"; message: string; createdAt: string }[]
+  activity: { type: "booking" | "garage" | "review" | "enquiry"; message: string; createdAt: string }[]
+  enquiries: { total: number; counts: Record<string, number>; conversionRate: number }
 }
+
+interface EnquiryRow {
+  id: string
+  status: string
+  guestName: string
+  guestEmail: string
+  guestPhone: string
+  serviceType: string
+  registration: string
+  make: string
+  model: string
+  year: number
+  city: string
+  postcode: string
+  createdAt: string
+  responseCount: number
+  lowestPrice: number | null
+  acceptedGarage: string | null
+}
+
+const ENQUIRY_STATUS_TABS = ["", "OPEN", "QUOTED", "BOOKED", "CANCELLED"] as const
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", id: "overview" },
   { icon: Building2, label: "Garages", id: "garages" },
   { icon: Users, label: "Users", id: "users" },
   { icon: Calendar, label: "Bookings", id: "bookings" },
+  { icon: ClipboardCheck, label: "Enquiries", id: "enquiries" },
   { icon: Star, label: "Reviews", id: "reviews" },
   { icon: TrendingUp, label: "Analytics", id: "analytics" },
 ]
@@ -130,6 +154,7 @@ function parseServices(json: string): string[] {
 function activityIcon(type: Overview["activity"][number]["type"]) {
   if (type === "booking") return <Calendar className="h-4 w-4 text-blue-400" />
   if (type === "garage") return <UserPlus className="h-4 w-4 text-orange-400" />
+  if (type === "enquiry") return <ClipboardCheck className="h-4 w-4 text-purple-400" />
   return <Star className="h-4 w-4 text-yellow-400" />
 }
 
@@ -226,6 +251,14 @@ export function AdminDashboard({ user }: Props) {
   const [bookingTotalPages, setBookingTotalPages] = useState(1)
   const [bookingCounts, setBookingCounts] = useState<Record<string, number>>({})
 
+  const [enquiries, setEnquiries] = useState<EnquiryRow[]>([])
+  const [enquiriesLoading, setEnquiriesLoading] = useState(false)
+  const [enquirySearch, setEnquirySearch] = useState("")
+  const [enquiryStatus, setEnquiryStatus] = useState<(typeof ENQUIRY_STATUS_TABS)[number]>("")
+  const [enquiryPage, setEnquiryPage] = useState(1)
+  const [enquiryTotalPages, setEnquiryTotalPages] = useState(1)
+  const [enquiryCounts, setEnquiryCounts] = useState<Record<string, number>>({})
+
   const [reviews, setReviews] = useState<ReviewRow[]>([])
   const [reviewsLoading, setReviewsLoading] = useState(false)
   const [reviewSearch, setReviewSearch] = useState("")
@@ -283,27 +316,56 @@ export function AdminDashboard({ user }: Props) {
     return () => clearTimeout(timeout)
   }, [activeSection, fetchGarages])
 
+  // Enquiries: reset to page 1 whenever status or search changes
+  useEffect(() => { setEnquiryPage(1) }, [enquiryStatus, enquirySearch])
+
+  const fetchEnquiries = useCallback(() => {
+    const params = new URLSearchParams({ page: String(enquiryPage), pageSize: String(PAGE_SIZE) })
+    if (enquirySearch.trim()) params.set("q", enquirySearch.trim())
+    if (enquiryStatus) params.set("status", enquiryStatus)
+    return fetch(`/api/admin/enquiries?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setEnquiries(data.enquiries ?? [])
+        setEnquiryTotalPages(data.totalPages ?? 1)
+        if (data.counts) setEnquiryCounts(data.counts)
+      })
+      .catch(() => setEnquiries([]))
+  }, [enquiryStatus, enquirySearch, enquiryPage])
+
+  useEffect(() => {
+    if (activeSection !== "enquiries") return
+    setEnquiriesLoading(true)
+    const timeout = setTimeout(() => {
+      fetchEnquiries().finally(() => setEnquiriesLoading(false))
+    }, 250)
+    return () => clearTimeout(timeout)
+  }, [activeSection, fetchEnquiries])
+
   // Users: reset to page 1 whenever role or search changes
   useEffect(() => { setUserPage(1) }, [userRole, userSearch])
+
+  const fetchUsers = useCallback(() => {
+    const params = new URLSearchParams({ page: String(userPage), pageSize: String(PAGE_SIZE) })
+    if (userSearch.trim()) params.set("q", userSearch.trim())
+    if (userRole) params.set("role", userRole)
+    return fetch(`/api/admin/users?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setUsers(data.users ?? [])
+        setUserTotalPages(data.totalPages ?? 1)
+      })
+      .catch(() => setUsers([]))
+  }, [userSearch, userRole, userPage])
 
   useEffect(() => {
     if (activeSection !== "users") return
     setUsersLoading(true)
     const timeout = setTimeout(() => {
-      const params = new URLSearchParams({ page: String(userPage), pageSize: String(PAGE_SIZE) })
-      if (userSearch.trim()) params.set("q", userSearch.trim())
-      if (userRole) params.set("role", userRole)
-      fetch(`/api/admin/users?${params.toString()}`)
-        .then((res) => res.json())
-        .then((data) => {
-          setUsers(data.users ?? [])
-          setUserTotalPages(data.totalPages ?? 1)
-        })
-        .catch(() => setUsers([]))
-        .finally(() => setUsersLoading(false))
+      fetchUsers().finally(() => setUsersLoading(false))
     }, 250)
     return () => clearTimeout(timeout)
-  }, [activeSection, userSearch, userRole, userPage])
+  }, [activeSection, fetchUsers])
 
   // Bookings: reset to page 1 whenever status or date filters change
   useEffect(() => { setBookingPage(1) }, [bookingStatus, bookingFrom, bookingTo])
@@ -410,6 +472,80 @@ export function AdminDashboard({ user }: Props) {
     } catch {
       showToast("Failed to update badges", "error")
       await fetchGarages()
+    }
+  }
+
+  const [userActionPending, setUserActionPending] = useState<string | null>(null)
+
+  async function handleUserRoleChange(userId: string, role: string) {
+    setUserActionPending(userId)
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, role }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Failed")
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)))
+      showToast("User role updated")
+    } catch (err: any) {
+      showToast(err.message ?? "Failed to update role", "error")
+    } finally {
+      setUserActionPending(null)
+    }
+  }
+
+  async function handleUserSuspendToggle(userId: string, suspended: boolean) {
+    setUserActionPending(userId)
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, suspended }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Failed")
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, suspended } : u)))
+      showToast(suspended ? "User suspended" : "User reactivated")
+    } catch (err: any) {
+      showToast(err.message ?? "Failed to update user", "error")
+    } finally {
+      setUserActionPending(null)
+    }
+  }
+
+  async function handleUserPasswordReset(userId: string) {
+    setUserActionPending(userId)
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, action: "send_password_reset" }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Failed")
+      showToast("Password reset email sent")
+    } catch (err: any) {
+      showToast(err.message ?? "Failed to send reset email", "error")
+    } finally {
+      setUserActionPending(null)
+    }
+  }
+
+  async function handleUserDelete(userId: string) {
+    if (!window.confirm("Permanently delete this user? This can't be undone.")) return
+    setUserActionPending(userId)
+    try {
+      const res = await fetch(`/api/admin/users?userId=${userId}`, { method: "DELETE" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Failed")
+      setUsers((prev) => prev.filter((u) => u.id !== userId))
+      showToast("User deleted")
+    } catch (err: any) {
+      showToast(err.message ?? "Failed to delete user", "error")
+    } finally {
+      setUserActionPending(null)
     }
   }
 
@@ -634,6 +770,35 @@ export function AdminDashboard({ user }: Props) {
                           </div>
                         ))}
                       </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl p-6" style={glass}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-white font-bold">Guest Enquiries</h2>
+                      <button
+                        onClick={() => setActiveSection("enquiries")}
+                        className="text-sm text-blue-200/60 hover:text-white transition-colors cursor-pointer"
+                      >
+                        View all →
+                      </button>
+                    </div>
+                    {!overview ? (
+                      <div className="h-24 bg-white/5 rounded-lg animate-pulse" />
+                    ) : (
+                      <>
+                        <div className="flex items-baseline gap-3 mb-4">
+                          <span className="text-3xl font-black text-white">{overview.enquiries.total}</span>
+                          <span className="text-blue-200/50 text-sm">total · {overview.enquiries.conversionRate}% converted to a booking</span>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          {(["OPEN", "QUOTED", "BOOKED", "CANCELLED"] as const).map((s) => (
+                            <span key={s} className="text-xs font-semibold px-2.5 py-1 rounded-full bg-white/10 text-blue-100">
+                              {s}: {overview.enquiries.counts[s] ?? 0}
+                            </span>
+                          ))}
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
@@ -915,7 +1080,7 @@ export function AdminDashboard({ user }: Props) {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-white/10">
-                        {["Name", "Email", "Role", "Bookings", "Joined"].map((h) => (
+                        {["Name", "Email", "Role", "Status", "Bookings", "Joined", "Actions"].map((h) => (
                           <th key={h} className="text-left text-xs font-semibold text-blue-200/50 uppercase tracking-wider pb-3 pr-4">{h}</th>
                         ))}
                       </tr>
@@ -933,12 +1098,51 @@ export function AdminDashboard({ user }: Props) {
                           </td>
                           <td className="py-3 pr-4 text-sm text-blue-200/60">{u.email}</td>
                           <td className="py-3 pr-4">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${u.role === "GARAGE" ? "bg-orange-500/20 text-orange-400" : u.role === "ADMIN" ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"}`}>
-                              {u.role}
+                            <select
+                              value={u.role}
+                              disabled={userActionPending === u.id}
+                              onChange={(e) => handleUserRoleChange(u.id, e.target.value)}
+                              className={`text-xs font-semibold px-2 py-1 rounded-full cursor-pointer border-0 disabled:opacity-50 ${u.role === "GARAGE" ? "bg-orange-500/20 text-orange-400" : u.role === "ADMIN" ? "bg-purple-500/20 text-purple-400" : "bg-blue-500/20 text-blue-400"}`}
+                            >
+                              <option value="OWNER" className="text-slate-900">OWNER</option>
+                              <option value="GARAGE" className="text-slate-900">GARAGE</option>
+                              <option value="ADMIN" className="text-slate-900">ADMIN</option>
+                            </select>
+                          </td>
+                          <td className="py-3 pr-4">
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${u.suspended ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
+                              {u.suspended ? "Suspended" : "Active"}
                             </span>
                           </td>
                           <td className="py-3 pr-4 text-sm text-blue-100">{u.bookings}</td>
                           <td className="py-3 pr-4 text-sm text-blue-200/60">{formatDateShort(u.joinedAt)}</td>
+                          <td className="py-3 pr-4">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleUserSuspendToggle(u.id, !u.suspended)}
+                                disabled={userActionPending === u.id}
+                                className={`px-2 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50 ${
+                                  u.suspended ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                                }`}
+                              >
+                                {u.suspended ? "Reactivate" : "Suspend"}
+                              </button>
+                              <button
+                                onClick={() => handleUserPasswordReset(u.id)}
+                                disabled={userActionPending === u.id}
+                                className="px-2 py-1 rounded-lg text-xs font-semibold bg-white/10 text-blue-200 hover:bg-white/20 cursor-pointer transition-colors disabled:opacity-50"
+                              >
+                                Reset PW
+                              </button>
+                              <button
+                                onClick={() => handleUserDelete(u.id)}
+                                disabled={userActionPending === u.id}
+                                className="px-2 py-1 rounded-lg text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 cursor-pointer transition-colors disabled:opacity-50"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1034,6 +1238,82 @@ export function AdminDashboard({ user }: Props) {
                 </div>
               )}
               <Pagination page={bookingPage} totalPages={bookingTotalPages} onChange={setBookingPage} />
+            </div>
+          )}
+
+          {activeSection === "enquiries" && (
+            <div className="rounded-2xl p-6" style={glass}>
+              <div className="flex items-center justify-between mb-5 gap-4 flex-wrap">
+                <h2 className="text-lg font-bold text-white">Guest Enquiries</h2>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {ENQUIRY_STATUS_TABS.map((s) => (
+                    <button
+                      key={s || "ALL"}
+                      onClick={() => setEnquiryStatus(s)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        enquiryStatus === s ? "bg-[#F97316] text-white" : "bg-white/5 text-blue-200/60 hover:text-white"
+                      }`}
+                    >
+                      {s === "" ? "All" : s} ({s === "" ? Object.values(enquiryCounts).reduce((a, b) => a + b, 0) : enquiryCounts[s] ?? 0})
+                    </button>
+                  ))}
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-200/40" />
+                  <input
+                    value={enquirySearch}
+                    onChange={(e) => setEnquirySearch(e.target.value)}
+                    placeholder="Search by name, email, postcode, reg..."
+                    className="h-9 pl-9 pr-4 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316] placeholder:text-blue-200/40"
+                    style={glassSoft}
+                  />
+                </div>
+              </div>
+              {enquiriesLoading ? (
+                <p className="text-blue-200/50 text-sm text-center py-10">Loading…</p>
+              ) : enquiries.length === 0 ? (
+                <p className="text-blue-200/50 text-sm text-center py-10">No enquiries found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        {["Guest", "Service", "Vehicle", "Location", "Responses", "Best Quote", "Status", "Posted"].map((h) => (
+                          <th key={h} className="text-left text-xs font-semibold text-blue-200/50 uppercase tracking-wider pb-3 pr-4">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/10">
+                      {enquiries.map((e) => (
+                        <tr key={e.id} className="hover:bg-white/5 transition-colors">
+                          <td className="py-3 pr-4">
+                            <div className="text-sm text-white font-medium">{e.guestName}</div>
+                            <div className="text-xs text-blue-200/50">{e.guestEmail} · {e.guestPhone}</div>
+                          </td>
+                          <td className="py-3 pr-4 text-sm text-blue-100">{e.serviceType.replace(/_/g, " ")}</td>
+                          <td className="py-3 pr-4 text-sm text-blue-100">
+                            {e.year} {e.make} {e.model}
+                            <div className="text-xs text-blue-200/50">{e.registration}</div>
+                          </td>
+                          <td className="py-3 pr-4 text-sm text-blue-200/60">{e.city}, {e.postcode}</td>
+                          <td className="py-3 pr-4 text-sm text-blue-100">{e.responseCount}</td>
+                          <td className="py-3 pr-4 text-sm text-white font-semibold">
+                            {e.lowestPrice != null ? formatCurrency(e.lowestPrice) : "—"}
+                            {e.acceptedGarage && <div className="text-xs text-green-400 font-normal">Booked: {e.acceptedGarage}</div>}
+                          </td>
+                          <td className="py-3 pr-4">
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getStatusColor(e.status)}`}>
+                              {e.status}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-4 text-sm text-blue-200/60">{formatDateShort(e.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <Pagination page={enquiryPage} totalPages={enquiryTotalPages} onChange={setEnquiryPage} />
             </div>
           )}
 

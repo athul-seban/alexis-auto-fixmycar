@@ -14,7 +14,7 @@ export async function GET() {
   const trendStart = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)
   trendStart.setHours(0, 0, 0, 0)
 
-  const [completedBookings, allBookings, garages, recentBookings, recentGarages, recentReviews] = await Promise.all([
+  const [completedBookings, allBookings, garages, recentBookings, recentGarages, recentReviews, enquiryStatusCounts, recentEnquiries] = await Promise.all([
     prisma.booking.findMany({
       where: { status: "COMPLETED", completedAt: { gte: trendStart } },
       select: { completedAt: true, totalPrice: true },
@@ -35,6 +35,12 @@ export async function GET() {
     }),
     prisma.review.findMany({
       select: { id: true, rating: true, createdAt: true, garage: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+    prisma.jobRequest.groupBy({ by: ["status"], _count: { status: true } }),
+    prisma.jobRequest.findMany({
+      select: { id: true, guestName: true, serviceType: true, createdAt: true },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
@@ -105,5 +111,30 @@ export async function GET() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 8)
 
-  return NextResponse.json({ revenueTrend, serviceBreakdown, topCities, activity })
+  // Enquiry (guest job request) funnel and volume
+  const enquiryCounts = { OPEN: 0, QUOTED: 0, BOOKED: 0, CANCELLED: 0 } as Record<string, number>
+  for (const row of enquiryStatusCounts) enquiryCounts[row.status] = row._count.status
+  const totalEnquiries = Object.values(enquiryCounts).reduce((a, b) => a + b, 0)
+  const conversionRate = totalEnquiries ? Math.round((enquiryCounts.BOOKED / totalEnquiries) * 1000) / 10 : 0
+
+  return NextResponse.json({
+    revenueTrend,
+    serviceBreakdown,
+    topCities,
+    activity: [
+      ...activity,
+      ...recentEnquiries.map((e) => ({
+        type: "enquiry" as const,
+        message: `${e.guestName} posted a job request for ${getServiceLabel(e.serviceType)}`,
+        createdAt: e.createdAt,
+      })),
+    ]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 8),
+    enquiries: {
+      total: totalEnquiries,
+      counts: enquiryCounts,
+      conversionRate,
+    },
+  })
 }
