@@ -6,6 +6,7 @@ import { useSession, signOut } from "next-auth/react"
 import { Menu, X, ChevronDown, Wrench, LogOut, User, LayoutDashboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { NotificationBell } from "@/components/layout/NotificationBell"
 import { getInitials } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 
@@ -140,6 +141,7 @@ export function Header() {
           <div className="hidden lg:flex items-center gap-2.5">
             {session ? (
               <div className="flex items-center gap-2.5">
+                <NotificationBell />
                 <Link href={getDashboardLink()}>
                   <Button variant="outline" size="sm" className="gap-2">
                     <LayoutDashboard className="h-4 w-4" />

@@ -2,7 +2,13 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
+import { notifyGarage, notifyUser } from "@/lib/notifications"
 import { z } from "zod"
+
+const statusSchema = z.object({
+  bookingId: z.string(),
+  status: z.enum(["CONFIRMED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]),
+})
 
 const createSchema = z.object({
   vehicleId: z.string(),
@@ -113,12 +119,81 @@ export async function POST(req: Request) {
       data: { totalBookings: { increment: 1 } },
     })
 
+    await notifyGarage({
+      garageId: data.garageId,
+      type: "BOOKING_CREATED",
+      title: "New booking",
+      body: `${booking.serviceType} booking for ${booking.vehicle.year} ${booking.vehicle.make} ${booking.vehicle.model}`,
+      link: `/garage-dashboard?booking=${booking.id}`,
+    })
+
     return NextResponse.json({ booking }, { status: 201 })
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid data", details: err.errors }, { status: 400 })
     }
     console.error("Bookings POST error:", err)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: Request) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const user = session.user as any
+
+  try {
+    const body = await req.json()
+    const data = statusSchema.parse(body)
+
+    const booking = await prisma.booking.findUnique({ where: { id: data.bookingId } })
+    if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 })
+
+    if (user.role === "GARAGE") {
+      const garage = await prisma.garage.findUnique({ where: { userId: user.id } })
+      if (!garage || garage.id !== booking.garageId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    } else if (user.role === "OWNER") {
+      if (user.id !== booking.ownerId || data.status !== "CANCELLED") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
+    } else {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const updated = await prisma.booking.update({
+      where: { id: data.bookingId },
+      data: {
+        status: data.status,
+        completedAt: data.status === "COMPLETED" ? new Date() : booking.completedAt,
+      },
+    })
+
+    const statusLabel = data.status.replace("_", " ").toLowerCase()
+    if (user.role === "GARAGE") {
+      await notifyUser({
+        userId: booking.ownerId,
+        type: "BOOKING_STATUS_CHANGED",
+        title: `Booking ${statusLabel}`,
+        body: `Your ${booking.serviceType} booking is now ${statusLabel}`,
+        link: `/dashboard?booking=${booking.id}`,
+      })
+    } else {
+      await notifyGarage({
+        garageId: booking.garageId,
+        type: "BOOKING_STATUS_CHANGED",
+        title: `Booking ${statusLabel}`,
+        body: `A customer cancelled their ${booking.serviceType} booking`,
+        link: `/garage-dashboard?booking=${booking.id}`,
+      })
+    }
+
+    return NextResponse.json({ booking: updated })
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: "Invalid data", details: err.errors }, { status: 400 })
+    }
+    console.error("Bookings PATCH error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

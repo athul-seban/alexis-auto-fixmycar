@@ -1,4 +1,4 @@
-import { formatCurrency, getServiceLabel } from "@/lib/utils"
+import { formatCurrency, formatDateShort, getServiceLabel } from "@/lib/utils"
 import type { Garage, JobRequest, JobResponse } from "@prisma/client"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
@@ -123,6 +123,34 @@ export function jobResponseGuestNotification({
      <p>Compare all your quotes side-by-side and accept the best one.</p>`,
     `${APP_URL}/post-job/track/${jobRequest.token}`,
     "Compare My Quotes"
+  )
+  return { subject, html }
+}
+
+export function vehicleReminderNotification({
+  ownerName,
+  registration,
+  make,
+  model,
+  reminderType,
+  dueDate,
+}: {
+  ownerName: string | null
+  registration: string
+  make: string
+  model: string
+  reminderType: "MOT" | "SERVICE"
+  dueDate: Date
+}): { subject: string; html: string } {
+  const label = reminderType === "MOT" ? "MOT test" : "service"
+  const subject = `Reminder: your ${label} is due soon (${registration})`
+  const html = wrapper(
+    subject,
+    `<p>Hi ${ownerName ?? "there"},</p>
+     <p>Your <strong>${make} ${model}</strong> (${registration}) has a <strong>${label}</strong> due on <strong>${formatDateShort(dueDate)}</strong>.</p>
+     <p>Book ahead to avoid last-minute availability issues.</p>`,
+    `${APP_URL}/search?service=${reminderType === "MOT" ? "MOT" : "FULL_SERVICE"}`,
+    "Find a Garage"
   )
   return { subject, html }
 }

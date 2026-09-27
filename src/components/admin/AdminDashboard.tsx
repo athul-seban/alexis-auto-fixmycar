@@ -39,7 +39,24 @@ interface GarageRow {
   services: string
   status: string
   createdAt: string
+  verificationBadges: string
   user: { name: string | null; email: string; phone: string | null }
+}
+
+const BADGE_OPTIONS = [
+  { value: "ID_VERIFIED", label: "ID Verified" },
+  { value: "INSURANCE_VERIFIED", label: "Insurance Verified" },
+  { value: "QUALIFICATIONS_VERIFIED", label: "Qualifications Verified" },
+] as const
+
+function parseBadges(json: string | undefined): string[] {
+  if (!json) return []
+  try {
+    const parsed = JSON.parse(json)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
 }
 
 interface UserRow {
@@ -373,6 +390,26 @@ export function AdminDashboard({ user }: Props) {
       showToast("Something went wrong. Please try again.", "error")
     } finally {
       setGarageActionPending(null)
+    }
+  }
+
+  async function handleToggleBadge(garageId: string, badge: string, currentBadges: string[]) {
+    const nextBadges = currentBadges.includes(badge)
+      ? currentBadges.filter((b) => b !== badge)
+      : [...currentBadges, badge]
+    setGarages((prev) =>
+      prev.map((g) => (g.id === garageId ? { ...g, verificationBadges: JSON.stringify(nextBadges) } : g))
+    )
+    try {
+      const res = await fetch("/api/admin/garages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ garageId, badges: nextBadges }),
+      })
+      if (!res.ok) throw new Error("Failed")
+    } catch {
+      showToast("Failed to update badges", "error")
+      await fetchGarages()
     }
   }
 
@@ -803,9 +840,28 @@ export function AdminDashboard({ user }: Props) {
                             </>
                           )}
                           {garageStatus === "APPROVED" && (
-                            <button onClick={() => handleGarageAction(garage.id, "suspend")} disabled={garageActionPending === garage.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50">
-                              <Ban className="h-3.5 w-3.5" /> Suspend
-                            </button>
+                            <>
+                              <div className="flex gap-1.5 flex-wrap items-center mr-2">
+                                {BADGE_OPTIONS.map((opt) => {
+                                  const badges = parseBadges(garage.verificationBadges)
+                                  const active = badges.includes(opt.value)
+                                  return (
+                                    <button
+                                      key={opt.value}
+                                      onClick={() => handleToggleBadge(garage.id, opt.value, badges)}
+                                      className={`px-2 py-1 rounded-md text-[10px] font-semibold cursor-pointer transition-colors ${
+                                        active ? "bg-blue-500/30 text-blue-300" : "bg-white/10 text-blue-200/40 hover:bg-white/20"
+                                      }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                              <button onClick={() => handleGarageAction(garage.id, "suspend")} disabled={garageActionPending === garage.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded-lg text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50">
+                                <Ban className="h-3.5 w-3.5" /> Suspend
+                              </button>
+                            </>
                           )}
                           {garageStatus === "SUSPENDED" && (
                             <button onClick={() => handleGarageAction(garage.id, "approve")} disabled={garageActionPending === garage.id} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 text-green-400 hover:bg-green-500/30 rounded-lg text-xs font-semibold cursor-pointer transition-colors disabled:opacity-50">

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
+import { toGarageProfile } from "@/lib/garage-mapper"
+import { parseServiceList } from "@/lib/garage-mapper"
 
 interface Params {
   params: Promise<{ id: string }>
@@ -29,7 +31,18 @@ export async function GET(_req: Request, props: Params) {
       return NextResponse.json({ error: "Garage not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ garage })
+    const profile = toGarageProfile(garage)
+    const reviews = garage.reviews.map((r) => ({
+      id: r.id,
+      rating: r.rating,
+      title: r.title,
+      comment: r.comment,
+      createdAt: r.createdAt.toISOString(),
+      owner: r.owner,
+    }))
+    const verificationBadges = parseServiceList((garage as any).verificationBadges)
+
+    return NextResponse.json({ garage: { ...profile, verificationBadges, reviews } })
   } catch (err) {
     console.error("Garage GET error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -67,6 +80,7 @@ export async function PATCH(req: Request, props: Params) {
         isMobile: body.isMobile,
         services: body.services ? JSON.stringify(body.services) : undefined,
         openingHours: body.openingHours ? JSON.stringify(body.openingHours) : undefined,
+        logo: body.logo,
       },
     })
 

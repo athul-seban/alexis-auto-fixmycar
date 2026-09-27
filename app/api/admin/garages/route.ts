@@ -10,6 +10,11 @@ const actionSchema = z.object({
   reason: z.string().optional(),
 })
 
+const badgeSchema = z.object({
+  garageId: z.string(),
+  badges: z.array(z.enum(["ID_VERIFIED", "INSURANCE_VERIFIED", "QUALIFICATIONS_VERIFIED"])),
+})
+
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session || (session.user as any).role !== "ADMIN") {
@@ -22,7 +27,7 @@ export async function GET(req: Request) {
   const page = Math.max(1, Number(searchParams.get("page")) || 1)
   const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || 10))
 
-  const [allForStatus, statusCounts] = await Promise.all([
+  const [allForStatusRaw, statusCounts] = await Promise.all([
     prisma.garage.findMany({
       where: { status: status as any },
       include: { user: { select: { name: true, email: true, phone: true } } },
@@ -32,10 +37,10 @@ export async function GET(req: Request) {
   ])
 
   const filtered = q
-    ? allForStatus.filter((g) =>
+    ? allForStatusRaw.filter((g) =>
         [g.name, g.city, g.email].some((f) => f.toLowerCase().includes(q))
       )
-    : allForStatus
+    : allForStatusRaw
 
   const total = filtered.length
   const start = (page - 1) * pageSize
@@ -79,6 +84,31 @@ export async function POST(req: Request) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid data" }, { status: 400 })
     }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: Request) {
+  const session = await getServerSession(authOptions)
+  if (!session || (session.user as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  try {
+    const body = await req.json()
+    const { garageId, badges } = badgeSchema.parse(body)
+
+    const garage = await prisma.garage.update({
+      where: { id: garageId },
+      data: { verificationBadges: JSON.stringify(badges) },
+    })
+
+    return NextResponse.json({ garage })
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: "Invalid data" }, { status: 400 })
+    }
+    console.error("Admin garage badges PATCH error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

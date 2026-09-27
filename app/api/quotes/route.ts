@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
+import { notifyGarage, notifyUser } from "@/lib/notifications"
 import { z } from "zod"
 
 const createSchema = z.object({
@@ -84,6 +85,13 @@ export async function POST(req: Request) {
         },
         include: { garage: { select: { name: true } }, vehicle: true },
       })
+      await notifyGarage({
+        garageId: data.garageId,
+        type: "QUOTE_REQUESTED",
+        title: "New quote request",
+        body: `${data.serviceType} request for ${quote.vehicle.year} ${quote.vehicle.make} ${quote.vehicle.model}`,
+        link: `/garage-dashboard?quote=${quote.id}`,
+      })
       return NextResponse.json({ quote }, { status: 201 })
     }
 
@@ -110,6 +118,13 @@ export async function POST(req: Request) {
           validUntil,
           status: "SENT",
         },
+      })
+      await notifyUser({
+        userId: quote.ownerId,
+        type: "QUOTE_RESPONDED",
+        title: `${garage.name} sent you a quote`,
+        body: data.price ? `Quoted £${data.price.toFixed(2)} for your ${quote.serviceType} request` : "New quote received",
+        link: `/dashboard?quote=${quote.id}`,
       })
       return NextResponse.json({ quote: updated })
     }

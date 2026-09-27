@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { sendMail } from "@/lib/mail"
 import { bookingConfirmedGuestNotification, bookingConfirmedGarageNotification } from "@/lib/email-templates"
+import { notifyGarage } from "@/lib/notifications"
 import { z } from "zod"
 
 const acceptSchema = z.object({
@@ -92,6 +93,13 @@ export async function POST(req: Request, props: Params) {
       sendMail({
         to: jobResponse.garage.email,
         ...bookingConfirmedGarageNotification({ jobRequest, price: jobResponse.price }),
+      }),
+      notifyGarage({
+        garageId: jobResponse.garageId,
+        type: "JOB_RESPONSE_ACCEPTED",
+        title: "Your quote was accepted",
+        body: `${jobRequest.guestName} accepted your quote for ${jobRequest.serviceType}`,
+        link: `/garage-dashboard?booking=${booking.id}`,
       }),
     ])
 

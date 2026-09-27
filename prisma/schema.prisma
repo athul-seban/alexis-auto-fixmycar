@@ -28,6 +28,8 @@ model User {
   bookings Booking[] @relation("OwnerBookings")
   reviews  Review[]  @relation("OwnerReviews")
   garage   Garage?
+  messages      Message[]
+  notifications Notification[]
 }
 
 model Account {
@@ -66,7 +68,7 @@ model VerificationToken {
 }
 
 model Vehicle {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   ownerId      String
   registration String
   make         String
@@ -75,8 +77,10 @@ model Vehicle {
   fuel         String?
   color        String?
   mileage      Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  motDueDate   DateTime?
+  serviceDueDate DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   quotes   Quote[]
@@ -84,37 +88,40 @@ model Vehicle {
 }
 
 model Garage {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  name          String
-  slug          String   @unique
-  description   String?
-  logo          String?
-  images        String   @default("[]")
-  phone         String
-  email         String
-  website       String?
-  address       String
-  city          String
-  postcode      String
-  latitude      Float?
-  longitude     Float?
-  status        String   @default("PENDING")
-  isVerified    Boolean  @default(false)
-  isMobile      Boolean  @default(false)
-  services      String   @default("[]")
-  openingHours  String?
-  totalReviews  Int      @default(0)
-  averageRating Float    @default(0)
-  totalBookings Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  name               String
+  slug               String    @unique
+  description        String?
+  logo               String?
+  images             String    @default("[]")
+  phone              String
+  email              String
+  website            String?
+  address            String
+  city               String
+  postcode           String
+  latitude           Float?
+  longitude          Float?
+  status             String    @default("PENDING")
+  isVerified         Boolean   @default(false)
+  verificationBadges String    @default("[]")
+  isMobile           Boolean   @default(false)
+  services           String    @default("[]")
+  openingHours       String?
+  totalReviews       Int       @default(0)
+  averageRating      Float     @default(0)
+  totalBookings      Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   quotes       Quote[]
   bookings     Booking[]
   reviews      Review[]
   jobResponses JobResponse[]
+  messages     Message[]
+  notifications Notification[]
 }
 
 model Quote {
@@ -227,4 +234,40 @@ model JobResponse {
   booking    Booking?
 
   @@unique([jobRequestId, garageId])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  quoteId     String?
+  bookingId   String?
+  senderId    String
+  garageId    String
+  body        String
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  sender User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  garage Garage @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@index([bookingId])
+  @@index([garageId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String?
+  garageId  String?
+  type      String
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  garage Garage? @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([garageId])
 }
