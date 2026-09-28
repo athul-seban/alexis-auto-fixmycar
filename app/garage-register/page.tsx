@@ -79,14 +79,14 @@ export default function GarageRegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
-        <div className="max-w-md w-full text-center bg-white rounded-2xl p-10 shadow-lg border border-gray-200">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
-            <CheckCircle className="h-10 w-10 text-green-600" />
+      <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
+        <div className="max-w-md w-full text-center bg-white dark:bg-slate-900 rounded-2xl p-10 shadow-lg border border-gray-200 dark:border-white/10">
+          <div className="w-20 h-20 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-5">
+            <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-3">Application Submitted!</h2>
-          <p className="text-slate-600 mb-2">Your garage has been submitted for review. Our team will verify your details and approve your listing within 24-48 hours.</p>
-          <p className="text-sm text-slate-400 mb-6">You&apos;ll receive a confirmation email at <strong>{form.garageEmail}</strong>.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Application Submitted!</h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-2">Your garage has been submitted for review. Our team will verify your details and approve your listing within 24-48 hours.</p>
+          <p className="text-sm text-slate-400 dark:text-slate-500 mb-6">You&apos;ll receive a confirmation email at <strong>{form.garageEmail}</strong>.</p>
           <Link href="/">
             <Button variant="primary" size="lg" className="w-full">Back to Home</Button>
           </Link>
@@ -96,7 +96,7 @@ export default function GarageRegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
       {/* Header */}
       <div className="bg-[#1E3A5F] py-6">
         <div className="max-w-2xl mx-auto px-4 text-center">
@@ -113,11 +113,11 @@ export default function GarageRegisterPage() {
       <div className="max-w-2xl mx-auto px-4 py-6">
         <div className="flex items-center gap-2 mb-8">
           {[1, 2, 3].map((s) => (
-            <div key={s} className={`flex items-center gap-2 flex-1 ${s < 3 ? "after:flex-1 after:h-0.5 after:bg-gray-200 after:ml-2" : ""}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step >= s ? "bg-[#F97316] text-white" : "bg-gray-200 text-slate-500"}`}>
+            <div key={s} className={`flex items-center gap-2 flex-1 ${s < 3 ? "after:flex-1 after:h-0.5 after:bg-gray-200 dark:after:bg-slate-700 after:ml-2" : ""}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step >= s ? "bg-[#F97316] text-white" : "bg-gray-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}>
                 {step > s ? <CheckCircle className="h-4 w-4" /> : s}
               </div>
-              <span className={`text-sm font-medium hidden sm:block ${step >= s ? "text-slate-900" : "text-slate-400"}`}>
+              <span className={`text-sm font-medium hidden sm:block ${step >= s ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-slate-500"}`}>
                 {s === 1 ? "Your Account" : s === 2 ? "Garage Details" : "Services"}
               </span>
             </div>
@@ -125,9 +125,9 @@ export default function GarageRegisterPage() {
         </div>
 
         <form onSubmit={step < 3 ? (e) => { e.preventDefault(); setStep(s => s + 1) } : handleSubmit}>
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-white/10 p-8 shadow-sm">
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-5 text-sm text-red-700">
+              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg mb-5 text-sm text-red-700 dark:text-red-400">
                 <AlertCircle className="h-4 w-4" />
                 {error}
               </div>
@@ -135,7 +135,7 @@ export default function GarageRegisterPage() {
 
             {step === 1 && (
               <div className="space-y-4">
-                <h2 className="text-xl font-bold text-slate-900 mb-5 flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-[#F97316]" /> Your Account
                 </h2>
                 <Input label="Your full name" name="name" value={form.name} onChange={handleChange} placeholder="John Smith" required />
@@ -147,7 +147,7 @@ export default function GarageRegisterPage() {
 
             {step === 2 && (
               <div className="space-y-4">
-                <h2 className="text-xl font-bold text-slate-900 mb-5 flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
                   <MapPin className="h-5 w-5 text-[#F97316]" /> Garage Details
                 </h2>
                 <Input label="Garage name" name="garageName" value={form.garageName} onChange={handleChange} placeholder="Premier Auto Services" required />
@@ -159,17 +159,17 @@ export default function GarageRegisterPage() {
                   <Input label="Postcode" name="postcode" value={form.postcode} onChange={handleChange} placeholder="SW1A 1AA" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">About your garage</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">About your garage</label>
                   <textarea
                     name="description"
                     value={form.description}
                     onChange={handleChange}
                     rows={3}
                     placeholder="Describe your garage, specialisms, experience..."
-                    className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] resize-none"
+                    className="w-full px-4 py-2.5 rounded-lg border border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] resize-none"
                   />
                 </div>
-                <label className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                <label className="flex items-center gap-3 p-4 border border-slate-200 dark:border-slate-700 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5">
                   <input
                     type="checkbox"
                     name="isMobile"
@@ -178,8 +178,8 @@ export default function GarageRegisterPage() {
                     className="w-4 h-4 cursor-pointer"
                   />
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">Mobile mechanic</div>
-                    <div className="text-xs text-slate-500">I travel to customers&apos; locations</div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">Mobile mechanic</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">I travel to customers&apos; locations</div>
                   </div>
                 </label>
               </div>
@@ -187,10 +187,10 @@ export default function GarageRegisterPage() {
 
             {step === 3 && (
               <div>
-                <h2 className="text-xl font-bold text-slate-900 mb-2 flex items-center gap-2">
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
                   <CheckCircle className="h-5 w-5 text-[#F97316]" /> Services Offered
                 </h2>
-                <p className="text-slate-500 text-sm mb-5">Select all services your garage provides</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mb-5">Select all services your garage provides</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {serviceOptions.map((s) => (
                     <button
@@ -199,8 +199,8 @@ export default function GarageRegisterPage() {
                       onClick={() => toggleService(s.value)}
                       className={`p-3 rounded-lg border text-sm font-medium text-left transition-all cursor-pointer ${
                         form.services.includes(s.value)
-                          ? "border-[#F97316] bg-orange-50 text-[#F97316]"
-                          : "border-gray-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                          ? "border-[#F97316] bg-orange-50 dark:bg-orange-500/10 text-[#F97316]"
+                          : "border-gray-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-white/5"
                       }`}
                     >
                       {form.services.includes(s.value) && "✓ "}
@@ -209,12 +209,12 @@ export default function GarageRegisterPage() {
                   ))}
                 </div>
                 {form.services.length === 0 && (
-                  <p className="text-xs text-red-500 mt-2">Please select at least one service</p>
+                  <p className="text-xs text-red-500 dark:text-red-400 mt-2">Please select at least one service</p>
                 )}
               </div>
             )}
 
-            <div className="flex justify-between mt-8 pt-5 border-t border-gray-100">
+            <div className="flex justify-between mt-8 pt-5 border-t border-gray-100 dark:border-white/10">
               {step > 1 && (
                 <Button type="button" variant="outline" onClick={() => setStep(s => s - 1)}>
                   Back
@@ -234,7 +234,7 @@ export default function GarageRegisterPage() {
           </div>
         </form>
 
-        <p className="text-center text-sm text-slate-500 mt-4">
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-4">
           Already have an account?{" "}
           <Link href="/login" className="text-[#1E3A5F] font-semibold hover:underline">Sign in</Link>
         </p>

@@ -25,7 +25,7 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
     .toUpperCase()
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 hover:shadow-lg hover:border-[#F97316]/30 transition-all duration-200 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 hover:shadow-lg hover:border-[#F97316]/30 transition-all duration-200 overflow-hidden">
       <div className="p-5">
         <div className="flex gap-4">
           {/* Avatar / Logo */}
@@ -46,16 +46,16 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
               <div className="min-w-0">
                 <Link
                   href={`/garage/${garage.slug}`}
-                  className="font-bold text-slate-900 text-lg leading-tight hover:text-[#1E3A5F] transition-colors block truncate"
+                  className="font-bold text-slate-900 dark:text-white text-lg leading-tight hover:text-[#1E3A5F] dark:hover:text-orange-400 transition-colors block truncate"
                 >
                   {garage.name}
                 </Link>
-                <div className="flex items-center gap-1 mt-1 text-sm text-slate-500">
+                <div className="flex items-center gap-1 mt-1 text-sm text-slate-500 dark:text-slate-400">
                   <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="truncate">
                     {garage.city}, {garage.postcode}
                     {distance !== undefined && (
-                      <span className="text-slate-400 ml-1">· {distance.toFixed(1)} miles</span>
+                      <span className="text-slate-400 dark:text-slate-500 ml-1">· {distance.toFixed(1)} miles</span>
                     )}
                   </span>
                 </div>
@@ -85,16 +85,16 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
                     className={`h-4 w-4 ${
                       i <= Math.round(garage.averageRating)
                         ? "fill-yellow-400 text-yellow-400"
-                        : "fill-gray-200 text-gray-200"
+                        : "fill-gray-200 text-gray-200 dark:fill-slate-700 dark:text-slate-700"
                     }`}
                   />
                 ))}
               </div>
-              <span className="text-sm font-bold text-slate-800">
+              <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
                 {garage.averageRating > 0 ? garage.averageRating.toFixed(1) : "New"}
               </span>
               {garage.totalReviews > 0 && (
-                <span className="text-sm text-slate-500">({garage.totalReviews} reviews)</span>
+                <span className="text-sm text-slate-500 dark:text-slate-400">({garage.totalReviews} reviews)</span>
               )}
             </div>
           </div>
@@ -102,7 +102,7 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
 
         {/* Description */}
         {garage.description && (
-          <p className="text-sm text-slate-500 mt-3 line-clamp-2">{garage.description}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-3 line-clamp-2">{garage.description}</p>
         )}
 
         {/* Services */}
@@ -111,13 +111,13 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
             {garage.services.slice(0, 5).map((s) => (
               <span
                 key={s}
-                className="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md"
+                className="text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md"
               >
                 {getServiceLabel(s)}
               </span>
             ))}
             {garage.services.length > 5 && (
-              <span className="text-xs font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-md">
+              <span className="text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-md">
                 +{garage.services.length - 5} more
               </span>
             )}
@@ -126,8 +126,8 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
       </div>
 
       {/* Footer */}
-      <div className="border-t border-gray-100 px-5 py-3 bg-slate-50 flex items-center justify-between gap-3 flex-wrap">
-        <div className="hidden sm:flex items-center gap-1 text-xs text-slate-500">
+      <div className="border-t border-gray-100 dark:border-white/10 px-5 py-3 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between gap-3 flex-wrap">
+        <div className="hidden sm:flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
           <Clock className="h-3.5 w-3.5" />
           <span>Usually responds within 1 hour</span>
         </div>

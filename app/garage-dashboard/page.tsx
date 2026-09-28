@@ -17,7 +17,7 @@ export default async function GarageDashboardPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-[#F8FAFC]">
+      <main className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
         <GarageDashboard user={user} />
       </main>
       <Footer />

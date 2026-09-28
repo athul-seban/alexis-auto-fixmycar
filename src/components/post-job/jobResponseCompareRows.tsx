@@ -22,8 +22,8 @@ export function buildJobResponseCompareRows(
       icon: Star,
       render: (r) => (
         <span>
-          <span className="font-bold text-slate-900">{r.garage.averageRating > 0 ? r.garage.averageRating.toFixed(1) : "New"}</span>
-          {r.garage.totalReviews > 0 && <span className="text-slate-400"> ({r.garage.totalReviews})</span>}
+          <span className="font-bold text-slate-900 dark:text-white">{r.garage.averageRating > 0 ? r.garage.averageRating.toFixed(1) : "New"}</span>
+          {r.garage.totalReviews > 0 && <span className="text-slate-400 dark:text-slate-500"> ({r.garage.totalReviews})</span>}
         </span>
       ),
     },
@@ -52,7 +52,7 @@ export function buildJobResponseCompareRows(
       key: "message",
       label: "Notes",
       icon: MessageSquare,
-      render: (r) => <span className="text-slate-600">{r.message || "—"}</span>,
+      render: (r) => <span className="text-slate-600 dark:text-slate-300">{r.message || "—"}</span>,
     },
     {
       type: "data",
@@ -67,7 +67,7 @@ export function buildJobResponseCompareRows(
       label: "Verified",
       icon: Shield,
       render: (r) =>
-        r.garage.isVerified ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Minus className="h-4 w-4 text-slate-300" />,
+        r.garage.isVerified ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Minus className="h-4 w-4 text-slate-300 dark:text-slate-600" />,
     },
     {
       type: "data",
@@ -75,7 +75,7 @@ export function buildJobResponseCompareRows(
       label: "Mobile Mechanic",
       icon: Car,
       render: (r) =>
-        r.garage.isMobile ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Minus className="h-4 w-4 text-slate-300" />,
+        r.garage.isMobile ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Minus className="h-4 w-4 text-slate-300 dark:text-slate-600" />,
     },
     {
       type: "data",
@@ -86,7 +86,7 @@ export function buildJobResponseCompareRows(
           return <Badge>Booked</Badge>
         }
         if (jobStatus === "BOOKED" || r.status === "DECLINED") {
-          return <span className="text-xs text-slate-400">Not selected</span>
+          return <span className="text-xs text-slate-400 dark:text-slate-500">Not selected</span>
         }
         return (
           <Button
@@ -106,7 +106,7 @@ export function buildJobResponseCompareRows(
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 px-2 py-1 rounded-full">
+    <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 dark:bg-green-500/20 dark:text-green-400 px-2 py-1 rounded-full">
       <CheckCircle className="h-3 w-3" />
       {children}
     </span>

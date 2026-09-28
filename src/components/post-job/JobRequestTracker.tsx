@@ -9,10 +9,10 @@ import { getServiceLabel } from "@/lib/utils"
 import type { TrackedJobRequest } from "@/components/post-job/types"
 
 const STATUS_CONFIG: Record<string, { label: string; icon: typeof Clock; className: string }> = {
-  OPEN: { label: "Waiting for quotes…", icon: Clock, className: "bg-blue-50 text-blue-700 border-blue-200" },
-  QUOTED: { label: "Quotes received", icon: CheckCircle2, className: "bg-orange-50 text-orange-700 border-orange-200" },
-  BOOKED: { label: "Booked!", icon: PartyPopper, className: "bg-green-50 text-green-700 border-green-200" },
-  CANCELLED: { label: "Cancelled", icon: AlertCircle, className: "bg-slate-50 text-slate-600 border-slate-200" },
+  OPEN: { label: "Waiting for quotes…", icon: Clock, className: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30" },
+  QUOTED: { label: "Quotes received", icon: CheckCircle2, className: "bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-500/30" },
+  BOOKED: { label: "Booked!", icon: PartyPopper, className: "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/30" },
+  CANCELLED: { label: "Cancelled", icon: AlertCircle, className: "bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10" },
 }
 
 interface Props {
@@ -67,25 +67,25 @@ export function JobRequestTracker({ jobRequest: initialJobRequest }: Props) {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-5 text-sm text-red-700">
+        <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg mb-5 text-sm text-red-700 dark:text-red-400">
           <AlertCircle className="h-4 w-4" />
           {error}
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-        <h1 className="text-lg font-bold text-slate-900 mb-1">{getServiceLabel(jobRequest.serviceType)}</h1>
-        <p className="text-sm text-slate-500 mb-3">
+      <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-5 mb-6">
+        <h1 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{getServiceLabel(jobRequest.serviceType)}</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
           {jobRequest.year} {jobRequest.make} {jobRequest.model} · {jobRequest.registration} · {jobRequest.city}, {jobRequest.postcode}
         </p>
-        <p className="text-sm text-slate-600">{jobRequest.description}</p>
+        <p className="text-sm text-slate-600 dark:text-slate-300">{jobRequest.description}</p>
       </div>
 
       {jobRequest.responses.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-          <Clock className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-slate-900 mb-1">No quotes yet</h3>
-          <p className="text-slate-500 text-sm">Garages usually respond within a few hours. We&apos;ll email you as quotes arrive.</p>
+        <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10">
+          <Clock className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">No quotes yet</h3>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Garages usually respond within a few hours. We&apos;ll email you as quotes arrive.</p>
         </div>
       ) : (
         <CompareTable
@@ -100,8 +100,8 @@ export function JobRequestTracker({ jobRequest: initialJobRequest }: Props) {
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-slate-900 text-sm truncate">{r.garage.name}</p>
-                <p className="text-xs text-slate-500 truncate">{r.garage.city}</p>
+                <p className="font-bold text-slate-900 dark:text-white text-sm truncate">{r.garage.name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{r.garage.city}</p>
               </div>
             </div>
           )}

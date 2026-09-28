@@ -66,18 +66,18 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
         <div className="text-center">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Account Created!</h2>
-          <p className="text-slate-500">Redirecting you to sign in...</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Account Created!</h2>
+          <p className="text-slate-500 dark:text-slate-400">Redirecting you to sign in...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2.5">
@@ -90,12 +90,12 @@ export default function RegisterPage() {
           </Link>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
-          <h1 className="text-2xl font-bold text-slate-900 mb-1">Create your account</h1>
-          <p className="text-slate-500 text-sm mb-6">Join thousands of car owners saving on repairs</p>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-white/10 p-8">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Create your account</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Join thousands of car owners saving on repairs</p>
 
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-5 text-sm text-red-700">
+            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg mb-5 text-sm text-red-700 dark:text-red-400">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               {error}
             </div>
@@ -142,7 +142,7 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-8 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-3 top-8 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -162,14 +162,14 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          <p className="text-xs text-slate-400 text-center mt-4 leading-relaxed">
+          <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-4 leading-relaxed">
             By creating an account you agree to our{" "}
             <Link href="/terms" className="underline">Terms of Service</Link>
             {" "}and{" "}
             <Link href="/privacy" className="underline">Privacy Policy</Link>
           </p>
 
-          <p className="text-center text-sm text-slate-500 mt-5">
+          <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-5">
             Already have an account?{" "}
             <Link href="/login" className="text-[#1E3A5F] font-semibold hover:underline">
               Sign in

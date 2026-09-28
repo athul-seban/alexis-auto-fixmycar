@@ -28,13 +28,13 @@ interface CompareTableProps<T> {
 
 export function CompareTable<T>({ columns, header, rows, className }: CompareTableProps<T>) {
   return (
-    <div className={cn("overflow-x-auto rounded-xl border border-gray-200 bg-white", className)}>
+    <div className={cn("overflow-x-auto rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-900", className)}>
       <table className="w-full min-w-[720px] border-collapse">
         <thead>
           <tr>
-            <th className="sticky left-0 bg-white z-10 w-40 border-b border-gray-100" />
+            <th className="sticky left-0 bg-white dark:bg-slate-900 z-10 w-40 border-b border-gray-100 dark:border-white/10" />
             {columns.map((col) => (
-              <th key={col.id} className="p-4 border-b border-gray-100 align-top text-left min-w-[200px]">
+              <th key={col.id} className="p-4 border-b border-gray-100 dark:border-white/10 align-top text-left min-w-[200px]">
                 {header(col.data, col.id)}
               </th>
             ))}
@@ -44,10 +44,10 @@ export function CompareTable<T>({ columns, header, rows, className }: CompareTab
           {rows.map((row) => {
             if (row.type === "section") {
               return (
-                <tr key={row.key} className="bg-slate-50">
+                <tr key={row.key} className="bg-slate-50 dark:bg-slate-800">
                   <td
                     colSpan={columns.length + 1}
-                    className="sticky left-0 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-500 bg-slate-50 border-b border-gray-100"
+                    className="sticky left-0 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 border-b border-gray-100 dark:border-white/10"
                   >
                     {row.label}
                   </td>
@@ -60,9 +60,9 @@ export function CompareTable<T>({ columns, header, rows, className }: CompareTab
             const minValue = row.highlightMin && numericValues.length > 1 ? Math.min(...numericValues) : null
 
             return (
-              <tr key={row.key} className="even:bg-slate-50">
-                <td className="sticky left-0 bg-inherit px-4 py-3 text-sm font-semibold text-slate-600 border-b border-gray-50 flex items-center gap-1.5">
-                  {row.icon && <row.icon className="h-3.5 w-3.5 text-slate-400" />}
+              <tr key={row.key} className="even:bg-slate-50 dark:even:bg-slate-800/50">
+                <td className="sticky left-0 bg-inherit px-4 py-3 text-sm font-semibold text-slate-600 dark:text-slate-400 border-b border-gray-50 dark:border-white/10 flex items-center gap-1.5">
+                  {row.icon && <row.icon className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />}
                   {row.label}
                 </td>
                 {columns.map((col, i) => {
@@ -71,8 +71,8 @@ export function CompareTable<T>({ columns, header, rows, className }: CompareTab
                     <td
                       key={col.id}
                       className={cn(
-                        "px-4 py-3 text-sm text-slate-700 border-b border-gray-50",
-                        isMin && "bg-green-50 font-bold text-green-700"
+                        "px-4 py-3 text-sm text-slate-700 dark:text-slate-300 border-b border-gray-50 dark:border-white/10",
+                        isMin && "bg-green-50 dark:bg-green-500/20 font-bold text-green-700 dark:text-green-400"
                       )}
                     >
                       {row.render(col.data)}

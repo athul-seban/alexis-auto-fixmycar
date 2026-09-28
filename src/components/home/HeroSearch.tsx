@@ -118,11 +118,11 @@ export function HeroSearch() {
                   boxShadow: "0 25px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05)",
                 }}
               >
-                <div className="bg-white rounded-xl p-3">
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-3">
                   <div className="flex flex-col sm:flex-row gap-2.5 mb-2.5">
                     {/* Reg */}
                     <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 px-1">
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 px-1">
                         Reg Number
                       </label>
                       <div className="relative">
@@ -145,7 +145,7 @@ export function HeroSearch() {
                           value={registration}
                           onChange={(e) => setRegistration(e.target.value.toUpperCase())}
                           placeholder="AB12 CDE"
-                          className="w-full h-11 pl-14 pr-3 rounded-lg border-2 border-slate-100 bg-slate-50 focus:border-[#1E3A5F] focus:bg-white focus:outline-none text-sm font-bold tracking-[0.15em] uppercase text-slate-800 placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400 transition-all"
+                          className="w-full h-11 pl-14 pr-3 rounded-lg border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:border-[#1E3A5F] focus:bg-white dark:focus:bg-slate-900 focus:outline-none text-sm font-bold tracking-[0.15em] uppercase text-slate-800 dark:text-white placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all"
                           maxLength={8}
                         />
                       </div>
@@ -153,7 +153,7 @@ export function HeroSearch() {
 
                     {/* Location */}
                     <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 px-1">
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 px-1">
                         Location
                       </label>
                       <div className="relative">
@@ -164,14 +164,14 @@ export function HeroSearch() {
                           onChange={(e) => setLocation(e.target.value)}
                           placeholder="Postcode or town"
                           required
-                          className="w-full h-11 pl-9 pr-3 rounded-lg border-2 border-slate-100 bg-slate-50 focus:border-[#1E3A5F] focus:bg-white focus:outline-none text-sm text-slate-800 placeholder:text-slate-400 transition-all"
+                          className="w-full h-11 pl-9 pr-3 rounded-lg border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:border-[#1E3A5F] focus:bg-white dark:focus:bg-slate-900 focus:outline-none text-sm text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all"
                         />
                       </div>
                     </div>
 
                     {/* Service */}
                     <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 px-1">
+                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 px-1">
                         Service
                       </label>
                       <div className="relative">
@@ -179,7 +179,7 @@ export function HeroSearch() {
                         <select
                           value={serviceType}
                           onChange={(e) => setServiceType(e.target.value)}
-                          className="w-full h-11 pl-9 pr-8 rounded-lg border-2 border-slate-100 bg-slate-50 focus:border-[#1E3A5F] focus:outline-none text-sm text-slate-800 appearance-none cursor-pointer transition-all"
+                          className="w-full h-11 pl-9 pr-8 rounded-lg border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:border-[#1E3A5F] focus:outline-none text-sm text-slate-800 dark:text-white appearance-none cursor-pointer transition-all"
                         >
                           {services.map((s) => (
                             <option key={s.value} value={s.value}>

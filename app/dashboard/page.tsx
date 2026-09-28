@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-[#F8FAFC]">
+      <main className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
         <OwnerDashboard user={session.user as any} />
       </main>
       <Footer />

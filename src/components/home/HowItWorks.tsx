@@ -38,16 +38,16 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section className="py-24 bg-[#F8FAFC]">
+    <section className="py-24 bg-[#F8FAFC] dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <span className="inline-block text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 border border-orange-100 px-4 py-1.5 rounded-full mb-4">
+          <span className="inline-block text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
             Simple Process
           </span>
-          <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 mb-4 tracking-tight">
+          <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-4 tracking-tight">
             How Quote My Garage Works
           </h2>
-          <p className="text-lg text-slate-500 max-w-xl mx-auto leading-relaxed">
+          <p className="text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto leading-relaxed">
             Getting your car fixed has never been easier. Three steps from problem to sorted.
           </p>
         </div>
@@ -59,7 +59,7 @@ export function HowItWorks() {
               {index < steps.length - 1 && (
                 <div className="hidden md:flex absolute -right-4 top-12 z-10 items-center justify-center">
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center"
+                    className="w-8 h-8 rounded-full flex items-center justify-center dark:bg-slate-700"
                     style={{ background: "#E2E8F0" }}
                   >
                     <ArrowRight className="h-4 w-4 text-slate-400" />
@@ -68,7 +68,7 @@ export function HowItWorks() {
               )}
 
               <div
-                className="group flex-1 rounded-2xl p-7 transition-all duration-300 hover:-translate-y-1"
+                className="group flex-1 rounded-2xl p-7 transition-all duration-300 hover:-translate-y-1 dark:bg-slate-800 dark:border dark:border-white/10"
                 style={{
                   background: "#FFFFFF",
                   border: "1px solid #E8EDF5",
@@ -92,8 +92,8 @@ export function HowItWorks() {
                   </span>
                 </div>
 
-                <h3 className="text-xl font-bold text-slate-900 mb-3">{step.title}</h3>
-                <p className="text-slate-500 leading-relaxed text-[15px]">{step.description}</p>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">{step.title}</h3>
+                <p className="text-slate-500 dark:text-slate-400 leading-relaxed text-[15px]">{step.description}</p>
               </div>
             </div>
           ))}

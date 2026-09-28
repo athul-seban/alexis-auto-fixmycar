@@ -6,6 +6,7 @@ import {
   CheckCircle, XCircle, AlertCircle, Search,
   LogOut, Wrench, ChevronUp, ChevronDown, Ban, RotateCcw,
   ChevronLeft, ChevronRight, X, Bell, Star, UserPlus, ClipboardCheck,
+  MessageSquare, Car, FileText, Eye,
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { formatCurrency, formatDateShort, getStatusColor } from "@/lib/utils"
@@ -122,13 +123,62 @@ interface EnquiryRow {
 }
 
 const ENQUIRY_STATUS_TABS = ["", "OPEN", "QUOTED", "BOOKED", "CANCELLED"] as const
+const QUOTE_STATUS_TABS = ["", "PENDING", "SENT", "ACCEPTED", "REJECTED", "EXPIRED"] as const
+
+interface QuoteRow {
+  id: string
+  serviceType: string
+  description: string
+  status: string
+  price: number | null
+  createdAt: string
+  customer: string
+  garage: string
+  vehicle: string
+}
+
+interface VehicleRow {
+  id: string
+  registration: string
+  make: string
+  model: string
+  year: number
+  fuel: string | null
+  mileage: number | null
+  motDueDate: string | null
+  serviceDueDate: string | null
+  owner: { name: string | null; email: string }
+  bookingCount: number
+  quoteCount: number
+}
+
+interface MessageThreadRow {
+  key: string
+  quoteId: string | null
+  bookingId: string | null
+  garageName: string
+  lastBody: string
+  lastSenderRole: string
+  lastAt: string
+  messageCount: number
+}
+
+interface AdminMessageItem {
+  id: string
+  body: string
+  createdAt: string
+  sender: { id: string; name: string | null; email: string; role: string }
+}
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", id: "overview" },
   { icon: Building2, label: "Garages", id: "garages" },
   { icon: Users, label: "Users", id: "users" },
   { icon: Calendar, label: "Bookings", id: "bookings" },
+  { icon: FileText, label: "Quotes", id: "quotes" },
   { icon: ClipboardCheck, label: "Enquiries", id: "enquiries" },
+  { icon: Car, label: "Vehicles", id: "vehicles" },
+  { icon: MessageSquare, label: "Messages", id: "messages" },
   { icon: Star, label: "Reviews", id: "reviews" },
   { icon: TrendingUp, label: "Analytics", id: "analytics" },
 ]
@@ -259,6 +309,30 @@ export function AdminDashboard({ user }: Props) {
   const [enquiryTotalPages, setEnquiryTotalPages] = useState(1)
   const [enquiryCounts, setEnquiryCounts] = useState<Record<string, number>>({})
 
+  const [quotes, setQuotes] = useState<QuoteRow[]>([])
+  const [quotesLoading, setQuotesLoading] = useState(false)
+  const [quoteSearch, setQuoteSearch] = useState("")
+  const [quoteStatus, setQuoteStatus] = useState<(typeof QUOTE_STATUS_TABS)[number]>("")
+  const [quotePage, setQuotePage] = useState(1)
+  const [quoteTotalPages, setQuoteTotalPages] = useState(1)
+  const [quoteCounts, setQuoteCounts] = useState<Record<string, number>>({})
+
+  const [vehicles, setVehicles] = useState<VehicleRow[]>([])
+  const [vehiclesLoading, setVehiclesLoading] = useState(false)
+  const [vehicleSearch, setVehicleSearch] = useState("")
+  const [vehicleDueSoon, setVehicleDueSoon] = useState(false)
+  const [vehiclePage, setVehiclePage] = useState(1)
+  const [vehicleTotalPages, setVehicleTotalPages] = useState(1)
+
+  const [messageThreads, setMessageThreads] = useState<MessageThreadRow[]>([])
+  const [messageThreadsLoading, setMessageThreadsLoading] = useState(false)
+  const [messageSearch, setMessageSearch] = useState("")
+  const [messagePage, setMessagePage] = useState(1)
+  const [messageTotalPages, setMessageTotalPages] = useState(1)
+  const [openThread, setOpenThread] = useState<MessageThreadRow | null>(null)
+  const [threadMessages, setThreadMessages] = useState<AdminMessageItem[]>([])
+  const [threadMessagesLoading, setThreadMessagesLoading] = useState(false)
+
   const [reviews, setReviews] = useState<ReviewRow[]>([])
   const [reviewsLoading, setReviewsLoading] = useState(false)
   const [reviewSearch, setReviewSearch] = useState("")
@@ -341,6 +415,96 @@ export function AdminDashboard({ user }: Props) {
     }, 250)
     return () => clearTimeout(timeout)
   }, [activeSection, fetchEnquiries])
+
+  // Quotes: reset to page 1 whenever status or search changes
+  useEffect(() => { setQuotePage(1) }, [quoteStatus, quoteSearch])
+
+  const fetchQuotes = useCallback(() => {
+    const params = new URLSearchParams({ page: String(quotePage), pageSize: String(PAGE_SIZE) })
+    if (quoteSearch.trim()) params.set("q", quoteSearch.trim())
+    if (quoteStatus) params.set("status", quoteStatus)
+    return fetch(`/api/admin/quotes?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setQuotes(data.quotes ?? [])
+        setQuoteTotalPages(data.totalPages ?? 1)
+        if (data.counts) setQuoteCounts(data.counts)
+      })
+      .catch(() => setQuotes([]))
+  }, [quoteStatus, quoteSearch, quotePage])
+
+  useEffect(() => {
+    if (activeSection !== "quotes") return
+    setQuotesLoading(true)
+    const timeout = setTimeout(() => {
+      fetchQuotes().finally(() => setQuotesLoading(false))
+    }, 250)
+    return () => clearTimeout(timeout)
+  }, [activeSection, fetchQuotes])
+
+  // Vehicles: reset to page 1 whenever the due-soon filter or search changes
+  useEffect(() => { setVehiclePage(1) }, [vehicleDueSoon, vehicleSearch])
+
+  const fetchVehicles = useCallback(() => {
+    const params = new URLSearchParams({ page: String(vehiclePage), pageSize: String(PAGE_SIZE) })
+    if (vehicleSearch.trim()) params.set("q", vehicleSearch.trim())
+    if (vehicleDueSoon) params.set("dueSoon", "true")
+    return fetch(`/api/admin/vehicles?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setVehicles(data.vehicles ?? [])
+        setVehicleTotalPages(data.totalPages ?? 1)
+      })
+      .catch(() => setVehicles([]))
+  }, [vehicleDueSoon, vehicleSearch, vehiclePage])
+
+  useEffect(() => {
+    if (activeSection !== "vehicles") return
+    setVehiclesLoading(true)
+    const timeout = setTimeout(() => {
+      fetchVehicles().finally(() => setVehiclesLoading(false))
+    }, 250)
+    return () => clearTimeout(timeout)
+  }, [activeSection, fetchVehicles])
+
+  // Messages: reset to page 1 whenever search changes
+  useEffect(() => { setMessagePage(1) }, [messageSearch])
+
+  const fetchMessageThreads = useCallback(() => {
+    const params = new URLSearchParams({ page: String(messagePage), pageSize: String(PAGE_SIZE) })
+    if (messageSearch.trim()) params.set("q", messageSearch.trim())
+    return fetch(`/api/admin/messages?${params.toString()}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setMessageThreads(data.threads ?? [])
+        setMessageTotalPages(data.totalPages ?? 1)
+      })
+      .catch(() => setMessageThreads([]))
+  }, [messageSearch, messagePage])
+
+  useEffect(() => {
+    if (activeSection !== "messages") return
+    setMessageThreadsLoading(true)
+    const timeout = setTimeout(() => {
+      fetchMessageThreads().finally(() => setMessageThreadsLoading(false))
+    }, 250)
+    return () => clearTimeout(timeout)
+  }, [activeSection, fetchMessageThreads])
+
+  async function openMessageThread(thread: MessageThreadRow) {
+    setOpenThread(thread)
+    setThreadMessagesLoading(true)
+    try {
+      const params = new URLSearchParams(thread.quoteId ? { quoteId: thread.quoteId } : { bookingId: thread.bookingId! })
+      const res = await fetch(`/api/admin/messages?${params.toString()}`)
+      const data = await res.json()
+      setThreadMessages(data.messages ?? [])
+    } catch {
+      setThreadMessages([])
+    } finally {
+      setThreadMessagesLoading(false)
+    }
+  }
 
   // Users: reset to page 1 whenever role or search changes
   useEffect(() => { setUserPage(1) }, [userRole, userSearch])
@@ -1314,6 +1478,211 @@ export function AdminDashboard({ user }: Props) {
                 </div>
               )}
               <Pagination page={enquiryPage} totalPages={enquiryTotalPages} onChange={setEnquiryPage} />
+            </div>
+          )}
+
+          {activeSection === "quotes" && (
+            <div className="rounded-2xl p-6" style={glass}>
+              <div className="flex items-center justify-between mb-5 gap-4 flex-wrap">
+                <h2 className="text-lg font-bold text-white">Quotes</h2>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {QUOTE_STATUS_TABS.map((s) => (
+                    <button
+                      key={s || "ALL"}
+                      onClick={() => setQuoteStatus(s)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        quoteStatus === s ? "bg-[#F97316] text-white" : "bg-white/5 text-blue-200/60 hover:text-white"
+                      }`}
+                    >
+                      {s === "" ? "All" : s} ({s === "" ? Object.values(quoteCounts).reduce((a, b) => a + b, 0) : quoteCounts[s] ?? 0})
+                    </button>
+                  ))}
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-200/40" />
+                  <input
+                    value={quoteSearch}
+                    onChange={(e) => setQuoteSearch(e.target.value)}
+                    placeholder="Search by customer, garage, reg..."
+                    className="h-9 pl-9 pr-4 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316] placeholder:text-blue-200/40"
+                    style={glassSoft}
+                  />
+                </div>
+              </div>
+              {quotesLoading ? (
+                <p className="text-blue-200/50 text-sm text-center py-10">Loading…</p>
+              ) : quotes.length === 0 ? (
+                <p className="text-blue-200/50 text-sm text-center py-10">No quotes found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        {["Customer", "Garage", "Service", "Vehicle", "Price", "Status", "Requested"].map((h) => (
+                          <th key={h} className="text-left text-xs font-semibold text-blue-200/50 uppercase tracking-wider pb-3 pr-4">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/10">
+                      {quotes.map((q) => (
+                        <tr key={q.id} className="hover:bg-white/5 transition-colors">
+                          <td className="py-3 pr-4 text-sm text-white font-medium">{q.customer}</td>
+                          <td className="py-3 pr-4 text-sm text-blue-100">{q.garage}</td>
+                          <td className="py-3 pr-4 text-sm text-blue-100">{q.serviceType.replace(/_/g, " ")}</td>
+                          <td className="py-3 pr-4 text-sm text-blue-200/60">{q.vehicle}</td>
+                          <td className="py-3 pr-4 text-sm text-white font-semibold">{q.price != null ? formatCurrency(q.price) : "—"}</td>
+                          <td className="py-3 pr-4">
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getStatusColor(q.status)}`}>
+                              {q.status}
+                            </span>
+                          </td>
+                          <td className="py-3 pr-4 text-sm text-blue-200/60">{formatDateShort(q.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <Pagination page={quotePage} totalPages={quoteTotalPages} onChange={setQuotePage} />
+            </div>
+          )}
+
+          {activeSection === "vehicles" && (
+            <div className="rounded-2xl p-6" style={glass}>
+              <div className="flex items-center justify-between mb-5 gap-4 flex-wrap">
+                <h2 className="text-lg font-bold text-white">Vehicles</h2>
+                <label className="flex items-center gap-2 text-xs text-blue-200/60 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={vehicleDueSoon}
+                    onChange={(e) => setVehicleDueSoon(e.target.checked)}
+                    className="w-4 h-4 rounded border-white/20"
+                  />
+                  MOT/service due within 30 days
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-200/40" />
+                  <input
+                    value={vehicleSearch}
+                    onChange={(e) => setVehicleSearch(e.target.value)}
+                    placeholder="Search by reg, make, model, owner..."
+                    className="h-9 pl-9 pr-4 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316] placeholder:text-blue-200/40"
+                    style={glassSoft}
+                  />
+                </div>
+              </div>
+              {vehiclesLoading ? (
+                <p className="text-blue-200/50 text-sm text-center py-10">Loading…</p>
+              ) : vehicles.length === 0 ? (
+                <p className="text-blue-200/50 text-sm text-center py-10">No vehicles found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        {["Registration", "Vehicle", "Owner", "MOT Due", "Service Due", "Bookings", "Quotes"].map((h) => (
+                          <th key={h} className="text-left text-xs font-semibold text-blue-200/50 uppercase tracking-wider pb-3 pr-4">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/10">
+                      {vehicles.map((v) => (
+                        <tr key={v.id} className="hover:bg-white/5 transition-colors">
+                          <td className="py-3 pr-4 text-sm text-white font-medium">{v.registration}</td>
+                          <td className="py-3 pr-4 text-sm text-blue-100">{v.year} {v.make} {v.model}</td>
+                          <td className="py-3 pr-4 text-sm text-blue-200/60">{v.owner.name ?? v.owner.email}</td>
+                          <td className="py-3 pr-4 text-sm text-blue-200/60">{v.motDueDate ? formatDateShort(v.motDueDate) : "—"}</td>
+                          <td className="py-3 pr-4 text-sm text-blue-200/60">{v.serviceDueDate ? formatDateShort(v.serviceDueDate) : "—"}</td>
+                          <td className="py-3 pr-4 text-sm text-blue-100">{v.bookingCount}</td>
+                          <td className="py-3 pr-4 text-sm text-blue-100">{v.quoteCount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <Pagination page={vehiclePage} totalPages={vehicleTotalPages} onChange={setVehiclePage} />
+            </div>
+          )}
+
+          {activeSection === "messages" && (
+            <div className="rounded-2xl p-6" style={glass}>
+              <div className="flex items-center justify-between mb-5 gap-4 flex-wrap">
+                <h2 className="text-lg font-bold text-white">Messages</h2>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-200/40" />
+                  <input
+                    value={messageSearch}
+                    onChange={(e) => setMessageSearch(e.target.value)}
+                    placeholder="Search by garage or message text..."
+                    className="h-9 pl-9 pr-4 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316] placeholder:text-blue-200/40"
+                    style={glassSoft}
+                  />
+                </div>
+              </div>
+              {messageThreadsLoading ? (
+                <p className="text-blue-200/50 text-sm text-center py-10">Loading…</p>
+              ) : messageThreads.length === 0 ? (
+                <p className="text-blue-200/50 text-sm text-center py-10">No message threads found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {messageThreads.map((t) => (
+                    <button
+                      key={t.key}
+                      onClick={() => openMessageThread(t)}
+                      className="w-full flex items-center justify-between p-4 rounded-xl text-left cursor-pointer hover:bg-white/5 transition-colors"
+                      style={glassSoft}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-semibold text-sm">{t.garageName}</span>
+                          <span className="text-xs text-blue-200/40">{t.messageCount} message{t.messageCount === 1 ? "" : "s"}</span>
+                        </div>
+                        <p className="text-blue-200/60 text-xs truncate mt-0.5 max-w-md">{t.lastBody}</p>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className="text-xs text-blue-200/50">{formatDateShort(t.lastAt)}</span>
+                        <Eye className="h-4 w-4 text-blue-200/40" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Pagination page={messagePage} totalPages={messageTotalPages} onChange={setMessagePage} />
+
+              {openThread && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60" onClick={() => setOpenThread(null)}>
+                  <div
+                    className="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl p-6"
+                    style={glass}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-white font-bold">{openThread.garageName} — message thread</h3>
+                      <button onClick={() => setOpenThread(null)} className="text-blue-200/60 hover:text-white cursor-pointer">
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                    {threadMessagesLoading ? (
+                      <p className="text-blue-200/50 text-sm text-center py-8">Loading…</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {threadMessages.map((m) => (
+                          <div key={m.id} className="p-3 rounded-xl" style={glassSoft}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-semibold text-blue-100">
+                                {m.sender.name ?? m.sender.email} <span className="text-blue-200/40">({m.sender.role})</span>
+                              </span>
+                              <span className="text-[10px] text-blue-200/40">{formatDateShort(m.createdAt)}</span>
+                            </div>
+                            <p className="text-sm text-blue-50">{m.body}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

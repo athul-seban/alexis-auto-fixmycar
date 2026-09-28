@@ -107,20 +107,20 @@ export function OwnerDashboard({ user }: Props) {
   const dueSoonCount = vehicles.filter((v) => isDueSoon(v.motDueDate) || isDueSoon(v.serviceDueDate)).length
 
   const stats = [
-    { label: "Active Bookings", value: String(activeBookingsCount), icon: Calendar, color: "text-blue-500", bg: "bg-blue-50" },
-    { label: "Pending Quotes", value: String(pendingQuotesCount), icon: MessageSquare, color: "text-orange-500", bg: "bg-orange-50" },
-    { label: "Completed Jobs", value: String(completedCount), icon: CheckCircle, color: "text-green-500", bg: "bg-green-50" },
-    { label: "Due Soon", value: String(dueSoonCount), icon: AlertCircle, color: "text-red-500", bg: "bg-red-50" },
+    { label: "Active Bookings", value: String(activeBookingsCount), icon: Calendar, color: "text-blue-500 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-500/10" },
+    { label: "Pending Quotes", value: String(pendingQuotesCount), icon: MessageSquare, color: "text-orange-500 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10" },
+    { label: "Completed Jobs", value: String(completedCount), icon: CheckCircle, color: "text-green-500 dark:text-green-400", bg: "bg-green-50 dark:bg-green-500/10" },
+    { label: "Due Soon", value: String(dueSoonCount), icon: AlertCircle, color: "text-red-500 dark:text-red-400", bg: "bg-red-50 dark:bg-red-500/10" },
   ]
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
             Welcome back, {user.name?.split(" ")[0] ?? "there"}
           </h1>
-          <p className="text-slate-500 text-sm mt-0.5">Manage your bookings and quotes</p>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Manage your bookings and quotes</p>
         </div>
         <Link href="/search">
           <Button className="gap-2">
@@ -132,25 +132,25 @@ export function OwnerDashboard({ user }: Props) {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-white rounded-xl border border-gray-200 p-4">
+          <div key={stat.label} className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-4">
             <div className="flex items-center gap-3 mb-3">
               <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center`}>
                 <stat.icon className={`h-5 w-5 ${stat.color}`} />
               </div>
             </div>
-            <div className="text-2xl font-bold text-slate-900">{stat.value}</div>
-            <div className="text-sm text-slate-500 mt-0.5">{stat.label}</div>
+            <div className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="flex gap-1 bg-white rounded-xl p-1 border border-gray-200 mb-6 w-fit">
+      <div className="flex gap-1 bg-white dark:bg-slate-800 rounded-xl p-1 border border-gray-200 dark:border-white/10 mb-6 w-fit">
         {(["bookings", "quotes", "vehicles"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-5 py-2 text-sm font-semibold rounded-lg capitalize transition-colors cursor-pointer ${
-              activeTab === tab ? "bg-[#1E3A5F] text-white" : "text-slate-600 hover:bg-slate-50"
+              activeTab === tab ? "bg-[#1E3A5F] text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5"
             }`}
           >
             {tab}
@@ -159,7 +159,7 @@ export function OwnerDashboard({ user }: Props) {
       </div>
 
       {loading ? (
-        <div className="py-16 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-slate-300" /></div>
+        <div className="py-16 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-slate-300 dark:text-slate-600" /></div>
       ) : (
         <>
           {activeTab === "bookings" && (
@@ -168,7 +168,7 @@ export function OwnerDashboard({ user }: Props) {
                 <EmptyState icon={Calendar} title="No bookings yet" subtitle="Search for garages to book a service" />
               ) : (
                 bookings.map((booking) => (
-                  <div key={booking.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-sm transition-shadow">
+                  <div key={booking.id} className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-5 hover:shadow-sm dark:hover:bg-slate-800/80 transition-shadow">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-start gap-4">
                         <div className="w-12 h-12 rounded-xl bg-[#1E3A5F] flex items-center justify-center text-white font-bold flex-shrink-0">
@@ -176,15 +176,15 @@ export function OwnerDashboard({ user }: Props) {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-slate-900">{getServiceLabel(booking.serviceType)}</h3>
+                            <h3 className="font-bold text-slate-900 dark:text-white">{getServiceLabel(booking.serviceType)}</h3>
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getStatusColor(booking.status)}`}>
                               {booking.status}
                             </span>
                           </div>
-                          <p className="text-sm text-slate-500 mt-0.5">
+                          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                             {booking.vehicle.registration} · {booking.vehicle.make} {booking.vehicle.model}
                           </p>
-                          <div className="flex items-center gap-4 mt-1.5 text-xs text-slate-500">
+                          <div className="flex items-center gap-4 mt-1.5 text-xs text-slate-500 dark:text-slate-400">
                             <div className="flex items-center gap-1">
                               <MapPin className="h-3 w-3" />
                               {booking.garage.name}, {booking.garage.city}
@@ -197,10 +197,10 @@ export function OwnerDashboard({ user }: Props) {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-lg font-bold text-slate-900">{formatCurrency(booking.totalPrice)}</span>
+                        <span className="text-lg font-bold text-slate-900 dark:text-white">{formatCurrency(booking.totalPrice)}</span>
                         <button
                           onClick={() => setExpandedThread(expandedThread === booking.id ? null : booking.id)}
-                          className="text-slate-400 hover:text-[#1E3A5F] transition-colors"
+                          className="text-slate-400 dark:text-slate-500 hover:text-[#1E3A5F] dark:hover:text-white transition-colors"
                           aria-label="Toggle messages"
                         >
                           <MessageSquare className="h-4 w-4" />
@@ -215,7 +215,7 @@ export function OwnerDashboard({ user }: Props) {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-red-600 border-red-200 hover:bg-red-50"
+                            className="text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10"
                             onClick={() => cancelBooking(booking.id)}
                           >
                             Cancel
@@ -224,7 +224,7 @@ export function OwnerDashboard({ user }: Props) {
                       </div>
                     </div>
                     {expandedThread === booking.id && (
-                      <div className="mt-4 pt-4 border-t border-slate-100">
+                      <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/10">
                         <MessageThread bookingId={booking.id} currentUserId={user.id} />
                       </div>
                     )}
@@ -241,39 +241,39 @@ export function OwnerDashboard({ user }: Props) {
               ) : (
                 <div className="space-y-3">
                   {pendingQuotesCount > 0 && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-1 flex items-center gap-3">
-                      <AlertCircle className="h-5 w-5 text-orange-500 flex-shrink-0" />
-                      <p className="text-sm text-orange-700">
+                    <div className="bg-orange-50 dark:bg-orange-500/10 border border-orange-200 dark:border-orange-500/30 rounded-xl p-4 mb-1 flex items-center gap-3">
+                      <AlertCircle className="h-5 w-5 text-orange-500 dark:text-orange-400 flex-shrink-0" />
+                      <p className="text-sm text-orange-700 dark:text-orange-300">
                         You have <strong>{pendingQuotesCount} quotes</strong> waiting for your review.
                       </p>
                     </div>
                   )}
                   {quotes.map((quote) => (
-                    <div key={quote.id} className="bg-white rounded-xl border border-gray-200 p-5">
+                    <div key={quote.id} className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-5">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-slate-900">{getServiceLabel(quote.serviceType)}</h3>
+                            <h3 className="font-bold text-slate-900 dark:text-white">{getServiceLabel(quote.serviceType)}</h3>
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getStatusColor(quote.status)}`}>
                               {quote.status}
                             </span>
                           </div>
-                          <p className="text-sm text-slate-500">{quote.garage.name} · {quote.garage.city}</p>
-                          <p className="text-xs text-slate-400 mt-1">{formatDateShort(quote.createdAt)}</p>
+                          <p className="text-sm text-slate-500 dark:text-slate-400">{quote.garage.name} · {quote.garage.city}</p>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{formatDateShort(quote.createdAt)}</p>
                         </div>
                         <div className="flex items-center gap-3">
                           {quote.status === "SENT" && quote.price != null && (
                             <>
                               <div className="text-right">
-                                <div className="text-xl font-bold text-slate-900">{formatCurrency(quote.price)}</div>
-                                <div className="text-xs text-slate-400">Quote price</div>
+                                <div className="text-xl font-bold text-slate-900 dark:text-white">{formatCurrency(quote.price)}</div>
+                                <div className="text-xs text-slate-400 dark:text-slate-500">Quote price</div>
                               </div>
                               <BookFromQuoteButton quote={quote} onBooked={loadAll} />
                             </>
                           )}
                           <button
                             onClick={() => setExpandedThread(expandedThread === quote.id ? null : quote.id)}
-                            className="text-slate-400 hover:text-[#1E3A5F] transition-colors"
+                            className="text-slate-400 dark:text-slate-500 hover:text-[#1E3A5F] dark:hover:text-white transition-colors"
                             aria-label="Toggle messages"
                           >
                             <MessageSquare className="h-4 w-4" />
@@ -281,7 +281,7 @@ export function OwnerDashboard({ user }: Props) {
                         </div>
                       </div>
                       {expandedThread === quote.id && (
-                        <div className="mt-4 pt-4 border-t border-slate-100">
+                        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-white/10">
                           <MessageThread quoteId={quote.id} currentUserId={user.id} />
                         </div>
                       )}
@@ -336,15 +336,15 @@ export function OwnerDashboard({ user }: Props) {
 }
 
 function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-800">{children}</span>
+  return <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 dark:bg-green-500/20 text-green-800 dark:text-green-400">{children}</span>
 }
 
 function EmptyState({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle: string }) {
   return (
-    <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
-      <Icon className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-      <h3 className="font-semibold text-slate-900 mb-1">{title}</h3>
-      <p className="text-slate-500 text-sm mb-4">{subtitle}</p>
+    <div className="text-center py-12 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10">
+      <Icon className="h-10 w-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+      <h3 className="font-semibold text-slate-900 dark:text-white mb-1">{title}</h3>
+      <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">{subtitle}</p>
       <Link href="/search"><Button>Find Garages</Button></Link>
     </div>
   )
@@ -356,29 +356,29 @@ function VehicleCard({ vehicle }: { vehicle: VehicleItem }) {
   const serviceDue = isDueSoon(vehicle.serviceDueDate)
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-5">
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 bg-[#1E3A5F] rounded-xl flex items-center justify-center flex-shrink-0">
           <Car className="h-6 w-6 text-white" />
         </div>
         <div className="flex-1">
           <div className="plate-number text-sm">{vehicle.registration}</div>
-          <p className="font-semibold text-slate-900 mt-1">{vehicle.year} {vehicle.make} {vehicle.model}</p>
-          <p className="text-xs text-slate-500">{vehicle.fuel ?? "Fuel unknown"}{vehicle.mileage ? ` · ${vehicle.mileage.toLocaleString()} mi` : ""}</p>
+          <p className="font-semibold text-slate-900 dark:text-white mt-1">{vehicle.year} {vehicle.make} {vehicle.model}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{vehicle.fuel ?? "Fuel unknown"}{vehicle.mileage ? ` · ${vehicle.mileage.toLocaleString()} mi` : ""}</p>
         </div>
-        <button onClick={() => setShowHistory((s) => !s)} className="text-slate-400 hover:text-[#1E3A5F]" aria-label="Service history">
+        <button onClick={() => setShowHistory((s) => !s)} className="text-slate-400 dark:text-slate-500 hover:text-[#1E3A5F] dark:hover:text-white" aria-label="Service history">
           <History className="h-4 w-4" />
         </button>
       </div>
       {(motDue || serviceDue) && (
         <div className="mt-3 flex flex-wrap gap-2">
           {motDue && (
-            <span className="text-xs font-semibold px-2 py-1 rounded-full bg-red-100 text-red-700">
+            <span className="text-xs font-semibold px-2 py-1 rounded-full bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-400">
               MOT due {formatDateShort(vehicle.motDueDate!)}
             </span>
           )}
           {serviceDue && (
-            <span className="text-xs font-semibold px-2 py-1 rounded-full bg-orange-100 text-orange-700">
+            <span className="text-xs font-semibold px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-400">
               Service due {formatDateShort(vehicle.serviceDueDate!)}
             </span>
           )}
@@ -401,18 +401,18 @@ function VehicleHistory({ vehicleId }: { vehicleId: string }) {
   }, [vehicleId])
 
   return (
-    <div className="mt-3 pt-3 border-t border-slate-100">
-      <p className="text-xs font-semibold text-slate-500 mb-2">Service History</p>
+    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-white/10">
+      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Service History</p>
       {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin text-slate-300" />
+        <Loader2 className="h-4 w-4 animate-spin text-slate-300 dark:text-slate-600" />
       ) : history.length === 0 ? (
-        <p className="text-xs text-slate-400">No completed services yet.</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">No completed services yet.</p>
       ) : (
         <div className="space-y-2">
           {history.map((h) => (
             <div key={h.id} className="flex items-center justify-between text-xs">
-              <span className="text-slate-600">{getServiceLabel(h.serviceType)} · {h.garage.name}</span>
-              <span className="text-slate-400">{formatDateShort(h.completedAt ?? h.scheduledAt)}</span>
+              <span className="text-slate-600 dark:text-slate-300">{getServiceLabel(h.serviceType)} · {h.garage.name}</span>
+              <span className="text-slate-400 dark:text-slate-500">{formatDateShort(h.completedAt ?? h.scheduledAt)}</span>
             </div>
           ))}
         </div>
@@ -486,25 +486,25 @@ function ReviewModal({ bookingId, onClose, onSubmitted }: { bookingId: string; o
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-900">Leave a Review</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="h-5 w-5" /></button>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Leave a Review</h2>
+          <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-white cursor-pointer"><X className="h-5 w-5" /></button>
         </div>
         <div className="flex gap-1 mb-4">
           {[1, 2, 3, 4, 5].map((i) => (
             <button key={i} onClick={() => setRating(i)} className="cursor-pointer">
-              <Star className={`h-7 w-7 ${i <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`} />
+              <Star className={`h-7 w-7 ${i <= rating ? "fill-yellow-400 text-yellow-400" : "text-gray-200 dark:text-slate-700"}`} />
             </button>
           ))}
         </div>
-        {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
+        {error && <p className="text-xs text-red-600 dark:text-red-400 mb-2">{error}</p>}
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           rows={4}
           placeholder="How was your experience?"
-          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] resize-none mb-4"
+          className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] resize-none mb-4"
         />
         <Button className="w-full" loading={submitting} onClick={handleSubmit}>Submit Review</Button>
       </div>
@@ -558,30 +558,30 @@ function AddVehicleModal({ onClose, onAdded }: { onClose: () => void; onAdded: (
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-900">Add Vehicle</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X className="h-5 w-5" /></button>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Add Vehicle</h2>
+          <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-white cursor-pointer"><X className="h-5 w-5" /></button>
         </div>
-        {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
+        {error && <p className="text-xs text-red-600 dark:text-red-400 mb-2">{error}</p>}
         <div className="space-y-3">
-          <input value={registration} onChange={(e) => setRegistration(e.target.value.toUpperCase())} placeholder="Registration (e.g. AB12 CDE)" className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
+          <input value={registration} onChange={(e) => setRegistration(e.target.value.toUpperCase())} placeholder="Registration (e.g. AB12 CDE)" className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
           <div className="grid grid-cols-2 gap-2">
-            <input value={make} onChange={(e) => setMake(e.target.value)} placeholder="Make" className="h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
-            <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Model" className="h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
+            <input value={make} onChange={(e) => setMake(e.target.value)} placeholder="Make" className="h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
+            <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="Model" className="h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <input type="number" value={year} onChange={(e) => setYear(e.target.value)} placeholder="Year" className="h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
-            <input value={fuel} onChange={(e) => setFuel(e.target.value)} placeholder="Fuel (optional)" className="h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
+            <input type="number" value={year} onChange={(e) => setYear(e.target.value)} placeholder="Year" className="h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
+            <input value={fuel} onChange={(e) => setFuel(e.target.value)} placeholder="Fuel (optional)" className="h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
           </div>
-          <input type="number" value={mileage} onChange={(e) => setMileage(e.target.value)} placeholder="Mileage (optional)" className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
+          <input type="number" value={mileage} onChange={(e) => setMileage(e.target.value)} placeholder="Mileage (optional)" className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
           <div>
-            <label className="text-xs font-semibold text-slate-500 mb-1 block">MOT Due Date (optional)</label>
-            <input type="date" value={motDueDate} onChange={(e) => setMotDueDate(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">MOT Due Date (optional)</label>
+            <input type="date" value={motDueDate} onChange={(e) => setMotDueDate(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-slate-500 mb-1 block">Next Service Due (optional)</label>
-            <input type="date" value={serviceDueDate} onChange={(e) => setServiceDueDate(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Next Service Due (optional)</label>
+            <input type="date" value={serviceDueDate} onChange={(e) => setServiceDueDate(e.target.value)} className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
           </div>
           <Button className="w-full" loading={submitting} onClick={handleSubmit}>Add Vehicle</Button>
         </div>

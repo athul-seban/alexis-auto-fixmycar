@@ -12,7 +12,7 @@ export default function SearchPage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-[#F8FAFC]">
+      <main className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
         <Suspense fallback={<SearchSkeleton />}>
           <SearchResults />
         </Suspense>
@@ -25,12 +25,12 @@ export default function SearchPage() {
 function SearchSkeleton() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="h-32 bg-slate-100 rounded-xl animate-pulse mb-6" />
+      <div className="h-32 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse mb-6" />
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="h-96 bg-slate-100 rounded-xl animate-pulse" />
+        <div className="h-96 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse" />
         <div className="lg:col-span-3 space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-48 bg-slate-100 rounded-xl animate-pulse" />
+            <div key={i} className="h-48 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse" />
           ))}
         </div>
       </div>

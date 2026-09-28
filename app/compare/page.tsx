@@ -12,7 +12,7 @@ export default function ComparePage() {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-[#F8FAFC]">
+      <main className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
         <Suspense fallback={<CompareSkeleton />}>
           <CompareView />
         </Suspense>
@@ -25,7 +25,7 @@ export default function ComparePage() {
 function CompareSkeleton() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="h-96 bg-slate-100 rounded-xl animate-pulse" />
+      <div className="h-96 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse" />
     </div>
   )
 }

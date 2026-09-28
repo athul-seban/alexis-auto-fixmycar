@@ -16,8 +16,8 @@ export function buildGarageCompareRows(garages: GarageProfile[]): CompareRowConf
       icon: Star,
       render: (g) => (
         <span>
-          <span className="font-bold text-slate-900">{g.averageRating > 0 ? g.averageRating.toFixed(1) : "New"}</span>
-          {g.totalReviews > 0 && <span className="text-slate-400"> ({g.totalReviews} reviews)</span>}
+          <span className="font-bold text-slate-900 dark:text-white">{g.averageRating > 0 ? g.averageRating.toFixed(1) : "New"}</span>
+          {g.totalReviews > 0 && <span className="text-slate-400 dark:text-slate-500"> ({g.totalReviews} reviews)</span>}
         </span>
       ),
     },
@@ -27,7 +27,7 @@ export function buildGarageCompareRows(garages: GarageProfile[]): CompareRowConf
       label: "Verified",
       icon: Shield,
       render: (g) =>
-        g.isVerified ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Minus className="h-4 w-4 text-slate-300" />,
+        g.isVerified ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Minus className="h-4 w-4 text-slate-300 dark:text-slate-600" />,
     },
     {
       type: "data",
@@ -35,7 +35,7 @@ export function buildGarageCompareRows(garages: GarageProfile[]): CompareRowConf
       label: "Mobile Mechanic",
       icon: Car,
       render: (g) =>
-        g.isMobile ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Minus className="h-4 w-4 text-slate-300" />,
+        g.isMobile ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Minus className="h-4 w-4 text-slate-300 dark:text-slate-600" />,
     },
     { type: "section", key: "services-header", label: "Services Offered" },
     ...allServices.map((service): CompareRowConfig<GarageProfile> => ({
@@ -46,7 +46,7 @@ export function buildGarageCompareRows(garages: GarageProfile[]): CompareRowConf
         g.services.includes(service) ? (
           <CheckCircle className="h-4 w-4 text-green-500" />
         ) : (
-          <Minus className="h-4 w-4 text-slate-300" />
+          <Minus className="h-4 w-4 text-slate-300 dark:text-slate-600" />
         ),
     })),
     {
@@ -106,14 +106,14 @@ export function GarageCompareColumnHeader({
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <Link href={`/garage/${garage.slug}`} className="font-bold text-slate-900 text-sm hover:text-[#1E3A5F] transition-colors block truncate">
+        <Link href={`/garage/${garage.slug}`} className="font-bold text-slate-900 dark:text-white text-sm hover:text-[#1E3A5F] transition-colors block truncate">
           {garage.name}
         </Link>
-        <p className="text-xs text-slate-500 truncate">{garage.city}</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{garage.city}</p>
       </div>
       <button
         onClick={onRemove}
-        className="text-slate-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
+        className="text-slate-300 dark:text-slate-600 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
         aria-label={`Remove ${garage.name} from comparison`}
       >
         <X className="h-4 w-4" />

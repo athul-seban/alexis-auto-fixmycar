@@ -19,7 +19,7 @@ export default async function GaragePage(props: Props) {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-[#F8FAFC]">
+      <main className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
         <GarageProfilePage slug={params.id} />
       </main>
       <Footer />

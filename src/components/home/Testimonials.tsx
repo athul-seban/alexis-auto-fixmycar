@@ -83,14 +83,14 @@ const testimonials = [
 
 export function Testimonials() {
   return (
-    <section className="py-24 bg-white overflow-hidden">
+    <section className="py-24 bg-white dark:bg-slate-900 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-14">
-          <span className="inline-block text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 border border-orange-100 px-4 py-1.5 rounded-full mb-4">
+          <span className="inline-block text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
             Customer Reviews
           </span>
-          <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 mb-5 tracking-tight">
+          <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-5 tracking-tight">
             What Our Customers Say
           </h2>
           {/* Aggregate rating */}
@@ -106,9 +106,9 @@ export function Testimonials() {
                 <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
               ))}
             </div>
-            <div className="text-xl font-black text-slate-900">4.8</div>
-            <div className="text-slate-500 text-sm">
-              <span className="font-semibold text-slate-700">Excellent</span> · 50,000+ verified reviews
+            <div className="text-xl font-black text-slate-900 dark:text-white">4.8</div>
+            <div className="text-slate-500 dark:text-slate-400 text-sm">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Excellent</span> · 50,000+ verified reviews
             </div>
           </div>
         </div>
@@ -118,7 +118,7 @@ export function Testimonials() {
           {testimonials.map((t, index) => (
             <div
               key={index}
-              className="relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+              className="relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:bg-slate-800 dark:border dark:border-white/10"
               style={{
                 background: "#FFFFFF",
                 border: "1px solid #E8EDF5",
@@ -140,19 +140,19 @@ export function Testimonials() {
                   <Star
                     key={i}
                     className={`h-4 w-4 ${
-                      i <= t.rating ? "fill-yellow-400 text-yellow-400" : "fill-gray-100 text-gray-100"
+                      i <= t.rating ? "fill-yellow-400 text-yellow-400" : "fill-gray-100 text-gray-100 dark:fill-slate-700 dark:text-slate-700"
                     }`}
                   />
                 ))}
               </div>
 
               {/* Review text */}
-              <p className="text-slate-600 text-[14px] leading-relaxed mb-5 line-clamp-4">
+              <p className="text-slate-600 dark:text-slate-300 text-[14px] leading-relaxed mb-5 line-clamp-4">
                 {t.review}
               </p>
 
               {/* Author */}
-              <div className="flex items-center gap-3 pt-4 border-t border-slate-50">
+              <div className="flex items-center gap-3 pt-4 border-t border-slate-50 dark:border-white/10">
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
                   style={{ background: `linear-gradient(135deg, ${t.color}cc, ${t.color})` }}
@@ -160,14 +160,14 @@ export function Testimonials() {
                   {t.avatar}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-900 text-sm">{t.name}</p>
-                  <p className="text-[11px] text-slate-400 truncate">
+                  <p className="font-bold text-slate-900 dark:text-white text-sm">{t.name}</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
                     {t.location} · {t.vehicle}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <div className="text-sm font-black text-emerald-600">Saved £{t.saved}</div>
-                  <div className="text-[11px] text-slate-400">{t.service}</div>
+                  <div className="text-sm font-black text-emerald-600 dark:text-emerald-400">Saved £{t.saved}</div>
+                  <div className="text-[11px] text-slate-400 dark:text-slate-500">{t.service}</div>
                 </div>
               </div>
             </div>
@@ -175,7 +175,7 @@ export function Testimonials() {
         </div>
 
         {/* Trustpilot-style footer */}
-        <div className="text-center mt-10 text-slate-400 text-sm">
+        <div className="text-center mt-10 text-slate-400 dark:text-slate-500 text-sm">
           All reviews are verified purchases collected after service completion.
         </div>
       </div>

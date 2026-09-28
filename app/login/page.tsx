@@ -50,7 +50,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -64,12 +64,12 @@ function LoginForm() {
           </Link>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
-          <h1 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h1>
-          <p className="text-slate-500 text-sm mb-6">Sign in to your Quote My Garage account</p>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-white/10 p-8">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Welcome back</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Sign in to your Quote My Garage account</p>
 
           {(error || formError) && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg mb-5 text-sm text-red-700">
+            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg mb-5 text-sm text-red-700 dark:text-red-400">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               {formError || "Authentication failed. Please try again."}
             </div>
@@ -79,7 +79,7 @@ function LoginForm() {
           <button
             type="button"
             onClick={handleGoogleSignIn}
-            className="w-full flex items-center justify-center gap-3 h-11 border-2 border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer mb-5"
+            className="w-full flex items-center justify-center gap-3 h-11 border-2 border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer mb-5"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -92,10 +92,10 @@ function LoginForm() {
 
           <div className="relative mb-5">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200" />
+              <div className="w-full border-t border-gray-200 dark:border-white/10" />
             </div>
             <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-xs text-slate-400 font-medium">OR</span>
+              <span className="bg-white dark:bg-slate-800 px-3 text-xs text-slate-400 dark:text-slate-500 font-medium">OR</span>
             </div>
           </div>
 
@@ -123,7 +123,7 @@ function LoginForm() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-8 text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="absolute right-3 top-8 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -140,14 +140,14 @@ function LoginForm() {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-slate-500 mt-6">
+          <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
             Don&apos;t have an account?{" "}
             <Link href="/register" className="text-[#1E3A5F] font-semibold hover:underline">
               Create account
             </Link>
           </p>
 
-          <p className="text-center text-sm text-slate-500 mt-2">
+          <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-2">
             Are you a garage?{" "}
             <Link href="/garage-register" className="text-[#F97316] font-semibold hover:underline">
               Register your garage
