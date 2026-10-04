@@ -215,7 +215,7 @@ function NewBookingForm({
             <FieldLabel htmlFor="nb-notes">Notes (private)</FieldLabel>
             <Textarea id="nb-notes" value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={1000} />
           </div>
-          <label className={`flex items-center gap-2 text-sm ${email.trim() ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-500"}`}>
+          <label className={`flex items-center gap-2 text-sm ${email.trim() ? "text-slate-700 dark:text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
             <input type="checkbox" className="h-4 w-4 rounded border-slate-300" checked={notifyCustomer && !!email.trim()} disabled={!email.trim()} onChange={(e) => setNotifyCustomer(e.target.checked)} />
             Email the customer a confirmation{!email.trim() && " (add an email address)"}
           </label>

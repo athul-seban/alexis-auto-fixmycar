@@ -1,4 +1,5 @@
 import crypto from "crypto"
+import { audit } from "@/lib/audit"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
@@ -101,6 +102,8 @@ export async function PATCH(req: Request) {
       },
     })
 
+    if (data.role !== undefined) await audit(session, { action: "USER_ROLE", targetType: "USER", targetId: user.id, detail: `${user.email} → ${data.role}` })
+    if (data.suspended !== undefined) await audit(session, { action: data.suspended ? "USER_SUSPENDED" : "USER_REINSTATED", targetType: "USER", targetId: user.id, detail: user.email })
     return NextResponse.json({
       user: { id: user.id, role: user.role, suspended: !!user.suspendedAt },
     })
@@ -144,6 +147,7 @@ export async function POST(req: Request) {
       `,
     })
 
+    await audit(session, { action: "USER_RESET", targetType: "USER", targetId: userId, detail: user.email })
     return NextResponse.json({ success: true })
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -170,7 +174,9 @@ export async function DELETE(req: Request) {
   }
 
   try {
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } })
     await prisma.user.delete({ where: { id: userId } })
+    await audit(session, { action: "USER_DELETED", targetType: "USER", targetId: userId, detail: target?.email ?? null })
     return NextResponse.json({ success: true })
   } catch (err: any) {
     if (err?.code === "P2003") {

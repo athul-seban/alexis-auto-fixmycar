@@ -99,7 +99,7 @@ export function OwnerSettingsPage() {
     <>
       <PageHeader title="Settings" description="Your contact details and password." />
       {error && !data && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
           {error}
         </p>
       )}

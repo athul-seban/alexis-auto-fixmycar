@@ -93,7 +93,7 @@ export function FeaturedGarages() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
           <div>
-            <span className="inline-block text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
+            <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
               Top Rated
             </span>
             <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white tracking-tight">
@@ -155,7 +155,7 @@ export function FeaturedGarages() {
                   </div>
 
                   {/* Location */}
-                  <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 mb-2">
+                  <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 mb-2">
                     <MapPin className="h-3 w-3 flex-shrink-0" />
                     <span>{garage.city}, {garage.postcode}</span>
                     <span className="mx-1">·</span>
@@ -172,9 +172,9 @@ export function FeaturedGarages() {
                     <div className="flex items-center gap-1.5">
                       <StarRow rating={garage.rating} />
                       <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{garage.rating}</span>
-                      <span className="text-xs text-slate-400 dark:text-slate-500">({garage.reviews})</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">({garage.reviews})</span>
                     </div>
-                    <div className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500">
+                    <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
                       <Clock className="h-3 w-3" />
                       {garage.responseTime}
                     </div>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { audit } from "@/lib/audit"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
@@ -30,6 +31,8 @@ function parseBadges(json: string): string[] {
     return []
   }
 }
+
+const AUDIT_FOR = { approve: "GARAGE_APPROVED", reject: "GARAGE_REJECTED", suspend: "GARAGE_SUSPENDED" } as const
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions)
@@ -105,7 +108,8 @@ export async function GET(req: Request) {
 const STATUS_FOR = { approve: "APPROVED", reject: "SUSPENDED", suspend: "SUSPENDED" } as const
 
 export async function POST(req: Request) {
-  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireAdmin()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
     const { garageId, action, reason, force } = actionSchema.parse(await req.json())
@@ -128,6 +132,8 @@ export async function POST(req: Request) {
       where: { id: garageId },
       data: { status: STATUS_FOR[action], isVerified: action === "approve" },
     })
+
+    await audit(session, { action: AUDIT_FOR[action], targetType: "GARAGE", targetId: garageId, detail: [garage.name, force ? "approved despite missing profile items" : null, reason].filter(Boolean).join(" · ") })
 
     // Tell the garage what happened (only when it actually changed).
     if (existing.status !== garage.status) {
@@ -152,7 +158,8 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireAdmin()
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
     const { garageId, badges } = badgeSchema.parse(await req.json())
@@ -160,6 +167,7 @@ export async function PATCH(req: Request) {
       where: { id: garageId },
       data: { verificationBadges: JSON.stringify([...new Set(badges)]) },
     })
+    await audit(session, { action: "GARAGE_BADGES", targetType: "GARAGE", targetId: garageId, detail: badges.join(", ") || "none" })
     return NextResponse.json({ garage })
   } catch (err) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: "Invalid data" }, { status: 400 })

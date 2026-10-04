@@ -27,7 +27,7 @@ function Growth({ pct }: { pct: number }) {
   const up = pct >= 0
   const Icon = up ? ArrowUpRight : ArrowDownRight
   return (
-    <span className={cn("inline-flex items-center gap-0.5 text-xs font-semibold", up ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+    <span className={cn("inline-flex items-center gap-0.5 text-xs font-semibold", up ? "text-green-700 dark:text-green-400" : "text-red-700 dark:text-red-400")}>
       <Icon className="h-3.5 w-3.5" />
       {Math.abs(pct)}% <span className="hidden font-normal text-slate-400 sm:inline">vs previous 30 days</span>
     </span>
@@ -51,7 +51,7 @@ export function AdminOverviewPage() {
       <PageHeader title="Overview" description="How the marketplace is doing and what needs your attention." />
 
       {stats.error && !s && (
-        <p role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mb-4 text-sm text-red-700 dark:text-red-400">
           {stats.error}
         </p>
       )}

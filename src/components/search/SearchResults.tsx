@@ -107,6 +107,7 @@ export function SearchResults() {
               <div className="flex-1 relative">
                 <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 <select
+                  aria-label="Service needed"
                   value={serviceType}
                   onChange={(e) => setServiceType(e.target.value)}
                   className="w-full h-11 pl-10 pr-4 rounded-lg bg-white dark:bg-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316] appearance-none cursor-pointer"
@@ -138,7 +139,7 @@ export function SearchResults() {
                     setVerifiedOnly(false)
                     setMinRating("")
                   }}
-                  className="text-xs text-[#F97316] hover:underline cursor-pointer"
+                  className="text-xs text-[#C2410C] dark:text-[#F97316] hover:underline cursor-pointer"
                 >
                   Clear all
                 </button>
@@ -148,6 +149,7 @@ export function SearchResults() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Sort by</h3>
                   <select
+                    aria-label="Sort by"
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
                     className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] cursor-pointer"
@@ -161,6 +163,7 @@ export function SearchResults() {
                 <div className="border-t border-gray-100 dark:border-white/10 pt-4">
                   <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Minimum Rating</h3>
                   <select
+                    aria-label="Minimum rating"
                     value={minRating}
                     onChange={(e) => setMinRating(e.target.value)}
                     className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] cursor-pointer"

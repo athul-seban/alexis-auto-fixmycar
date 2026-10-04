@@ -52,7 +52,7 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
+    <div role="main" className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -61,7 +61,7 @@ function LoginForm() {
               <Wrench className="h-5 w-5 text-white" />
             </div>
             <span className="text-2xl font-bold text-[#1E3A5F]">
-              Quote<span className="text-[#F97316]">MyGarage</span>
+              Quote<span className="text-[#C2410C] dark:text-[#F97316]">MyGarage</span>
             </span>
           </Link>
         </div>
@@ -97,7 +97,7 @@ function LoginForm() {
               <div className="w-full border-t border-gray-200 dark:border-white/10" />
             </div>
             <div className="relative flex justify-center">
-              <span className="bg-white dark:bg-slate-800 px-3 text-xs text-slate-400 dark:text-slate-500 font-medium">OR</span>
+              <span className="bg-white dark:bg-slate-800 px-3 text-xs text-slate-500 dark:text-slate-400 font-medium">OR</span>
             </div>
           </div>
 
@@ -124,8 +124,10 @@ function LoginForm() {
               />
               <button
                 type="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-8 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                className="absolute right-3 top-8 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -151,7 +153,7 @@ function LoginForm() {
 
           <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-2">
             Are you a garage?{" "}
-            <Link href="/garage-register" className="text-[#F97316] font-semibold hover:underline">
+            <Link href="/garage-register" className="text-[#C2410C] dark:text-[#F97316] font-semibold hover:underline">
               Register your garage
             </Link>
           </p>

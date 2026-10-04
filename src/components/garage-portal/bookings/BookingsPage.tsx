@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/toast"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Pagination } from "@/components/ui/pagination"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FilterTab, FilterTabList, FilterTabs } from "@/components/ui/filter-tabs"
 import { sendJson, useApi } from "@/hooks/use-api"
 import { useUrlParams } from "@/hooks/use-url-params"
 import { defaultDir, type SortKey, type Tab } from "@/lib/portal/bookings-query"
@@ -131,8 +131,8 @@ export function BookingsPage() {
         </div>
 
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <Tabs value={pageTab} onValueChange={(v) => setParams({ tab: v === "all" ? null : v, sort: null, dir: null }, { resetPage: true })} className="min-w-0">
-            <TabsList>
+          <FilterTabs value={pageTab} onValueChange={(v) => setParams({ tab: v === "all" ? null : v, sort: null, dir: null }, { resetPage: true })} className="min-w-0">
+            <FilterTabList>
               <Link
                 href="/garage-dashboard/diary"
                 className="-mb-px inline-flex items-center whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
@@ -140,15 +140,15 @@ export function BookingsPage() {
                 Diary
               </Link>
               {TAB_LABELS.map((t) => (
-                <TabsTrigger key={t.value} value={t.value}>
+                <FilterTab key={t.value} value={t.value}>
                   {t.label}
                   {data && t.value !== "all" && data.counts[t.value] > 0 && (
                     <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">{data.counts[t.value]}</span>
                   )}
-                </TabsTrigger>
+                </FilterTab>
               ))}
-            </TabsList>
-          </Tabs>
+            </FilterTabList>
+          </FilterTabs>
           <CustomerSearch params={searchParams} setParams={setParams} />
         </div>
 
@@ -176,7 +176,7 @@ export function BookingsPage() {
             <span className="mr-auto font-semibold" aria-live="polite">{selected.size} selected</span>
             <Button size="sm" variant="white" className="gap-1.5" loading={bulkBusy} onClick={() => bulk("confirm")}><CheckCheck className="h-3.5 w-3.5" /> Confirm</Button>
             <Button size="sm" variant="white" className="gap-1.5" loading={bulkBusy} onClick={() => bulk("contacted")}><Phone className="h-3.5 w-3.5" /> Mark contacted</Button>
-            <Button size="sm" variant="white" className="gap-1.5 text-red-600 dark:text-red-400" onClick={() => setCancelOpen(true)}>Cancel</Button>
+            <Button size="sm" variant="white" className="gap-1.5 text-red-700 dark:text-red-400" onClick={() => setCancelOpen(true)}>Cancel</Button>
             <button type="button" onClick={() => setSelected(new Set())} aria-label="Clear selection" className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg hover:bg-white/10"><X className="h-4 w-4" /></button>
           </div>
         )}
@@ -184,7 +184,7 @@ export function BookingsPage() {
         <div className="mt-5 -mx-4 border-t border-slate-100 dark:border-white/10 sm:-mx-6">
           {error && !data ? (
             <div className="p-6 text-center">
-              <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+              <p role="alert" className="mb-3 text-sm text-red-700 dark:text-red-400">{error}</p>
               <Button size="sm" variant="secondary" onClick={reload}>Try again</Button>
             </div>
           ) : !loading && rows.length === 0 ? (

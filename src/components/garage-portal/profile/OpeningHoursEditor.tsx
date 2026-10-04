@@ -49,7 +49,7 @@ export function OpeningHoursEditor({ value, onChange, error }: Props) {
                   <TextInput type="time" aria-label={`${DAY_LABELS[day]} closes`} value={d.to} onChange={(e) => setDay(day, { to: e.target.value })} className="w-32" />
                 </div>
               ) : (
-                <span className="text-sm text-slate-400 dark:text-slate-500">Closed</span>
+                <span className="text-sm text-slate-500 dark:text-slate-400">Closed</span>
               )}
             </li>
           )
@@ -59,7 +59,7 @@ export function OpeningHoursEditor({ value, onChange, error }: Props) {
         <Button type="button" size="sm" variant="secondary" className="gap-1.5" onClick={copyMondayToWeekdays}>
           <Copy className="h-3.5 w-3.5" /> Copy Monday to Tue–Fri
         </Button>
-        {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>}
       </div>
     </div>
   )

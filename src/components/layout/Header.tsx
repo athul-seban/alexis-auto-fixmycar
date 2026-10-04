@@ -49,7 +49,7 @@ export function Header() {
               <Wrench className="h-5 w-5 text-white" />
             </div>
             <span className="text-xl font-extrabold text-[#1E3A5F] dark:text-white tracking-tight">
-              Quote<span className="text-[#F97316]">MyGarage</span>
+              Quote<span className="text-[#C2410C] dark:text-[#F97316]">MyGarage</span>
             </span>
           </Link>
 
@@ -78,7 +78,7 @@ export function Header() {
                 <div className="absolute top-full left-0 w-52 pt-1 z-50">
                   <div className="rounded-2xl py-2 bg-white dark:bg-slate-800 border border-black/[0.07] dark:border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
                     <div className="px-3 pb-2 mb-1 border-b border-slate-50 dark:border-white/5">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                         All Services
                       </span>
                     </div>
@@ -138,12 +138,12 @@ export function Header() {
                       <AvatarImage src={user?.image ?? ""} alt={user?.name ?? ""} />
                       <AvatarFallback className="text-xs">{getInitials(user?.name ?? "U")}</AvatarFallback>
                     </Avatar>
-                    <ChevronDown className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+                    <ChevronDown className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
                   </button>
                   <div className="absolute right-0 top-full w-48 py-2 mt-2 rounded-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 bg-white dark:bg-slate-800 border border-black/[0.07] dark:border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
                     <div className="px-4 py-2 border-b border-slate-50 dark:border-white/5 mb-1">
                       <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{user?.name}</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{user?.email}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
                     </div>
                     <Link
                       href={getDashboardLink()}
@@ -154,7 +154,7 @@ export function Header() {
                     </Link>
                     <button
                       onClick={() => signOut({ callbackUrl: "/" })}
-                      className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
+                      className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
                     >
                       <LogOut className="h-4 w-4" />
                       Sign Out
@@ -217,7 +217,7 @@ export function Header() {
                 onClick={() => setServicesOpen(!servicesOpen)}
               >
                 Services
-                <ChevronDown className={cn("h-4 w-4 text-slate-400 dark:text-slate-500 transition-transform", servicesOpen && "rotate-180")} />
+                <ChevronDown className={cn("h-4 w-4 text-slate-500 dark:text-slate-400 transition-transform", servicesOpen && "rotate-180")} />
               </button>
               {servicesOpen && (
                 <div className="mx-2 mt-1 mb-1 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 grid grid-cols-2">
@@ -264,7 +264,7 @@ export function Header() {
                   </Link>
                   <Button
                     variant="ghost"
-                    className="w-full text-red-600 dark:text-red-400"
+                    className="w-full text-red-700 dark:text-red-400"
                     onClick={() => { signOut({ callbackUrl: "/" }); setMobileOpen(false) }}
                   >
                     Sign Out

@@ -96,8 +96,8 @@ function Shell({ accent, children, garage }: { accent: string; children: React.R
           </div>
         )}
         {children}
-        <p className="border-t border-slate-100 px-5 py-3 text-center text-[11px] text-slate-400 dark:border-white/10 dark:text-slate-500">
-          Powered by Quote<span className="text-[#F97316]">MyGarage</span>
+        <p className="border-t border-slate-100 px-5 py-3 text-center text-[11px] text-slate-500 dark:border-white/10 dark:text-slate-400">
+          Powered by Quote<span className="text-[#C2410C] dark:text-[#F97316]">MyGarage</span>
         </p>
       </div>
     </div>
@@ -208,7 +208,7 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
       {/* 1 — service */}
       {step === "service" && (
         <div className="p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-400">What do you need?</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">What do you need?</h2>
           {services.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">No services are available to book online right now. Please call {garage.phone}.</p>
           ) : (
@@ -333,12 +333,12 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
             <label>Website<input tabIndex={-1} autoComplete="off" value={form.website} onChange={set("website")} /></label>
           </div>
 
-          {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>}
           <button type="submit" disabled={submitting} className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl text-sm font-bold transition-opacity disabled:opacity-60" style={btn}>
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             {settings.autoConfirm ? "Confirm booking" : "Request booking"}
           </button>
-          <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">We&apos;ll only use your details to deal with this booking.</p>
+          <p className="text-center text-[11px] text-slate-500 dark:text-slate-400">We&apos;ll only use your details to deal with this booking.</p>
         </form>
       )}
 

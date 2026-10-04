@@ -48,7 +48,7 @@ type Mode = null | "complete" | "cancel" | "reschedule"
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-slate-100 px-6 py-5 dark:border-white/10">
-      <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{title}</h3>
+      <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{title}</h3>
       {children}
     </section>
   )
@@ -93,7 +93,7 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
     return (
       <div className="space-y-4 p-6">
         {error ? (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>
         ) : (
           <>
             <Skeleton className="h-6 w-40" />
@@ -236,7 +236,7 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
             <li key={e.id} className="relative text-sm">
               <span aria-hidden className="absolute -left-[1.3rem] top-1.5 h-2 w-2 rounded-full bg-[#1E3A5F] dark:bg-blue-400" />
               <p className="text-slate-800 dark:text-slate-200">{e.detail ?? e.type}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500">{EVENT_ACTORS[e.actorType] ?? e.actorType} · {formatLondonDateTime(e.createdAt)}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{EVENT_ACTORS[e.actorType] ?? e.actorType} · {formatLondonDateTime(e.createdAt)}</p>
             </li>
           ))}
           {b.events.length === 0 && <li className="text-sm text-slate-400">No history recorded for this booking.</li>}

@@ -9,6 +9,8 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
+  // The dev server compiles pages on first request, so first loads under parallel load can take a few seconds.
+  expect: { timeout: 12_000 },
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
   projects: [

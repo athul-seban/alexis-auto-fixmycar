@@ -23,7 +23,7 @@ export function buildJobResponseCompareRows(
       render: (r) => (
         <span>
           <span className="font-bold text-slate-900 dark:text-white">{r.garage.averageRating > 0 ? r.garage.averageRating.toFixed(1) : "New"}</span>
-          {r.garage.totalReviews > 0 && <span className="text-slate-400 dark:text-slate-500"> ({r.garage.totalReviews})</span>}
+          {r.garage.totalReviews > 0 && <span className="text-slate-500 dark:text-slate-400"> ({r.garage.totalReviews})</span>}
         </span>
       ),
     },
@@ -86,7 +86,7 @@ export function buildJobResponseCompareRows(
           return <Badge>Booked</Badge>
         }
         if (jobStatus === "BOOKED" || r.status === "DECLINED") {
-          return <span className="text-xs text-slate-400 dark:text-slate-500">Not selected</span>
+          return <span className="text-xs text-slate-500 dark:text-slate-400">Not selected</span>
         }
         return (
           <Button

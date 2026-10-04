@@ -189,7 +189,7 @@ export function GarageProfilePage({ slug }: Props) {
                 <p className="text-slate-600 dark:text-slate-300 leading-relaxed mb-6">{garage.description || "No description provided yet."}</p>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Services Offered</h2>
                 {garage.services.length === 0 ? (
-                  <p className="text-sm text-slate-400 dark:text-slate-500">No services listed yet.</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No services listed yet.</p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {garage.services.map((s) => {
@@ -231,7 +231,7 @@ export function GarageProfilePage({ slug }: Props) {
                           <div className="flex-1 bg-gray-100 dark:bg-slate-700 rounded-full h-2">
                             <div className="bg-yellow-400 h-2 rounded-full" style={{ width: `${pct}%` }} />
                           </div>
-                          <span className="text-xs text-slate-400 dark:text-slate-500 w-6">{pct}%</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400 w-6">{pct}%</span>
                         </div>
                       ))}
                     </div>
@@ -259,7 +259,7 @@ export function GarageProfilePage({ slug }: Props) {
                               <Star key={i} className={`h-4 w-4 ${i <= review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-200 dark:text-slate-700"}`} />
                             ))}
                           </div>
-                          <span className="text-xs text-slate-400 dark:text-slate-500">{new Date(review.createdAt).toLocaleDateString("en-GB")}</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">{new Date(review.createdAt).toLocaleDateString("en-GB")}</span>
                         </div>
                       </div>
                       {review.title && <p className="font-semibold text-slate-900 dark:text-white text-sm mb-1">{review.title}</p>}
@@ -443,7 +443,7 @@ function QuoteRequestModal({
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">Request a Quote</h2>
-          <button onClick={onClose} className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+          <button onClick={onClose} className="text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -475,7 +475,7 @@ function QuoteRequestModal({
         ) : (
           <div className="space-y-3">
             {error && (
-              <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
+              <div className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
                 <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
                 {error}
               </div>
@@ -483,6 +483,7 @@ function QuoteRequestModal({
             <div>
               <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Vehicle</label>
               <select
+                aria-label="Vehicle"
                 value={vehicleId}
                 onChange={(e) => setVehicleId(e.target.value)}
                 className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]"
@@ -497,6 +498,7 @@ function QuoteRequestModal({
             <div>
               <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Service Needed</label>
               <select
+                aria-label="Service needed"
                 value={serviceType}
                 onChange={(e) => setServiceType(e.target.value as ServiceType)}
                 className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]"

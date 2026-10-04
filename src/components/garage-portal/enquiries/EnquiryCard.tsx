@@ -58,7 +58,7 @@ export function EnquiryCard({ enquiry: e, highlighted, busy, onWork, onBook, onQ
               {e.kind === "QUOTE" ? "Quote request" : "Job lead"}
             </span>
             <StatusPill status={e.status === "NEW" || e.status === "IGNORED" ? "PENDING" : e.status} className={cn(e.status === "IGNORED" && "opacity-70")} />
-            <span className="text-xs text-slate-400 dark:text-slate-500" title={new Date(e.createdAt).toLocaleString("en-GB", { timeZone: "Europe/London" })}>{timeAgo(e.createdAt)}</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400" title={new Date(e.createdAt).toLocaleString("en-GB", { timeZone: "Europe/London" })}>{timeAgo(e.createdAt)}</span>
           </div>
           <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">{e.description}</p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500 dark:text-slate-400">
@@ -85,8 +85,8 @@ export function EnquiryCard({ enquiry: e, highlighted, busy, onWork, onBook, onQ
         <div className="flex flex-shrink-0 flex-col gap-2 sm:items-end">
           {e.myPrice !== null && (
             <div className="text-left sm:text-right">
-              <div className="text-xl font-bold text-green-600 dark:text-green-400">{formatCurrency(e.myPrice)}</div>
-              <div className="text-xs text-slate-400 dark:text-slate-500">
+              <div className="text-xl font-bold text-green-700 dark:text-green-400">{formatCurrency(e.myPrice)}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
                 {STATUS_NOTE[e.status] ?? e.status}
                 {e.validUntil && e.stage === "estimates" && ` · valid to ${formatLondonDate(e.validUntil)}`}
               </div>

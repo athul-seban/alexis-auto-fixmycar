@@ -101,6 +101,8 @@ function ResetPasswordForm() {
           />
           <button
             type="button"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-pressed={showPassword}
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-3 top-8 text-slate-400 hover:text-slate-600 cursor-pointer"
           >
@@ -126,7 +128,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+    <div role="main" className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2.5">
@@ -134,7 +136,7 @@ export default function ResetPasswordPage() {
               <Wrench className="h-5 w-5 text-white" />
             </div>
             <span className="text-2xl font-bold text-[#1E3A5F]">
-              Quote<span className="text-[#F97316]">MyGarage</span>
+              Quote<span className="text-[#C2410C] dark:text-[#F97316]">MyGarage</span>
             </span>
           </Link>
         </div>

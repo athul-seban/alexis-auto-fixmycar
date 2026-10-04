@@ -41,7 +41,7 @@ export function HowItWorks() {
     <section className="py-24 bg-[#F8FAFC] dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <span className="inline-block text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
+          <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
             Simple Process
           </span>
           <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-4 tracking-tight">
@@ -85,11 +85,11 @@ export function HowItWorks() {
                     <step.icon className="h-7 w-7" style={{ color: step.iconColor }} />
                   </div>
                   <span
-                    className="text-4xl font-black leading-none"
+                    className="text-4xl font-black leading-none before:content-[attr(data-n)]"
+                    data-n={step.number}
                     style={{ color: "#E8EDF5", fontVariantNumeric: "tabular-nums" }}
-                  >
-                    {step.number}
-                  </span>
+                    aria-hidden="true"
+                  />
                 </div>
 
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">{step.title}</h3>

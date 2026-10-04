@@ -412,3 +412,29 @@ model GarageLead {
 
   @@unique([garageId, jobRequestId])
 }
+
+// One row per counted attempt (login, password reset, public form posts...). A limit is "N rows with this key in the
+// last W ms", so it works across instances without in-memory state. Old rows are pruned opportunistically.
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+  @@index([createdAt])
+}
+
+// Who did what in the admin portal (approvals, suspensions, role changes, deletions). Append-only.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorEmail String?
+  action     String // GARAGE_APPROVED | GARAGE_SUSPENDED | GARAGE_BADGES | USER_ROLE | USER_SUSPENDED | USER_DELETED | USER_RESET | REVIEW_DELETED
+  targetType String // GARAGE | USER | REVIEW
+  targetId   String
+  detail     String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+}

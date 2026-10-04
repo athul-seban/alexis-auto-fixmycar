@@ -79,14 +79,14 @@ export default function GarageRegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
+      <div role="main" className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center bg-white dark:bg-slate-900 rounded-2xl p-10 shadow-lg border border-gray-200 dark:border-white/10">
           <div className="w-20 h-20 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-5">
-            <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
+            <CheckCircle className="h-10 w-10 text-green-700 dark:text-green-400" />
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Application Submitted!</h2>
           <p className="text-slate-600 dark:text-slate-400 mb-2">Your garage has been submitted for review. Our team will verify your details and approve your listing within 24-48 hours.</p>
-          <p className="text-sm text-slate-400 dark:text-slate-500 mb-6">You&apos;ll receive a confirmation email at <strong>{form.garageEmail}</strong>.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">You&apos;ll receive a confirmation email at <strong>{form.garageEmail}</strong>.</p>
           <Link href="/">
             <Button variant="primary" size="lg" className="w-full">Back to Home</Button>
           </Link>
@@ -114,10 +114,10 @@ export default function GarageRegisterPage() {
         <div className="flex items-center gap-2 mb-8">
           {[1, 2, 3].map((s) => (
             <div key={s} className={`flex items-center gap-2 flex-1 ${s < 3 ? "after:flex-1 after:h-0.5 after:bg-gray-200 dark:after:bg-slate-700 after:ml-2" : ""}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step >= s ? "bg-[#F97316] text-white" : "bg-gray-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step >= s ? "bg-[#C2410C] text-white" : "bg-gray-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}>
                 {step > s ? <CheckCircle className="h-4 w-4" /> : s}
               </div>
-              <span className={`text-sm font-medium hidden sm:block ${step >= s ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-slate-500"}`}>
+              <span className={`text-sm font-medium hidden sm:block ${step >= s ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"}`}>
                 {s === 1 ? "Your Account" : s === 2 ? "Garage Details" : "Services"}
               </span>
             </div>

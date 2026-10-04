@@ -14,6 +14,7 @@ import {
   Users,
   Wrench,
   ShieldCheck,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react"
 
@@ -118,6 +119,7 @@ export const ADMIN_NAV: PortalNav = {
       items: [
         { href: `${A}/widgets`, label: "Widgets", icon: ShieldCheck },
         { href: `${A}/analytics`, label: "Analytics", icon: BarChart3 },
+        { href: `${A}/audit`, label: "Audit log", icon: ScrollText },
       ],
     },
   ],

@@ -61,7 +61,7 @@ export default function HowItWorksPage() {
                   <div className="w-14 h-14 rounded-xl bg-blue-50 flex items-center justify-center mb-5">
                     <step.icon className="h-7 w-7 text-[#1E3A5F]" />
                   </div>
-                  <div className="text-xs font-bold text-slate-400 mb-2">STEP {i + 1}</div>
+                  <div className="text-xs font-bold text-slate-500 mb-2">STEP {i + 1}</div>
                   <h3 className="text-xl font-bold text-slate-900 mb-3">{step.title}</h3>
                   <p className="text-slate-500 leading-relaxed text-[15px]">{step.description}</p>
                 </div>
@@ -70,7 +70,7 @@ export default function HowItWorksPage() {
             <div className="text-center mt-10">
               <Link
                 href="/for-garages"
-                className="inline-flex items-center gap-2 text-[#F97316] font-bold hover:underline"
+                className="inline-flex items-center gap-2 text-[#C2410C] dark:text-[#F97316] font-bold hover:underline"
               >
                 Learn more about listing your garage
                 <ArrowRight className="h-4 w-4" />

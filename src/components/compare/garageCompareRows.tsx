@@ -17,7 +17,7 @@ export function buildGarageCompareRows(garages: GarageProfile[]): CompareRowConf
       render: (g) => (
         <span>
           <span className="font-bold text-slate-900 dark:text-white">{g.averageRating > 0 ? g.averageRating.toFixed(1) : "New"}</span>
-          {g.totalReviews > 0 && <span className="text-slate-400 dark:text-slate-500"> ({g.totalReviews} reviews)</span>}
+          {g.totalReviews > 0 && <span className="text-slate-500 dark:text-slate-400"> ({g.totalReviews} reviews)</span>}
         </span>
       ),
     },

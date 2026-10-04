@@ -75,7 +75,7 @@ export function MessageThread({ quoteId, bookingId, currentUserId }: Props) {
     <div className="flex flex-col gap-3">
       <div className="max-h-64 overflow-y-auto flex flex-col gap-2 pr-1">
         {messages.length === 0 ? (
-          <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-4">No messages yet — say hello.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-4">No messages yet — say hello.</p>
         ) : (
           messages.map((m) => {
             const isMine = m.sender.id === currentUserId

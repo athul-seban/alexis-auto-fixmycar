@@ -1,3 +1,5 @@
+// Route gate for the three portals (renamed from middleware.ts in Next 16). Real authorisation still happens
+// per request: layouts re-check the session and every /api/* handler checks its own role (the proxy does not cover /api).
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
 

@@ -55,7 +55,7 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
                   <span className="truncate">
                     {garage.city}, {garage.postcode}
                     {distance !== undefined && (
-                      <span className="text-slate-400 dark:text-slate-500 ml-1">· {distance.toFixed(1)} miles</span>
+                      <span className="text-slate-500 dark:text-slate-400 ml-1">· {distance.toFixed(1)} miles</span>
                     )}
                   </span>
                 </div>
@@ -137,6 +137,7 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
             size="sm"
             className="gap-1.5 text-xs"
             disabled={!selected && maxReached}
+            aria-label={`${selected ? "Remove" : "Add"} ${garage.name} ${selected ? "from" : "to"} comparison`}
             title={!selected && maxReached ? "You can compare up to 4 garages at once" : undefined}
             onClick={() =>
               toggleGarage({ id: garage.id, name: garage.name, slug: garage.slug, logo: garage.logo, city: garage.city })

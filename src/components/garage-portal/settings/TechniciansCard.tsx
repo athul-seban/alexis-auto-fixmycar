@@ -70,7 +70,7 @@ export function TechniciansCard() {
       )}
 
       {error && !data ? (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>
       ) : !loading && technicians.length === 0 && editing === null ? (
         <EmptyState icon={Users} title="No technicians yet" description="Add your team to assign bookings and see who's busy in the diary." className="py-8" />
       ) : (

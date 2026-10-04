@@ -64,7 +64,7 @@ export function CompareTable<T>({ columns, header, rows, className }: CompareTab
               <tr key={row.key} className="even:bg-slate-50 dark:even:bg-slate-800/50">
                 <th scope="row" className="sticky left-0 bg-inherit px-3 py-3 text-left text-xs font-semibold text-slate-600 dark:text-slate-400 border-b border-gray-50 dark:border-white/10 sm:px-4 sm:text-sm">
                   <span className="flex items-center gap-1.5">
-                    {row.icon && <row.icon className="h-3.5 w-3.5 flex-shrink-0 text-slate-400 dark:text-slate-500" />}
+                    {row.icon && <row.icon className="h-3.5 w-3.5 flex-shrink-0 text-slate-500 dark:text-slate-400" />}
                     {row.label}
                   </span>
                 </th>

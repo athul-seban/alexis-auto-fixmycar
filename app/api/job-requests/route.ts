@@ -1,4 +1,5 @@
 import crypto from "crypto"
+import { limitByIp } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
@@ -37,6 +38,10 @@ async function generateUniqueToken(): Promise<string> {
 
 export async function POST(req: Request) {
   try {
+    // Public form: cap posts per visitor so it can't be used to spam garages.
+    const limited = await limitByIp(req.headers, "jobrequest", 5, 60 * 60 * 1000)
+    if (limited) return limited
+
     const body = await req.json()
     const data = createSchema.parse(body)
     const token = await generateUniqueToken()

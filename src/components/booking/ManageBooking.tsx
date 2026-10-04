@@ -203,7 +203,7 @@ export function ManageBooking({ token }: { token: string }) {
                 />
               )}
               <div>
-                <Button variant="secondary" className="text-red-600 dark:text-red-400" onClick={() => setCancelOpen(true)}>
+                <Button variant="secondary" className="text-red-700 dark:text-red-400" onClick={() => setCancelOpen(true)}>
                   Cancel booking
                 </Button>
               </div>

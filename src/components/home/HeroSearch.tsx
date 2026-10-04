@@ -122,7 +122,7 @@ export function HeroSearch() {
                   <div className="flex flex-col sm:flex-row gap-2.5 mb-2.5">
                     {/* Reg */}
                     <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 px-1">
+                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5 px-1">
                         Reg Number
                       </label>
                       <div className="relative">
@@ -153,7 +153,7 @@ export function HeroSearch() {
 
                     {/* Location */}
                     <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 px-1">
+                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5 px-1">
                         Location
                       </label>
                       <div className="relative">
@@ -171,12 +171,13 @@ export function HeroSearch() {
 
                     {/* Service */}
                     <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1.5 px-1">
+                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5 px-1">
                         Service
                       </label>
                       <div className="relative">
                         <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                         <select
+                          aria-label="Service needed"
                           value={serviceType}
                           onChange={(e) => setServiceType(e.target.value)}
                           className="w-full h-11 pl-9 pr-8 rounded-lg border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:border-[#1E3A5F] focus:outline-none text-sm text-slate-800 dark:text-white appearance-none cursor-pointer transition-all"

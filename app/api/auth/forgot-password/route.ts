@@ -3,13 +3,20 @@ import crypto from "crypto"
 import { prisma } from "@/lib/prisma"
 import { sendMail } from "@/lib/mail"
 import { z } from "zod"
+import { limitByIp, rateLimit } from "@/lib/rate-limit"
 
 const schema = z.object({ email: z.string().email().trim().toLowerCase() })
 
 export async function POST(req: Request) {
   try {
+    const limited = await limitByIp(req.headers, "forgot", 10, 60 * 60 * 1000)
+    if (limited) return limited
+
     const body = await req.json()
     const { email } = schema.parse(body)
+
+    // Per-address cap so nobody can flood a victim's inbox. Answer exactly as for success (no enumeration).
+    if (!(await rateLimit(`forgot:email:${email}`, 3, 60 * 60 * 1000)).ok) return NextResponse.json({ success: true })
 
     // Always respond success regardless of whether the account exists,
     // so this endpoint can't be used to enumerate registered emails.

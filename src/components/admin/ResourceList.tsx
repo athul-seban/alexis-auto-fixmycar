@@ -7,7 +7,7 @@ import { DataTable, type DataColumn } from "@/components/ui/data-table"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ParamSearch, type SetParams } from "@/components/ui/param-search"
 import { Pagination } from "@/components/ui/pagination"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FilterTab, FilterTabList, FilterTabs } from "@/components/ui/filter-tabs"
 import { useApi } from "@/hooks/use-api"
 import { useUrlParams } from "@/hooks/use-url-params"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
@@ -98,24 +98,24 @@ function ResourceListInner<T>({
       <Panel className="p-4 sm:p-6">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           {tabs ? (
-            <Tabs
+            <FilterTabs
               value={tab ?? tabs.defaultValue}
               onValueChange={(v) => setParams({ [tabs.param]: v === tabs.defaultValue ? null : v }, { resetPage: true })}
               className="min-w-0"
             >
-              <TabsList aria-label={`${title} filter`}>
+              <FilterTabList aria-label={`${title} filter`}>
                 {tabs.options.map((t) => (
-                  <TabsTrigger key={t.value} value={t.value}>
+                  <FilterTab key={t.value} value={t.value}>
                     {t.label}
                     {data?.counts && t.countKey && (
                       <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">
                         {data.counts[t.countKey] ?? 0}
                       </span>
                     )}
-                  </TabsTrigger>
+                  </FilterTab>
                 ))}
-              </TabsList>
-            </Tabs>
+              </FilterTabList>
+            </FilterTabs>
           ) : (
             <span />
           )}
@@ -132,7 +132,7 @@ function ResourceListInner<T>({
         <div className="-mx-4 border-t border-slate-100 dark:border-white/10 sm:-mx-6">
           {error && !data ? (
             <div className="p-6 text-center">
-              <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">
+              <p role="alert" className="mb-3 text-sm text-red-700 dark:text-red-400">
                 {error}
               </p>
               <Button size="sm" variant="secondary" onClick={reload}>

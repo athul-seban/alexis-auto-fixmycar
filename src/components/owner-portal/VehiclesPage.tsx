@@ -27,7 +27,7 @@ function VehicleHistory({ vehicleId }: { vehicleId: string }) {
       {loading && !data ? (
         <Skeleton className="h-4 w-1/2" />
       ) : !data?.history.length ? (
-        <p className="text-xs text-slate-400 dark:text-slate-500">No completed services yet.</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400">No completed services yet.</p>
       ) : (
         <ul className="space-y-2">
           {data.history.map((h) => (
@@ -35,7 +35,7 @@ function VehicleHistory({ vehicleId }: { vehicleId: string }) {
               <span className="text-slate-600 dark:text-slate-300">
                 {getServiceLabel(h.serviceType)} · {h.garage.name}
               </span>
-              <span className="flex-shrink-0 text-slate-400 dark:text-slate-500">{formatDateShort(h.completedAt ?? h.scheduledAt)}</span>
+              <span className="flex-shrink-0 text-slate-500 dark:text-slate-400">{formatDateShort(h.completedAt ?? h.scheduledAt)}</span>
             </li>
           ))}
         </ul>
@@ -104,7 +104,7 @@ export function OwnerVehiclesPage() {
         }
       />
       {error && !data && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
           {error}
         </p>
       )}

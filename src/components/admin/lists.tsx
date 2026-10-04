@@ -388,7 +388,7 @@ export function AdminReviewsPage() {
       header: "",
       mobile: "actions",
       cell: (r) => (
-        <Button size="sm" variant="secondary" className="gap-1.5 text-red-600 dark:text-red-400" onClick={() => setTarget(r)} aria-label={`Delete review by ${r.customer}`}>
+        <Button size="sm" variant="secondary" className="gap-1.5 text-red-700 dark:text-red-400" onClick={() => setTarget(r)} aria-label={`Delete review by ${r.customer}`}>
           <Trash2 className="h-3.5 w-3.5" /> Delete
         </Button>
       ),

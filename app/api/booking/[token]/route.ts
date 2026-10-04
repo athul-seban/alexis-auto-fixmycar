@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { limitByIp, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 import { z } from "zod"
 import { notifyGarage } from "@/lib/notifications"
 import { BookingError } from "@/lib/portal/booking-error"
@@ -56,6 +57,12 @@ const actionSchema = z.discriminatedUnion("action", [
 export async function POST(req: Request, props: { params: Promise<Params> }) {
   try {
     const { token } = await props.params
+    // Actions on a manage link are rare in real use; cap them per link and per visitor.
+    const perLink = await rateLimit(`manage:token:${token}`, 30, 10 * 60 * 1000)
+    if (!perLink.ok) return tooManyRequests(perLink.retryAfter)
+    const limited = await limitByIp(req.headers, "manage", 60, 10 * 60 * 1000)
+    if (limited) return limited
+
     const booking = await loadByToken(token)
     const body = actionSchema.parse(await req.json())
 

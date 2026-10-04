@@ -7,7 +7,7 @@ const TONES = {
   blue: { chip: "bg-blue-50 dark:bg-blue-500/10", icon: "text-blue-500 dark:text-blue-400" },
   purple: { chip: "bg-purple-50 dark:bg-purple-500/10", icon: "text-purple-500 dark:text-purple-400" },
   orange: { chip: "bg-orange-50 dark:bg-orange-500/10", icon: "text-orange-500 dark:text-orange-400" },
-  green: { chip: "bg-green-50 dark:bg-green-500/10", icon: "text-green-600 dark:text-green-400" },
+  green: { chip: "bg-green-50 dark:bg-green-500/10", icon: "text-green-700 dark:text-green-400" },
   yellow: { chip: "bg-yellow-50 dark:bg-yellow-500/10", icon: "text-yellow-500 dark:text-yellow-400" },
   red: { chip: "bg-red-50 dark:bg-red-500/10", icon: "text-red-500 dark:text-red-400" },
 } as const

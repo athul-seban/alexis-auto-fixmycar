@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search } from "lucide-react"
 import { NativeSelect, TextInput } from "@/components/ui/form-controls"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FilterTab, FilterTabList, FilterTabs } from "@/components/ui/filter-tabs"
 import { useApi } from "@/hooks/use-api"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useUrlParams } from "@/hooks/use-url-params"
@@ -44,20 +44,20 @@ export function EnquiriesPage() {
       <PageHeader title="Enquiries" description="Quote requests and job leads from customers looking for a garage like yours." />
 
       <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <Tabs value={stage} onValueChange={(v) => setParams({ stage: v === "new" ? null : v, quote: null }, { resetPage: true })} className="min-w-0">
-          <TabsList>
+        <FilterTabs value={stage} onValueChange={(v) => setParams({ stage: v === "new" ? null : v, quote: null }, { resetPage: true })} className="min-w-0">
+          <FilterTabList>
             {STAGES.map((s) => (
-              <TabsTrigger key={s.value} value={s.value}>
+              <FilterTab key={s.value} value={s.value}>
                 {s.label}
                 {counts && counts[s.value] > 0 && (
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${s.value === "new" ? "bg-[#F97316] text-white" : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300"}`}>
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${s.value === "new" ? "bg-[#C2410C] text-white" : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300"}`}>
                     {counts[s.value]}
                   </span>
                 )}
-              </TabsTrigger>
+              </FilterTab>
             ))}
-          </TabsList>
-        </Tabs>
+          </FilterTabList>
+        </FilterTabs>
 
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="sm:w-44">

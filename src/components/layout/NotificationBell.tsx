@@ -75,7 +75,7 @@ export function NotificationBell() {
               )}
             </div>
             {items.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-slate-400 dark:text-slate-500">No notifications yet</div>
+              <div className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">No notifications yet</div>
             ) : (
               items.map((n) => {
                 const content = (
@@ -87,7 +87,7 @@ export function NotificationBell() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold text-slate-900 dark:text-white">{n.title}</p>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap mt-0.5">{timeAgo(n.createdAt)}</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap mt-0.5">{timeAgo(n.createdAt)}</span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{n.body}</p>
                   </div>

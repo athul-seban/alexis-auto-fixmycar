@@ -21,10 +21,14 @@ async function readyGarage(status = "PENDING") {
 }
 
 beforeEach(async () => {
-  mockSession.mockResolvedValue({ user: { id: "admin", role: "ADMIN" } } as any)
+  mockSession.mockResolvedValue({ user: { id: "admin", email: "boss@example.com", role: "ADMIN" } } as any)
+  await prisma.auditLog.deleteMany({ where: { actorEmail: "boss@example.com" } })
   await cleanupPrefix(PREFIX)
 })
-afterAll(() => cleanupPrefix(PREFIX))
+afterAll(async () => {
+  await prisma.auditLog.deleteMany({ where: { actorEmail: "boss@example.com" } })
+  await cleanupPrefix(PREFIX)
+})
 
 describe("GET /api/admin/garages", () => {
   it("lists garages with a readiness checklist", async () => {
@@ -54,6 +58,22 @@ describe("POST /api/admin/garages", () => {
     const notes = await prisma.notification.findMany({ where: { garageId: g.id } })
     expect(notes).toHaveLength(1)
     expect(notes[0].type).toBe("GARAGE_STATUS_CHANGED")
+  })
+
+  it("writes an audit entry naming the admin and the garage", async () => {
+    const g = await readyGarage()
+    await POST(json("POST", { garageId: g.id, action: "approve" }))
+    await POST(json("POST", { garageId: g.id, action: "suspend", reason: "Complaints" }))
+    const rows = await prisma.auditLog.findMany({ where: { targetId: g.id }, orderBy: { createdAt: "asc" } })
+    expect(rows.map((r) => r.action)).toEqual(["GARAGE_APPROVED", "GARAGE_SUSPENDED"])
+    expect(rows[0]).toMatchObject({ actorEmail: "boss@example.com", targetType: "GARAGE" })
+    expect(rows[1].detail).toContain("Complaints")
+  })
+
+  it("does not audit an approval that was refused", async () => {
+    const { garage } = await makeGarage(PREFIX, { status: "PENDING" })
+    await POST(json("POST", { garageId: garage.id, action: "approve" }))
+    expect(await prisma.auditLog.count({ where: { targetId: garage.id } })).toBe(0)
   })
 
   it("refuses to approve an incomplete profile unless forced", async () => {

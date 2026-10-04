@@ -98,7 +98,7 @@ export function OwnerQuotesPage() {
       <Panel className="p-4 sm:p-6">
         <div className="-mx-4 sm:-mx-6">
           {error && !data ? (
-            <p role="alert" className="p-6 text-center text-sm text-red-600 dark:text-red-400">
+            <p role="alert" className="p-6 text-center text-sm text-red-700 dark:text-red-400">
               {error}
             </p>
           ) : (

@@ -150,7 +150,7 @@ export function ServiceCategories() {
     <section className="py-24 bg-white dark:bg-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <span className="inline-block text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
+          <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
             What Do You Need?
           </span>
           <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-4 tracking-tight">
@@ -175,7 +175,7 @@ export function ServiceCategories() {
               {cat.popular && (
                 <span
                   className="absolute -top-2 -right-2 text-white text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: "#F97316" }}
+                  style={{ background: "#C2410C" }}
                 >
                   Hot
                 </span>

@@ -66,7 +66,7 @@ export default function RegisterPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
+      <div role="main" className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
         <div className="text-center">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Account Created!</h2>
@@ -141,8 +141,10 @@ export default function RegisterPage() {
               />
               <button
                 type="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-8 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                className="absolute right-3 top-8 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -162,7 +164,7 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          <p className="text-xs text-slate-400 dark:text-slate-500 text-center mt-4 leading-relaxed">
+          <p className="text-xs text-slate-500 dark:text-slate-400 text-center mt-4 leading-relaxed">
             By creating an account you agree to our{" "}
             <Link href="/terms" className="underline">Terms of Service</Link>
             {" "}and{" "}

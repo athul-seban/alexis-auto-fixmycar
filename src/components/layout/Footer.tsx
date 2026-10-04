@@ -143,17 +143,17 @@ export function Footer() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex flex-col items-center gap-1 text-center md:items-start md:text-left">
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400">
                 © {new Date().getFullYear()} Quote My Garage Ltd. All rights reserved. Registered in England & Wales.
               </p>
-              <DevelopedBy className="text-xs text-slate-500" linkClassName="text-slate-300 hover:text-white" />
+              <DevelopedBy className="text-xs text-slate-400" linkClassName="text-slate-200 hover:text-white" />
             </div>
             <div className="flex items-center gap-6">
               {footerLinks.legal.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-xs text-slate-500 hover:text-white transition-colors"
+                  className="text-xs text-slate-400 hover:text-white transition-colors"
                 >
                   {link.label}
                 </Link>

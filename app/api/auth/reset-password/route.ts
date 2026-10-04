@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { limitByIp } from "@/lib/rate-limit"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
@@ -10,6 +11,9 @@ const schema = z.object({
 
 export async function POST(req: Request) {
   try {
+    const limited = await limitByIp(req.headers, "reset", 10, 60 * 60 * 1000)
+    if (limited) return limited
+
     const body = await req.json()
     const { token, password } = schema.parse(body)
 

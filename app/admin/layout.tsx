@@ -10,7 +10,7 @@ export const metadata = {
   robots: { index: false, follow: false },
 }
 
-// Shell for every /admin/* page. Real authorisation is middleware.ts (routes) and each /api/admin/* handler.
+// Shell for every /admin/* page. Real authorisation is proxy.ts (routes) and each /api/admin/* handler.
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions)
   if (!session) redirect("/login?callbackUrl=/admin")

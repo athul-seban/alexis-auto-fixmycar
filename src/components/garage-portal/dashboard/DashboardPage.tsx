@@ -87,7 +87,7 @@ export function DashboardPage() {
         </div>
 
         {error && !data ? (
-          <Panel className="p-6 text-center text-sm text-red-600 dark:text-red-400" role="alert">{error}</Panel>
+          <Panel className="p-6 text-center text-sm text-red-700 dark:text-red-400" role="alert">{error}</Panel>
         ) : (
           <KpiGrid loading={loading && !data} marketplace={data?.marketplace ?? null} widget={data?.widget ?? null} noShowRate={data?.noShowRate ?? null} />
         )}

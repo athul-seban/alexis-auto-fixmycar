@@ -1,4 +1,5 @@
 import { NextAuthOptions } from "next-auth"
+import { limitByIp } from "@/lib/rate-limit"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
 import { PrismaAdapter } from "@auth/prisma-adapter"
@@ -26,8 +27,12 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null
+
+        // Per-visitor brake on top of the per-account lockout below (which can't stop one IP trying many accounts).
+        const limited = await limitByIp(new Headers(req?.headers as Record<string, string> | undefined), "login", 30, 10 * 60 * 1000)
+        if (limited) throw new Error("Too many sign-in attempts. Please wait a few minutes and try again.")
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.trim().toLowerCase() },

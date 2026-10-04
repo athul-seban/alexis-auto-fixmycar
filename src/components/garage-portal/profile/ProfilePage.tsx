@@ -81,7 +81,7 @@ export function ProfilePage() {
     <>
       <PageHeader title="Profile" description="Your public listing: details, photos, services and opening hours." />
       {error && !data ? (
-        <Panel className="p-6 text-center text-sm text-red-600 dark:text-red-400" role="alert">{error}</Panel>
+        <Panel className="p-6 text-center text-sm text-red-700 dark:text-red-400" role="alert">{error}</Panel>
       ) : !data ? (
         <div className="space-y-4">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-48 w-full rounded-xl" />)}</div>
       ) : (
@@ -287,7 +287,7 @@ function ProfileForm({ profile, onSaved }: { profile: Profile; onSaved: () => vo
       {/* Sticky save bar */}
       <div className={`fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur transition-transform dark:border-white/10 dark:bg-slate-900/95 lg:left-64 ${dirty || error ? "translate-y-0" : "translate-y-full"}`}>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <p className={`flex-1 text-sm ${error ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`} role={error ? "alert" : undefined}>
+          <p className={`flex-1 text-sm ${error ? "text-red-700 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`} role={error ? "alert" : undefined}>
             {error ?? "You have unsaved changes."}
           </p>
           <Button type="button" variant="secondary" size="sm" disabled={saving} onClick={() => { setForm(baseline); setError(null) }}>Discard</Button>

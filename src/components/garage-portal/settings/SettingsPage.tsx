@@ -23,7 +23,7 @@ export function SettingsPage() {
     <>
       <PageHeader title="Settings" description="Your team, notifications and account." />
       {error && !data ? (
-        <Panel className="p-6 text-center text-sm text-red-600 dark:text-red-400" role="alert">{error}</Panel>
+        <Panel className="p-6 text-center text-sm text-red-700 dark:text-red-400" role="alert">{error}</Panel>
       ) : !data ? (
         <div className="space-y-4">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}</div>
       ) : (

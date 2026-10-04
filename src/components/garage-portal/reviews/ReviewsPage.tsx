@@ -70,7 +70,7 @@ export function ReviewsPage() {
       <PageHeader title="Reviews" description="What customers say about your garage. Replies are public, so keep them friendly." />
 
       {error && !data ? (
-        <Panel className="p-6 text-center text-sm text-red-600 dark:text-red-400" role="alert">{error}</Panel>
+        <Panel className="p-6 text-center text-sm text-red-700 dark:text-red-400" role="alert">{error}</Panel>
       ) : !data ? (
         <div className="space-y-4"><Skeleton className="h-40 w-full rounded-xl" /><Skeleton className="h-32 w-full rounded-xl" /></div>
       ) : (
@@ -145,7 +145,7 @@ export function ReviewsPage() {
                         <Stars rating={r.rating} />
                         <span className="text-sm font-semibold text-slate-900 dark:text-white">{r.customerName}</span>
                       </div>
-                      <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+                      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                         {formatLondonDate(r.createdAt)} · {getServiceLabel(r.serviceType)}
                         {r.bookingReference && <> · <a href={garageLinks.booking(r.bookingId)} className="hover:underline">{r.bookingReference}</a></>}
                       </p>

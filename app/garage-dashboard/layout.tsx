@@ -14,7 +14,7 @@ export const metadata = {
 }
 
 // Sidebar + topbar shell for every /garage-dashboard/* page (no marketing Header/Footer).
-// This guard only shapes the page; real authorisation is enforced per-request by middleware.ts
+// This guard only shapes the page; real authorisation is enforced per-request by proxy.ts
 // (routes) and requireGarage() (APIs), because layouts don't re-run on client navigation.
 export default async function GaragePortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions)

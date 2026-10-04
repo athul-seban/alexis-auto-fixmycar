@@ -20,7 +20,7 @@ const ROLE_PREFIXES: { prefix: string; role: string }[] = [
   { prefix: "/dashboard", role: "OWNER" },
 ]
 
-// Mirrors middleware.ts: a role-restricted area is only allowed for its own role.
+// Mirrors proxy.ts: a role-restricted area is only allowed for its own role.
 export function isAllowedForRole(role: string | null | undefined, path: string): boolean {
   const restricted = ROLE_PREFIXES.find(({ prefix }) => path.startsWith(prefix))
   if (!restricted) return true

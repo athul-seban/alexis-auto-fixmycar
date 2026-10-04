@@ -33,7 +33,7 @@ export function WebsitePage() {
     <>
       <PageHeader title="Website" description="Let customers book online from your own website with a free booking widget." />
       {error && !data ? (
-        <Panel className="p-6 text-center text-sm text-red-600 dark:text-red-400" role="alert">{error}</Panel>
+        <Panel className="p-6 text-center text-sm text-red-700 dark:text-red-400" role="alert">{error}</Panel>
       ) : !data ? (
         <div className="space-y-4"><Skeleton className="h-32 w-full rounded-xl" /><Skeleton className="h-64 w-full rounded-xl" /></div>
       ) : (

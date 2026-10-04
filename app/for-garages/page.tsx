@@ -129,7 +129,7 @@ export default function ForGaragesPage() {
         <section className="py-24 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <span className="inline-block text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 border border-orange-100 px-4 py-1.5 rounded-full mb-4">
+              <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 border border-orange-100 px-4 py-1.5 rounded-full mb-4">
                 Simple Process
               </span>
               <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 mb-4 tracking-tight">
@@ -145,7 +145,7 @@ export default function ForGaragesPage() {
                   <div className="w-14 h-14 rounded-xl bg-orange-50 flex items-center justify-center mb-5">
                     <step.icon className="h-7 w-7 text-[#F97316]" />
                   </div>
-                  <div className="text-xs font-bold text-slate-400 mb-2">STEP {i + 1}</div>
+                  <div className="text-xs font-bold text-slate-500 mb-2">STEP {i + 1}</div>
                   <h3 className="text-xl font-bold text-slate-900 mb-3">{step.title}</h3>
                   <p className="text-slate-500 leading-relaxed text-[15px]">{step.description}</p>
                 </div>

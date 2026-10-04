@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { DataTable, type DataColumn } from "@/components/ui/data-table"
 import { EmptyState } from "@/components/ui/empty-state"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FilterTab, FilterTabList, FilterTabs } from "@/components/ui/filter-tabs"
 import { useToast } from "@/components/ui/toast"
 import { sendJson, useApi } from "@/hooks/use-api"
 import { useUrlParams } from "@/hooks/use-url-params"
@@ -82,7 +82,7 @@ function BookingsInner() {
             </Button>
           )}
           {["PENDING", "CONFIRMED"].includes(b.status) && (
-            <Button size="sm" variant="secondary" className="text-red-600 dark:text-red-400" onClick={() => setCancelling(b)}>
+            <Button size="sm" variant="secondary" className="text-red-700 dark:text-red-400" onClick={() => setCancelling(b)}>
               Cancel
             </Button>
           )}
@@ -116,16 +116,16 @@ function BookingsInner() {
         }
       />
       <Panel className="p-4 sm:p-6">
-        <Tabs value={tab} onValueChange={(v) => setParams({ tab: v === "upcoming" ? null : v })} className="mb-2">
-          <TabsList aria-label="Booking filter">
-            <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
-            <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
-            <TabsTrigger value="all">All ({all.length})</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <FilterTabs value={tab} onValueChange={(v) => setParams({ tab: v === "upcoming" ? null : v })} className="mb-2">
+          <FilterTabList aria-label="Booking filter">
+            <FilterTab value="upcoming">Upcoming ({upcoming.length})</FilterTab>
+            <FilterTab value="past">Past ({past.length})</FilterTab>
+            <FilterTab value="all">All ({all.length})</FilterTab>
+          </FilterTabList>
+        </FilterTabs>
         <div className="-mx-4 sm:-mx-6">
           {error && !data ? (
-            <p role="alert" className="p-6 text-center text-sm text-red-600 dark:text-red-400">
+            <p role="alert" className="p-6 text-center text-sm text-red-700 dark:text-red-400">
               {error}
             </p>
           ) : (

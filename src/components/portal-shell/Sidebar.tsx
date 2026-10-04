@@ -30,7 +30,7 @@ function Badge({ count, collapsed }: { count: number; collapsed: boolean }) {
   return (
     <span
       className={cn(
-        "flex-shrink-0 rounded-full bg-[#F97316] text-center text-[10px] font-bold leading-none text-white",
+        "flex-shrink-0 rounded-full bg-[#C2410C] text-center text-[10px] font-bold leading-none text-white",
         collapsed ? "absolute right-1.5 top-1.5 min-w-[1rem] px-1 py-0.5" : "ml-auto min-w-[1.25rem] px-1.5 py-1"
       )}
     >
@@ -70,7 +70,7 @@ export function SidebarContent({ nav, identity, badges = {}, collapsed = false, 
         {nav.sections.map((section, i) => (
           <div key={section.label ?? i}>
             {section.label && !collapsed && (
-              <div className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              <div className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 {section.label}
               </div>
             )}
@@ -136,7 +136,7 @@ export function SidebarContent({ nav, identity, badges = {}, collapsed = false, 
           </button>
         )}
         {!collapsed && (
-          <div className="space-y-0.5 px-3 pt-2 text-center text-[11px] text-slate-400 dark:text-slate-500">
+          <div className="space-y-0.5 px-3 pt-2 text-center text-[11px] text-slate-500 dark:text-slate-400">
             <p>© {new Date().getFullYear()} Quote My Garage</p>
             <DevelopedBy linkClassName="text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white" />
           </div>

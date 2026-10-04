@@ -117,7 +117,7 @@ function UserDialog({ user, onClose, onChanged }: { user: AdminUser | null; onCl
                 <Button variant="secondary" className="justify-start" disabled={isSelf} onClick={() => setConfirm(user.suspended ? "unsuspend" : "suspend")}>
                   {user.suspended ? "Reinstate user" : "Suspend user"}
                 </Button>
-                <Button variant="secondary" className="justify-start gap-2 text-red-600 dark:text-red-400" disabled={isSelf} onClick={() => setConfirm("delete")}>
+                <Button variant="secondary" className="justify-start gap-2 text-red-700 dark:text-red-400" disabled={isSelf} onClick={() => setConfirm("delete")}>
                   <Trash2 className="h-4 w-4" /> Delete user
                 </Button>
               </div>

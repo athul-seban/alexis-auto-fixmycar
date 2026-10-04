@@ -123,7 +123,7 @@ export function DiaryPage() {
 
         {error && !data ? (
           <div className="p-8 text-center">
-            <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+            <p role="alert" className="mb-3 text-sm text-red-700 dark:text-red-400">{error}</p>
             <Button size="sm" variant="secondary" onClick={reload}>Try again</Button>
           </div>
         ) : !data ? (

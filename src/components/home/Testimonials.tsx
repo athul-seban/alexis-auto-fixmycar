@@ -87,7 +87,7 @@ export function Testimonials() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-14">
-          <span className="inline-block text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
+          <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
             Customer Reviews
           </span>
           <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-5 tracking-tight">
@@ -161,13 +161,13 @@ export function Testimonials() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-slate-900 dark:text-white text-sm">{t.name}</p>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                     {t.location} · {t.vehicle}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <div className="text-sm font-black text-emerald-600 dark:text-emerald-400">Saved £{t.saved}</div>
-                  <div className="text-[11px] text-slate-400 dark:text-slate-500">{t.service}</div>
+                  <div className="text-sm font-black text-emerald-700 dark:text-emerald-400">Saved £{t.saved}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">{t.service}</div>
                 </div>
               </div>
             </div>
@@ -175,7 +175,7 @@ export function Testimonials() {
         </div>
 
         {/* Trustpilot-style footer */}
-        <div className="text-center mt-10 text-slate-400 dark:text-slate-500 text-sm">
+        <div className="text-center mt-10 text-slate-500 dark:text-slate-400 text-sm">
           All reviews are verified purchases collected after service completion.
         </div>
       </div>

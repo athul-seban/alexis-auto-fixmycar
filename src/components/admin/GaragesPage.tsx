@@ -45,7 +45,7 @@ const muted = "text-slate-500 dark:text-slate-400"
 function ReadinessSummary({ r }: { r: Readiness }) {
   const done = r.checks.filter((c) => c.ok).length
   return (
-    <span className={cn("whitespace-nowrap text-xs font-semibold", r.ready ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")}>
+    <span className={cn("whitespace-nowrap text-xs font-semibold", r.ready ? "text-green-700 dark:text-green-400" : "text-amber-600 dark:text-amber-400")}>
       {done}/{r.checks.length} complete
     </span>
   )
@@ -130,7 +130,7 @@ function GarageDialog({ garage, onClose, onChanged }: { garage: AdminGarage | nu
                   {g.readiness.checks.map((c) => (
                     <li key={c.key} className="flex items-center gap-2 text-sm">
                       {c.ok ? (
-                        <Check className="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" aria-label="Done" />
+                        <Check className="h-4 w-4 flex-shrink-0 text-green-700 dark:text-green-400" aria-label="Done" />
                       ) : c.required ? (
                         <X className="h-4 w-4 flex-shrink-0 text-red-500" aria-label="Missing, required" />
                       ) : (
@@ -188,7 +188,7 @@ function GarageDialog({ garage, onClose, onChanged }: { garage: AdminGarage | nu
                 ) : (
                   <>
                     {g.status === "PENDING" && (
-                      <Button variant="secondary" className="text-red-600 dark:text-red-400" onClick={() => setConfirm({ action: "reject" })}>
+                      <Button variant="secondary" className="text-red-700 dark:text-red-400" onClick={() => setConfirm({ action: "reject" })}>
                         Reject
                       </Button>
                     )}

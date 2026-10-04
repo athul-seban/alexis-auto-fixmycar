@@ -36,9 +36,9 @@ There is no `prisma/migrations` folder (don't use `db:migrate`). On Windows, `pr
 
 `prisma/schema.prisma` hardcodes `provider = "sqlite"` for local dev (`prisma/dev.db`, gitignored). `.env.example` and `AWS-DEPLOYMENT.md`, however, configure `DATABASE_URL` for AWS RDS **PostgreSQL**. Because SQLite has no native array/JSON type, list-like Garage fields (`services`, `images`) and `openingHours` are stored as JSON-encoded strings and parsed at the application layer via `src/lib/garage-mapper.ts` (`parseServiceList`, `parseImageList`, `parseOpeningHours`). If ever deploying against real Postgres, the schema provider needs to be switched deliberately — don't assume the two are interchangeable as-is.
 
-### Three roles, enforced at the middleware layer
+### Three roles, enforced at the proxy layer
 
-`User.role` is one of `OWNER | GARAGE | ADMIN`. `middleware.ts` uses `withAuth` (NextAuth) to gate `/dashboard/*` (OWNER), `/garage-dashboard/*` (GARAGE), and `/admin/*` (ADMIN) by checking `token.role`, redirecting to `/login?error=unauthorized` on mismatch. API routes re-check `session.user.role` themselves (see `app/api/job-requests/route.ts` GET handler) — middleware does not protect `/api/*`, so any new API route touching role-restricted data must do its own `getServerSession(authOptions)` + role check.
+`User.role` is one of `OWNER | GARAGE | ADMIN`. `proxy.ts` (the Next 16 name for middleware) uses `withAuth` (NextAuth) to gate `/dashboard/*` (OWNER), `/garage-dashboard/*` (GARAGE), and `/admin/*` (ADMIN) by checking `token.role`, redirecting to `/login?error=unauthorized` on mismatch. API routes re-check `session.user.role` themselves (see `app/api/job-requests/route.ts` GET handler) — the proxy does not protect `/api/*`, so any new API route touching role-restricted data must do its own `getServerSession(authOptions)` + role check.
 
 Auth config lives in `src/lib/auth.ts`: JWT session strategy, Google OAuth + credentials (bcrypt-hashed password) providers, `PrismaAdapter`. Role and user id are threaded through via the `jwt`/`session` callbacks onto `token`/`session.user`.
 
@@ -78,6 +78,13 @@ All three roles share one shell, `src/components/portal-shell/` (`PortalShell`, 
 ### Customer manage link, reminders and audit trail
 
 Every booking gets a `manageToken` (128-bit). Emails link to `/booking/[token]`, a public page (noindex, no-referrer) backed by `/api/booking/[token]`: view, cancel (`transitionBooking` with `actor: { role: "OWNER", viaToken: true }`) and review (`review-service.ts`, which also serves signed-in customers; `Review.ownerId` is nullable). `GET /api/cron/booking-reminders` (CRON_SECRET) sends 24h reminders once each (`reminderSentAt` claim). `BookingEvent` is an append-only history written by the booking service and shown as the drawer timeline; the job sheet prints at `/garage-dashboard/bookings/[id]/job-sheet`.
+
+### Rate limiting, audit log and accessibility
+
+- `src/lib/rate-limit.ts`: DB-backed (`RateLimitHit`, no in-memory state, so it holds across instances). `limitByIp(req.headers, name, limit, windowMs)` returns a ready 429 or null; unknown and loopback IPs are skipped. Applied to sign-in, register, forgot/reset password, public job requests and manage-link POSTs. Behind a proxy set `TRUSTED_PROXY_HOPS` or per-IP limits are spoofable (see above).
+- `src/lib/audit.ts`: `audit(session, { action, targetType, targetId, detail })` after every admin mutation (never throws). Browse at `/admin/audit`.
+- Accessibility is tested: `e2e/a11y.spec.ts` runs axe (WCAG 2.1 A/AA) on the main pages at desktop and phone size. Rules of thumb: text colours need 4.5:1 (use `text-slate-500` not `-400` on white; `#C2410C` for orange text on light backgrounds, dark text on orange buttons), icon-only buttons need `aria-label`, list filters use `FilterTabs` (not ARIA tabs), full-page forms need a `main` landmark.
+- CI (`.github/workflows/ci.yml`): `build` (lint, vitest, build), `e2e` (seeded SQLite + Playwright), and `postgres` (same vitest suite against Postgres with `schema.prod.prisma`; non-blocking until first seen green).
 
 ### SEO
 

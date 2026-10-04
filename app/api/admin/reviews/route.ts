@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { audit } from "@/lib/audit"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
@@ -90,6 +91,7 @@ export async function DELETE(req: Request) {
       prisma.review.delete({ where: { id: reviewId } }),
       ...(garage ? [prisma.garage.update({ where: { id: garage.id }, data: ratingAfterRemove(garage, review.rating) })] : []),
     ])
+    await audit(session, { action: "REVIEW_DELETED", targetType: "REVIEW", targetId: reviewId, detail: `${review.rating}★ review of ${garage?.name ?? "a garage"}` })
     return NextResponse.json({ success: true })
   } catch (err) {
     if (err instanceof z.ZodError) {

@@ -183,7 +183,7 @@ export function DataTable<T, S extends string = string>({
                       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                         {details.map((c) => (
                           <React.Fragment key={c.id}>
-                            <dt className="text-slate-400 dark:text-slate-500">{c.header}</dt>
+                            <dt className="text-slate-500 dark:text-slate-400">{c.header}</dt>
                             <dd className="min-w-0 break-words text-slate-700 dark:text-slate-300">{c.cell(row)}</dd>
                           </React.Fragment>
                         ))}

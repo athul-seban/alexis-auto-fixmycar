@@ -24,7 +24,7 @@ interface BookingsTableProps {
 }
 
 const muted = "text-slate-500 dark:text-slate-400"
-const dash = <span className="text-slate-400 dark:text-slate-500">—</span>
+const dash = <span className="text-slate-500 dark:text-slate-400">—</span>
 
 const COLUMNS: DataColumn<BookingRow, SortKey>[] = [
   { id: "vrm", header: "VRM", sortKey: "vrm", mobile: "title", cell: (r) => <VrmPlate vrm={r.vrm} /> },
@@ -85,7 +85,7 @@ const COLUMNS: DataColumn<BookingRow, SortKey>[] = [
       <>
         {formatCurrency(r.finalInvoiceValue ?? r.totalPrice)}
         {r.finalInvoiceValue !== null && r.finalInvoiceValue !== r.totalPrice && (
-          <span className="ml-1 text-[10px] text-slate-400" title={`Quoted ${formatCurrency(r.totalPrice)}`}>
+          <span className="ml-1 text-[10px] text-slate-500 dark:text-slate-400" title={`Quoted ${formatCurrency(r.totalPrice)}`}>
             final
           </span>
         )}
@@ -98,7 +98,7 @@ const COLUMNS: DataColumn<BookingRow, SortKey>[] = [
     header: "Contacted",
     cell: (r) =>
       r.contactedAt ? (
-        <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400" title={`Contacted ${formatLondonDate(r.contactedAt)}`}>
+        <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400" title={`Contacted ${formatLondonDate(r.contactedAt)}`}>
           <CheckCircle2 className="h-4 w-4" />
           <span className="sr-only">Contacted</span>
         </span>

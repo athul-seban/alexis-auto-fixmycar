@@ -117,7 +117,7 @@ npx prisma db push --schema=prisma/schema.prod.prisma
 **Rolling out a schema change (e.g. the garage portal):**
 
 1. Back up the database first (RDS snapshot).
-2. `db push` the prod schema. Portal changes are additive or relax `NOT NULL` (`Booking.ownerId`/`vehicleId`), so no data is lost and the old code keeps working. **If Prisma asks for `--accept-data-loss`, stop** and investigate. The one expected exception is the warning about adding a unique constraint on `Booking.manageToken`: the column is new and all-null, so there can be no duplicates and it is safe. Other changes in this release: `Review.ownerId` becomes optional (reviews left via an email link have no account), new `BookingEvent` table, new `Booking.reminderSentAt`/`manageToken` columns, and extra indexes.
+2. `db push` the prod schema. Portal changes are additive or relax `NOT NULL` (`Booking.ownerId`/`vehicleId`), so no data is lost and the old code keeps working. **If Prisma asks for `--accept-data-loss`, stop** and investigate. The one expected exception is the warning about adding a unique constraint on `Booking.manageToken`: the column is new and all-null, so there can be no duplicates and it is safe. Other changes in this release: `Review.ownerId` becomes optional (reviews left via an email link have no account), new `BookingEvent`, `RateLimitHit` and `AuditLog` tables, new `Booking.reminderSentAt`/`manageToken` columns, and extra indexes.
 3. Deploy the new app version.
 4. Backfill existing bookings (source, customer/vehicle snapshots, reference, search text) — idempotent, safe to re-run:
 

@@ -56,7 +56,7 @@ export function AdminWidgetsPage() {
     <>
       <PageHeader title="Widgets" description="Garages running the embeddable booking widget, and visitors who book repeatedly." />
       {error && !data && (
-        <p role="alert" className="mb-4 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mb-4 text-sm text-red-700 dark:text-red-400">
           {error}
         </p>
       )}

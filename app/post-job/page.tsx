@@ -78,10 +78,10 @@ export default function PostJobPage() {
 
   if (result) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
+      <div role="main" className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex items-center justify-center p-4">
         <div className="max-w-md w-full text-center bg-white dark:bg-slate-900 rounded-2xl p-10 shadow-lg border border-gray-200 dark:border-white/10">
           <div className="w-20 h-20 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-5">
-            <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
+            <CheckCircle className="h-10 w-10 text-green-700 dark:text-green-400" />
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Your request is live!</h2>
           <p className="text-slate-600 dark:text-slate-400 mb-2">
@@ -89,7 +89,7 @@ export default function PostJobPage() {
               ? `We've notified ${result.matchedGarageCount} garage${result.matchedGarageCount === 1 ? "" : "s"} near you.`
               : "We're still finding garages near you — check back soon."}
           </p>
-          <p className="text-sm text-slate-400 dark:text-slate-500 mb-6">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
             We also emailed this tracking link to <strong>{form.guestEmail}</strong> — no account needed.
           </p>
           <Link href={`/post-job/track/${result.jobRequest.token}`}>
@@ -117,10 +117,10 @@ export default function PostJobPage() {
         <div className="flex items-center gap-2 mb-8">
           {[1, 2, 3].map((s) => (
             <div key={s} className={`flex items-center gap-2 flex-1 ${s < 3 ? "after:flex-1 after:h-0.5 after:bg-gray-200 dark:after:bg-slate-700 after:ml-2" : ""}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step >= s ? "bg-[#F97316] text-white" : "bg-gray-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step >= s ? "bg-[#C2410C] text-white" : "bg-gray-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}>
                 {step > s ? <CheckCircle className="h-4 w-4" /> : s}
               </div>
-              <span className={`text-sm font-medium hidden sm:block ${step >= s ? "text-slate-900 dark:text-white" : "text-slate-400 dark:text-slate-500"}`}>
+              <span className={`text-sm font-medium hidden sm:block ${step >= s ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"}`}>
                 {s === 1 ? "Vehicle" : s === 2 ? "Job Details" : "Your Details"}
               </span>
             </div>
@@ -153,6 +153,7 @@ export default function PostJobPage() {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Fuel type (optional)</label>
                   <select
+                    aria-label="Fuel type"
                     name="fuel"
                     value={form.fuel}
                     onChange={handleChange}
