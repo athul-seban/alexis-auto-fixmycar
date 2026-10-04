@@ -26,13 +26,20 @@ function getTransporter(): Transporter | null {
   return transporter
 }
 
+export interface MailAttachment {
+  filename: string
+  content: Buffer
+  contentType: string
+}
+
 interface SendMailInput {
   to: string
   subject: string
   html: string
+  attachments?: MailAttachment[]
 }
 
-export async function sendMail({ to, subject, html }: SendMailInput): Promise<{ success: boolean; skipped?: boolean }> {
+export async function sendMail({ to, subject, html, attachments }: SendMailInput): Promise<{ success: boolean; skipped?: boolean }> {
   const transporter = getTransporter()
 
   if (!transporter) {
@@ -46,6 +53,7 @@ export async function sendMail({ to, subject, html }: SendMailInput): Promise<{ 
       to,
       subject,
       html,
+      attachments,
     })
     return { success: true }
   } catch (err) {

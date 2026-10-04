@@ -34,6 +34,20 @@ test.describe("accessibility", () => {
     await expectNoViolations(page, "garage bookings")
   })
 
+  test("garage diary (month view)", async ({ page }) => {
+    await login(page, "garage")
+    await page.goto("/garage-dashboard/diary?view=month")
+    await expect(page.getByRole("grid", { name: "Month diary" })).toBeVisible()
+    await expectNoViolations(page, "garage diary month")
+  })
+
+  test("garage customers", async ({ page }) => {
+    await login(page, "garage")
+    await page.goto("/garage-dashboard/customers")
+    await expect(page.getByText(/\d+ customers?/).first()).toBeVisible()
+    await expectNoViolations(page, "garage customers")
+  })
+
   test("admin garages list", async ({ page }) => {
     await login(page, "admin")
     await page.goto("/admin/garages")

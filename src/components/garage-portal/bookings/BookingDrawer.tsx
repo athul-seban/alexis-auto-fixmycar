@@ -17,6 +17,7 @@ import { formatPhone } from "@/lib/portal/phone"
 import { MessageThread } from "@/components/shared/MessageThread"
 import { DateTimeFields, dateTimeFromIso, dateTimeToIso } from "@/components/garage-portal/shared/DateTimeFields"
 import { OverlapNotice } from "@/components/garage-portal/shared/OverlapNotice"
+import { InvoiceSection } from "@/components/garage-portal/bookings/InvoiceSection"
 import { PaymentPill } from "@/components/garage-portal/shared/PaymentPill"
 import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
 import { VrmPlate } from "@/components/garage-portal/shared/VrmPlate"
@@ -238,6 +239,12 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
             {b.depositAmount !== null && <span className="text-slate-700 dark:text-slate-300">Deposit {formatCurrency(b.depositAmount)} of {formatCurrency(b.totalPrice)}</span>}
           </div>
           {b.paymentStatus === "PAID" && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">The deposit is refunded automatically if you cancel. Collect the balance when the job is done.</p>}
+        </Section>
+      )}
+
+      {b.status === "COMPLETED" && (
+        <Section title="Invoice">
+          <InvoiceSection booking={b} onChanged={() => { reload(); onChanged() }} />
         </Section>
       )}
 

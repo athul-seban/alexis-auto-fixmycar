@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test"
+import { expect, type Locator, type Page } from "@playwright/test"
 
 export const ACCOUNTS = {
   admin: { email: "admin@quotemygarage.dev", password: "admin123", home: "/admin" },
@@ -38,4 +38,20 @@ export async function loginViaForm(page: Page, role: keyof typeof ACCOUNTS) {
 /** True when the page scrolls sideways (a mobile-layout bug). */
 export async function hasHorizontalScroll(page: Page) {
   return page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1)
+}
+
+/**
+ * Drag one element onto another the way a hand does: press, move a little to start the browser's drag, then travel
+ * to the target in steps. Playwright's one-shot dragTo() jumps straight there and Chromium never starts an HTML5 drag.
+ */
+export async function dragWithMouse(page: Page, source: Locator, target: Locator) {
+  await source.scrollIntoViewIfNeeded()
+  await target.scrollIntoViewIfNeeded()
+  const from = (await source.boundingBox())!
+  const to = (await target.boundingBox())!
+  await page.mouse.move(from.x + 10, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(from.x + 30, from.y + from.height / 2 + 14, { steps: 5 })
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 15 })
+  await page.mouse.up()
 }

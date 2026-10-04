@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { cn, getServiceLabel } from "@/lib/utils"
 import {
   closedRanges,
+  dropSlot,
   hourWindow,
   layoutDay,
   minutesOnDay,
@@ -27,6 +28,12 @@ interface TimeGridProps {
   onSlotClick: (day: string, time: string) => void
   onBookingClick: (id: string) => void
   onBlockClick: (block: DiaryBlockRow) => void
+  /** Drag-and-drop: a booking was dropped on a day at a slot. */
+  onBookingDrop: (bookingId: string, day: string, time: string) => void
+  dragging: string | null
+  onDragStateChange: (bookingId: string | null) => void
+  /** Only bookings that can still be moved are draggable. */
+  draggable: (b: BookingRow) => boolean
 }
 
 const dayLabel = (day: string) => {
@@ -37,7 +44,7 @@ const dayLabel = (day: string) => {
   }
 }
 
-export function TimeGrid({ days, bookings, blocks, openingHours, onSlotClick, onBookingClick, onBlockClick }: TimeGridProps) {
+export function TimeGrid({ days, bookings, blocks, openingHours, onSlotClick, onBookingClick, onBlockClick, onBookingDrop, dragging, onDragStateChange, draggable }: TimeGridProps) {
   // "Now" only exists on the client after mount, so the current-time line never causes a hydration mismatch.
   const [now, setNow] = useState<Date | null>(null)
   useEffect(() => {
@@ -123,6 +130,19 @@ export function TimeGrid({ days, bookings, blocks, openingHours, onSlotClick, on
                   const rect = e.currentTarget.getBoundingClientRect()
                   onSlotClick(day, snapToTime(windowStart + (e.clientY - rect.top) / PX_PER_MIN))
                 }}
+                onDragOver={(e) => {
+                  if (dragging) {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = "move"
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const id = e.dataTransfer.getData("text/booking-id") || dragging
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  if (id) onBookingDrop(id, day, dropSlot(e.clientY - rect.top, PX_PER_MIN, windowStart))
+                  onDragStateChange(null)
+                }}
                 onKeyDown={(e) => {
                   // Keyboard users can't point at a time, so Enter starts a booking at the first opening hour.
                   if (e.key === "Enter") onSlotClick(day, snapToTime(windowStart))
@@ -157,12 +177,21 @@ export function TimeGrid({ days, bookings, blocks, openingHours, onSlotClick, on
                     <button
                       key={event.id}
                       type="button"
+                      draggable={draggable(event)}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("text/booking-id", event.id)
+                        e.dataTransfer.effectAllowed = "move"
+                        onDragStateChange(event.id)
+                      }}
+                      onDragEnd={() => onDragStateChange(null)}
                       onClick={(e) => { e.stopPropagation(); onBookingClick(event.id) }}
                       className={cn(
                         "absolute cursor-pointer overflow-hidden rounded-md px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm transition-shadow hover:z-10 hover:shadow-md",
                         event.status === "COMPLETED" && "opacity-70",
                         event.status === "NO_SHOW" && "opacity-60",
                         needsOutcome && "ring-2 ring-amber-400",
+                        dragging === event.id && "opacity-40",
+                        draggable(event) && "active:cursor-grabbing",
                         !event.timeConfirmed && "border-dashed"
                       )}
                       style={{

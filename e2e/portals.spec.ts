@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { ACCOUNTS, hasHorizontalScroll, login, loginViaForm } from "./helpers"
+import { ACCOUNTS, dragWithMouse, hasHorizontalScroll, login, loginViaForm } from "./helpers"
 
 test.describe("role-based sign in", () => {
   for (const role of ["admin", "garage", "owner"] as const) {
@@ -40,6 +40,51 @@ test.describe("garage portal", () => {
     await page.keyboard.press("g")
     await page.keyboard.press("b")
     await expect(page).toHaveURL(/\/garage-dashboard\/bookings/)
+  })
+})
+
+test.describe("garage diary", () => {
+  test("month view shows a six-week grid with bookings and opens a day", async ({ page }) => {
+    await login(page, "garage")
+    await page.goto("/garage-dashboard/diary?view=month")
+    const grid = page.getByRole("grid", { name: "Month diary" })
+    await expect(grid).toBeVisible()
+    await expect(grid.getByRole("row")).toHaveCount(7) // header + six weeks
+    await expect(grid.getByRole("gridcell")).toHaveCount(42)
+    expect(await hasHorizontalScroll(page)).toBe(false)
+    await grid.getByRole("button", { name: /^Open .* in the day view$/ }).first().click()
+    await expect(page).toHaveURL(/view=day/)
+  })
+
+  test("dragging a booking asks before moving it, and cancelling changes nothing", async ({ page, isMobile }) => {
+    test.skip(isMobile, "drag and drop is a desktop gesture; phones use the booking drawer to reschedule")
+    await login(page, "garage")
+    await page.goto("/garage-dashboard/diary?view=month")
+    const grid = page.getByRole("grid", { name: "Month diary" })
+    const chip = grid.locator("button[draggable=true]").first()
+    await expect(chip).toBeVisible()
+    const before = await chip.getAttribute("title")
+
+    // Drop it on a different day cell.
+    const cells = grid.getByRole("gridcell")
+    const target = cells.nth((await cells.count()) - 1)
+    await dragWithMouse(page, chip, target)
+    await expect(page.getByRole("dialog", { name: "Move this booking?" })).toBeVisible()
+    await page.getByRole("button", { name: "Cancel" }).click()
+    await expect(page.getByRole("dialog", { name: "Move this booking?" })).toBeHidden()
+    await expect(grid.locator("button[draggable=true]").first()).toHaveAttribute("title", before!)
+  })
+})
+
+test.describe("garage customers", () => {
+  test("lists customers from bookings and opens a customer's history", async ({ page }) => {
+    await login(page, "garage")
+    await page.goto("/garage-dashboard/customers")
+    await expect(page.getByText(/\d+ customers?/).first()).toBeVisible()
+    expect(await hasHorizontalScroll(page)).toBe(false)
+    await page.getByRole("button", { name: /^Open (?!navigation)/ }).locator("visible=true").first().click()
+    await expect(page.getByRole("heading", { name: "Booking history" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Private note" })).toBeVisible()
   })
 })
 

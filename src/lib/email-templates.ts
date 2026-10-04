@@ -303,3 +303,19 @@ export function bookingReminderEmail({
   )
   return { subject, html }
 }
+
+/** Cover email for an invoice PDF sent to the customer. */
+export function invoiceCustomerEmail({
+  garageName, customerName, invoiceNumber, total, balanceDue, serviceType,
+}: { garageName: string; customerName: string | null; invoiceNumber: string; total: string; balanceDue: string; serviceType: string }): { subject: string; html: string } {
+  const subject = `Invoice ${invoiceNumber} from ${garageName}`
+  const html = wrapper(
+    subject,
+    `<p>Hi ${e(customerName ?? "there")},</p>
+     <p>Thanks for choosing <strong>${e(garageName)}</strong>. Your invoice for <strong>${e(getServiceLabel(serviceType))}</strong> is attached.</p>
+     <p><strong>Total:</strong> ${e(total)}<br/><strong>Balance due:</strong> ${e(balanceDue)}</p>`,
+    APP_URL,
+    "Visit Quote My Garage"
+  )
+  return { subject, html }
+}

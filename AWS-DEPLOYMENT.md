@@ -128,7 +128,8 @@ npx prisma db push --schema=prisma/schema.prod.prisma
 
 5. Online deposits (optional): add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to Secrets Manager, and in the Stripe dashboard add a webhook endpoint `https://<your-domain>/api/stripe/webhook` for `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded` and `checkout.session.async_payment_failed`. Test with Stripe test keys first. Without the keys the payments switch stays disabled. New columns on `Booking` (`paymentStatus`, `depositAmount`, `refundedAmount`, `stripeSessionId` unique, `stripePaymentIntent`) and a `StripeEvent` table are additive.
 6. Text messages (optional): add `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM` (or `TWILIO_MESSAGING_SERVICE_SID`) to Secrets Manager. UK senders should register an alphanumeric sender ID or buy a number first. New columns `Booking.smsOptIn`, `Booking.smsReminderSentAt` and `User.smsOptIn` are additive. The hourly reminder job (next step) also sends the SMS reminders.
-7. Schedule the reminder job: call `GET /api/cron/booking-reminders` hourly with `Authorization: Bearer $CRON_SECRET` (EventBridge Scheduler). It emails customers about appointments in the next 24 hours, once each; running it more often is harmless.
+7. Garage tools (customers/invoices) add `Garage.invoiceCounter`, `Booking.invoiceNumber`/`invoicedAt` (with `@@unique([garageId, invoiceNumber])` — Prisma warns about adding a unique constraint; the columns are new and all-null so it is safe) and a `CustomerNote` table.
+8. Schedule the reminder job: call `GET /api/cron/booking-reminders` hourly with `Authorization: Bearer $CRON_SECRET` (EventBridge Scheduler). It emails customers about appointments in the next 24 hours, once each; running it more often is harmless.
 
 Local/CI use SQLite via `prisma/schema.prisma`; keep the two schema files identical apart from `provider`.
 

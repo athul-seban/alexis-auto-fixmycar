@@ -37,7 +37,7 @@ export function StatTile({ label, value, icon: Icon, tone = "blue", hint, href, 
           <span />
         )}
         {hint && (
-          <span title={hint} className="text-slate-300 dark:text-slate-600" aria-label={hint}>
+          <span role="img" title={hint} className="text-slate-500 dark:text-slate-400" aria-label={hint}>
             <Info className="h-4 w-4" />
           </span>
         )}

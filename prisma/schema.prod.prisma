@@ -118,6 +118,8 @@ model Garage {
   totalBookings      Int       @default(0)
   // JSON string validated by src/lib/portal/portal-settings.ts (widget config, notification prefs)
   portalSettings     String?
+  // Last invoice number issued (INV-0001...). Incremented atomically when an invoice is first generated.
+  invoiceCounter     Int       @default(0)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -132,6 +134,7 @@ model Garage {
   servicePrices ServicePrice[]
   diaryBlocks   DiaryBlock[]
   leads         GarageLead[]
+  customerNotes CustomerNote[]
 }
 
 model Quote {
@@ -210,6 +213,8 @@ model Booking {
   // Text messages: the customer ticked "text me" (or has it on in their account) and when the 24h text went out.
   smsOptIn          Boolean   @default(false)
   smsReminderSentAt DateTime?
+  invoiceNumber     String?   // assigned the first time an invoice is generated, then fixed
+  invoicedAt        DateTime?
   reminderSentAt    DateTime? // set once the 24h-before reminder email has gone out
 
   owner       User?       @relation("OwnerBookings", fields: [ownerId], references: [id], onDelete: Restrict)
@@ -228,6 +233,7 @@ model Booking {
   @@index([garageId, status])
   @@index([garageId, source])
   @@index([customerEmail])
+  @@unique([garageId, invoiceNumber])
 }
 
 model Review {
@@ -454,4 +460,19 @@ model StripeEvent {
   id        String   @id // Stripe's event id
   type      String
   createdAt DateTime @default(now())
+}
+
+// A garage's private note about a customer. Customers are derived from bookings (no Customer table), so a note is
+// keyed by the same normalised identity the CRM groups on (see src/lib/portal/customers.ts).
+model CustomerNote {
+  id          String   @id @default(cuid())
+  garageId    String
+  customerKey String
+  body        String
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  garage Garage @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  @@unique([garageId, customerKey])
 }

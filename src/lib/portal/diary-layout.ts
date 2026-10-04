@@ -1,5 +1,5 @@
 import type { OpeningHours } from "@/types"
-import { addDays, londonDateString, londonParts, weekdayOf } from "@/lib/portal/tz"
+import { addDays, londonDateString, londonParts, londonWallToUtc, startOfLondonDay, weekdayOf } from "@/lib/portal/tz"
 import { DAY_ORDER, type DayKey } from "@/lib/portal/opening-hours"
 import { toMinutes } from "@/lib/portal/availability"
 
@@ -142,4 +142,60 @@ export function closedRanges(openingHours: OpeningHours | null, day: string, win
 export function snapToTime(minutesFromMidnight: number, slot = 30): string {
   const snapped = Math.min(1440 - slot, Math.max(0, Math.floor(minutesFromMidnight / slot) * slot))
   return `${String(Math.floor(snapped / 60)).padStart(2, "0")}:${String(snapped % 60).padStart(2, "0")}`
+}
+
+// ───────────────────────────── month view ─────────────────────────────
+
+export interface MonthGrid {
+  /** "YYYY-MM" of the month being shown. */
+  month: string
+  /** Six Monday-first weeks, always — the same height every month, and exactly the diary API's 42-day limit. */
+  weeks: string[][]
+  from: string
+  to: string
+}
+
+/** The six-week grid for the month containing a civil date (leading/trailing days belong to neighbouring months). */
+export function monthGrid(dateStr: string): MonthGrid {
+  const first = `${dateStr.slice(0, 7)}-01`
+  const start = startOfWeek(first)
+  const weeks = Array.from({ length: 6 }, (_, w) => Array.from({ length: 7 }, (_, d) => addDays(start, w * 7 + d)))
+  return { month: dateStr.slice(0, 7), weeks, from: weeks[0][0], to: weeks[5][6] }
+}
+
+export const isInMonth = (day: string, month: string) => day.startsWith(month)
+
+/** Group events by the London day they start on (events outside `days` are dropped). */
+export function groupByDay<T extends { start: Date }>(events: T[], days: string[]): Map<string, T[]> {
+  const map = new Map<string, T[]>(days.map((d) => [d, []]))
+  for (const e of events) map.get(londonDateString(e.start))?.push(e)
+  for (const list of map.values()) list.sort((a, b) => a.start.getTime() - b.start.getTime())
+  return map
+}
+
+// ───────────────────────────── drag and drop ─────────────────────────────
+
+/** Where a drop landed: a pointer offset down a day column → the snapped "HH:mm" slot it represents. */
+export function dropSlot(offsetY: number, pxPerMin: number, windowStartMinutes: number, slot = 30): string {
+  return snapToTime(windowStartMinutes + Math.max(0, offsetY) / pxPerMin, slot)
+}
+
+/**
+ * The instant for "keep this booking's London wall-clock time, but on another day". Done on wall-clock time so a
+ * 09:00 booking stays at 09:00 across the clock changes (a plain +N×24h would drift an hour).
+ */
+export function sameTimeOnDay(original: Date, targetDay: string): Date {
+  const p = londonParts(original)
+  return londonWallToUtc(targetDay, `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`)
+}
+
+/** The London days (out of `days`) that any time-off block touches. A block ending exactly at midnight doesn't touch the next day. */
+export function blockedDays(blocks: { start: Date; end: Date }[], days: string[]): Set<string> {
+  const out = new Set<string>()
+  for (const day of days) {
+    const from = startOfLondonDay(day).getTime()
+    const to = startOfLondonDay(addDays(day, 1)).getTime()
+    if (blocks.some((b) => b.start.getTime() < to && b.end.getTime() > from)) out.add(day)
+  }
+  return out
 }
