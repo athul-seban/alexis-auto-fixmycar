@@ -29,6 +29,7 @@ const schema = z.object({
   make: z.string().trim().max(50).optional(),
   model: z.string().trim().max(50).optional(),
   notes: z.string().trim().max(500).optional(),
+  smsOptIn: z.boolean().optional(),
   // Honeypot: real people never see or fill this field; bots usually do.
   website: z.string().max(500).optional(),
 })
@@ -113,6 +114,7 @@ export async function POST(req: Request, props: { params: Promise<{ slug: string
       customerName: data.name,
       customerEmail: data.email,
       customerPhone: data.phone,
+      smsOptIn: data.smsOptIn === true,
       vrm: data.vrm,
       vehicleMake: data.make || null,
       vehicleModel: data.model || null,

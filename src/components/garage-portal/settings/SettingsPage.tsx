@@ -14,6 +14,7 @@ import { TechniciansCard } from "@/components/garage-portal/settings/Technicians
 interface SettingsResponse {
   settings: PortalSettings
   account: { name: string | null; email: string | null; hasPassword: boolean }
+  smsAvailable: boolean
 }
 
 export function SettingsPage() {
@@ -30,7 +31,7 @@ export function SettingsPage() {
         <div className="max-w-3xl space-y-6">
           <TechniciansCard />
           <CapacityCard key={data.settings.bays ?? "auto"} bays={data.settings.bays ?? null} onSaved={reload} />
-          <NotificationsCard settings={data.settings} onSaved={reload} />
+          <NotificationsCard settings={data.settings} smsAvailable={data.smsAvailable} onSaved={reload} />
           <AccountCard account={data.account} />
         </div>
       )}
@@ -42,9 +43,10 @@ const NOTIFICATION_ROWS: { key: keyof PortalSettings["notifications"]; title: st
   { key: "emailNewBooking", title: "New bookings", description: "Email me when a customer books through the marketplace or my website widget." },
   { key: "emailCancellation", title: "Cancellations", description: "Email me when a customer cancels a booking." },
   { key: "emailReview", title: "New reviews", description: "Email me when a customer leaves a review." },
+  { key: "smsCustomer", title: "Text my customers", description: "Send a 24-hour reminder and booking updates by SMS to customers who agreed to texts. SMS is billed per message." },
 ]
 
-function NotificationsCard({ settings, onSaved }: { settings: PortalSettings; onSaved: () => void }) {
+function NotificationsCard({ settings, smsAvailable, onSaved }: { settings: PortalSettings; smsAvailable: boolean; onSaved: () => void }) {
   const { toast } = useToast()
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -59,7 +61,7 @@ function NotificationsCard({ settings, onSaved }: { settings: PortalSettings; on
 
   return (
     <Panel className="p-5 sm:p-6">
-      <h2 className="text-lg font-bold text-slate-900 dark:text-white">Email notifications</h2>
+      <h2 className="text-lg font-bold text-slate-900 dark:text-white">Notifications</h2>
       <p className="mb-2 mt-0.5 text-sm text-slate-500 dark:text-slate-400">In-app notifications (the bell) are always on.</p>
       <ul className="divide-y divide-slate-100 dark:divide-white/10">
         {NOTIFICATION_ROWS.map((r) => (
@@ -68,7 +70,7 @@ function NotificationsCard({ settings, onSaved }: { settings: PortalSettings; on
               <p className="font-semibold text-slate-900 dark:text-white">{r.title}</p>
               <p className="text-sm text-slate-500 dark:text-slate-400">{r.description}</p>
             </div>
-            <Switch checked={settings.notifications[r.key]} disabled={busy === r.key} onCheckedChange={(v) => toggle(r.key, v)} aria-label={r.title} />
+            <Switch checked={settings.notifications[r.key]} disabled={busy === r.key || (r.key === "smsCustomer" && !smsAvailable && !settings.notifications.smsCustomer)} onCheckedChange={(v) => toggle(r.key, v)} aria-label={r.title} />
           </li>
         ))}
       </ul>

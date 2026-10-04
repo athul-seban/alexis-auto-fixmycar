@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withGarage } from "@/lib/garage-auth"
+import { smsConfigured } from "@/lib/sms"
 import { stripeConfigured } from "@/lib/stripe"
 import {
   mergePortalSettings,
@@ -20,6 +21,7 @@ export const GET = withGarage("Garage settings GET", async (_req, { userId, gara
     garage: { status: garage.status, slug: garage.slug },
     // Whether the platform has Stripe keys; the payments toggle is disabled in the UI when it doesn't.
     paymentsAvailable: stripeConfigured(),
+    smsAvailable: smsConfigured(),
   })
 })
 
@@ -39,6 +41,9 @@ export const PATCH = withGarage(
     const data = patchSchema.parse(await req.json())
     if (data.payments?.enabled && !stripeConfigured()) {
       return NextResponse.json({ error: "Online payments aren't set up on this platform yet.", code: "PAYMENTS_UNAVAILABLE" }, { status: 409 })
+    }
+    if (data.notifications?.smsCustomer && !smsConfigured()) {
+      return NextResponse.json({ error: "Text messages aren't set up on this platform yet.", code: "SMS_UNAVAILABLE" }, { status: 409 })
     }
     const current = parsePortalSettings(garage.portalSettings)
     const merged = mergePortalSettings(current, { widget: data.widget, payments: data.payments, notifications: data.notifications })

@@ -19,6 +19,7 @@ model User {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
   suspendedAt   DateTime?
+  smsOptIn      Boolean   @default(false) // texts about their bookings (customers)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -206,6 +207,9 @@ model Booking {
   refundedAmount       Float?
   stripeSessionId      String?   @unique
   stripePaymentIntent  String?
+  // Text messages: the customer ticked "text me" (or has it on in their account) and when the 24h text went out.
+  smsOptIn          Boolean   @default(false)
+  smsReminderSentAt DateTime?
   reminderSentAt    DateTime? // set once the 24h-before reminder email has gone out
 
   owner       User?       @relation("OwnerBookings", fields: [ownerId], references: [id], onDelete: Restrict)

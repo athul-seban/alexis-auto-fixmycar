@@ -47,7 +47,15 @@ describe("validation", () => {
 describe("mergePortalSettings", () => {
   it("merges per section without losing siblings", () => {
     const merged = mergePortalSettings(DEFAULT_PORTAL_SETTINGS, { notifications: { emailReview: false } })
-    expect(merged.notifications).toEqual({ emailNewBooking: true, emailCancellation: true, emailReview: false })
+    expect(merged.notifications).toEqual({ emailNewBooking: true, emailCancellation: true, emailReview: false, smsCustomer: false })
+    expect(merged.widget).toEqual(DEFAULT_PORTAL_SETTINGS.widget)
+  })
+
+  it("keeps payments and texting independent of the other sections", () => {
+    const merged = mergePortalSettings(DEFAULT_PORTAL_SETTINGS, { payments: { enabled: true, depositPercent: 50 }, notifications: { smsCustomer: true } })
+    expect(merged.payments).toEqual({ enabled: true, depositPercent: 50, refundPolicy: "UNTIL_24H" })
+    expect(merged.notifications.smsCustomer).toBe(true)
+    expect(merged.notifications.emailNewBooking).toBe(true)
     expect(merged.widget).toEqual(DEFAULT_PORTAL_SETTINGS.widget)
   })
 

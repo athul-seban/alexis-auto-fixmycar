@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { parseOpeningHours } from "@/lib/garage-mapper"
+import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { loadWidgetGarage } from "@/lib/portal/widget-service"
 
 type Params = { slug: string }
@@ -21,6 +22,8 @@ export async function GET(_req: Request, props: { params: Promise<Params> }) {
           slotMins: w.settings.slotMins,
           autoConfirm: w.settings.autoConfirm,
           successMessage: w.settings.successMessage,
+          // Only offer "text me" when this garage has switched texting on.
+          smsAvailable: parsePortalSettings(w.garage.portalSettings).notifications.smsCustomer,
         },
         // Without opening hours there's nothing to offer, so the widget can say "call us" instead.
         hoursConfigured: parseOpeningHours(w.garage.openingHours) !== null,

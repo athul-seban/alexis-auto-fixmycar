@@ -2,7 +2,7 @@ import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import type { BookingSource } from "@/types"
 
-export type BookingEventType = "CREATED" | "STATUS" | "RESCHEDULED" | "TECHNICIAN" | "CONTACTED" | "NOTE" | "REMINDER" | "REVIEW" | "PAYMENT"
+export type BookingEventType = "CREATED" | "STATUS" | "RESCHEDULED" | "TECHNICIAN" | "CONTACTED" | "NOTE" | "REMINDER" | "REVIEW" | "PAYMENT" | "SMS"
 export type EventActor = "GARAGE" | "OWNER" | "CUSTOMER" | "ADMIN" | "SYSTEM"
 
 type Db = Prisma.TransactionClient | typeof prisma

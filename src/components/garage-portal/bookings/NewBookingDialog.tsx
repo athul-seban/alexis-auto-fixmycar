@@ -12,6 +12,7 @@ import { todayLondon } from "@/lib/portal/tz"
 import { getServiceLabel } from "@/lib/utils"
 import { DateTimeFields, dateTimeToIso, type DateTimeValue } from "@/components/garage-portal/shared/DateTimeFields"
 import { OverlapNotice } from "@/components/garage-portal/shared/OverlapNotice"
+import { toE164Mobile } from "@/lib/portal/phone"
 import type { BookingRow, OverlapDetails, TechnicianOption } from "@/components/garage-portal/bookings/types"
 
 export interface NewBookingPrefill {
@@ -62,6 +63,7 @@ function NewBookingForm({
   const [status, setStatus] = useState<"CONFIRMED" | "PENDING">("CONFIRMED")
   const [notes, setNotes] = useState("")
   const [notifyCustomer, setNotifyCustomer] = useState(true)
+  const [smsOptIn, setSmsOptIn] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [overlap, setOverlap] = useState<OverlapDetails | null>(null)
@@ -89,6 +91,7 @@ function NewBookingForm({
       notes: notes.trim() || undefined,
       allowOverlap,
       notifyCustomer: notifyCustomer && !!email.trim(),
+      smsOptIn: smsOptIn && !!toE164Mobile(phone),
     })
     setSaving(false)
 
@@ -218,6 +221,10 @@ function NewBookingForm({
           <label className={`flex items-center gap-2 text-sm ${email.trim() ? "text-slate-700 dark:text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
             <input type="checkbox" className="h-4 w-4 rounded border-slate-300" checked={notifyCustomer && !!email.trim()} disabled={!email.trim()} onChange={(e) => setNotifyCustomer(e.target.checked)} />
             Email the customer a confirmation{!email.trim() && " (add an email address)"}
+          </label>
+          <label className={`flex items-center gap-2 text-sm ${toE164Mobile(phone) ? "text-slate-700 dark:text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
+            <input type="checkbox" className="h-4 w-4 rounded border-slate-300" checked={smsOptIn && !!toE164Mobile(phone)} disabled={!toE164Mobile(phone)} onChange={(e) => setSmsOptIn(e.target.checked)} />
+            The customer agreed to texts about this booking{!toE164Mobile(phone) && " (needs a UK mobile number)"}
           </label>
         </fieldset>
 

@@ -21,6 +21,30 @@ beforeEach(async () => {
 })
 afterAll(() => cleanupPrefix(PREFIX))
 
+describe("garage settings: text messages", () => {
+  const KEYS = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM"] as const
+  it("won't switch texting on without an SMS provider, and allows it once configured", async () => {
+    for (const k of KEYS) delete process.env[k]
+    const { user } = await makeGarage(PREFIX)
+    asUser(user.id)
+    expect((await (await GET(new Request("http://x"))).json()).smsAvailable).toBe(false)
+    const blocked = await PATCH(json("PATCH", { notifications: { smsCustomer: true } }))
+    expect(blocked.status).toBe(409)
+    expect((await blocked.json()).code).toBe("SMS_UNAVAILABLE")
+
+    Object.assign(process.env, { TWILIO_ACCOUNT_SID: "AC1", TWILIO_AUTH_TOKEN: "t", TWILIO_FROM: "+441234567890" })
+    try {
+      const ok = await PATCH(json("PATCH", { notifications: { smsCustomer: true } }))
+      expect((await ok.json()).settings.notifications.smsCustomer).toBe(true)
+      // Switching it OFF is always allowed, even if the provider later disappears.
+      for (const k of KEYS) delete process.env[k]
+      expect((await PATCH(json("PATCH", { notifications: { smsCustomer: false } }))).status).toBe(200)
+    } finally {
+      for (const k of KEYS) delete process.env[k]
+    }
+  })
+})
+
 describe("garage settings: online payments", () => {
   it("reports whether the platform can take payments, and refuses to switch deposits on when it can't", async () => {
     delete process.env.STRIPE_SECRET_KEY
@@ -66,7 +90,7 @@ describe("garage settings", () => {
     const res = await PATCH(json("PATCH", { widget: { enabled: false, accent: "F97316", slotMins: 60 }, notifications: { emailReview: false } }))
     const { settings } = await res.json()
     expect(settings.widget).toMatchObject({ enabled: false, accent: "F97316", slotMins: 60, leadHours: 2 })
-    expect(settings.notifications).toEqual({ emailNewBooking: true, emailCancellation: true, emailReview: false })
+    expect(settings.notifications).toEqual({ emailNewBooking: true, emailCancellation: true, emailReview: false, smsCustomer: false })
 
     // A later partial update keeps earlier changes.
     await PATCH(json("PATCH", { widget: { leadHours: 6 } }))

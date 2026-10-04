@@ -5,10 +5,13 @@ import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { normalisePhone } from "@/lib/portal/phone"
 
-const patchSchema = z.object({
-  name: z.string().trim().min(1, "Enter your name").max(100),
-  phone: z.string().trim().max(30).optional().nullable(),
-})
+const patchSchema = z
+  .object({
+    name: z.string().trim().min(1, "Enter your name").max(100).optional(),
+    phone: z.string().trim().max(30).optional().nullable(),
+    smsOptIn: z.boolean().optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, "Nothing to update")
 
 async function currentUserId() {
   const session = await getServerSession(authOptions)
@@ -19,9 +22,9 @@ async function currentUserId() {
 export async function GET() {
   const id = await currentUserId()
   if (!id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const user = await prisma.user.findUnique({ where: { id }, select: { name: true, email: true, phone: true, password: true } })
+  const user = await prisma.user.findUnique({ where: { id }, select: { name: true, email: true, phone: true, password: true, smsOptIn: true } })
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  return NextResponse.json({ name: user.name, email: user.email, phone: user.phone, hasPassword: Boolean(user.password) })
+  return NextResponse.json({ name: user.name, email: user.email, phone: user.phone, smsOptIn: user.smsOptIn, hasPassword: Boolean(user.password) })
 }
 
 export async function PATCH(req: Request) {
@@ -29,11 +32,15 @@ export async function PATCH(req: Request) {
   if (!id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
-    const { name, phone } = patchSchema.parse(await req.json())
+    const { name, phone, smsOptIn } = patchSchema.parse(await req.json())
     const user = await prisma.user.update({
       where: { id },
-      data: { name, phone: phone ? normalisePhone(phone) : null },
-      select: { name: true, email: true, phone: true },
+      data: {
+        ...(name !== undefined ? { name } : {}),
+        ...(phone !== undefined ? { phone: phone ? normalisePhone(phone) : null } : {}),
+        ...(smsOptIn !== undefined ? { smsOptIn } : {}),
+      },
+      select: { name: true, email: true, phone: true, smsOptIn: true },
     })
     return NextResponse.json({ user })
   } catch (err) {

@@ -4,6 +4,7 @@ import { notifyGarage, notifyUser } from "@/lib/notifications"
 import type { BookingSource, BookingStatus } from "@/types"
 import { randomBytes } from "crypto"
 import { refundOnCancel } from "@/lib/portal/payment-service"
+import { notifyCustomerSms } from "@/lib/portal/sms-notify"
 import { creationActor, recordBookingEvent, type EventActor } from "@/lib/portal/booking-events"
 import { BookingError } from "@/lib/portal/booking-error"
 import { generateReference } from "@/lib/portal/booking-ref"
@@ -63,6 +64,8 @@ export interface CreateBookingInput {
   customerName?: string | null
   customerEmail?: string | null
   customerPhone?: string | null
+  /** The customer agreed to be texted about this booking. */
+  smsOptIn?: boolean
   vrm?: string | null
   vehicleMake?: string | null
   vehicleModel?: string | null
@@ -179,6 +182,7 @@ async function createInTx(db: Db, input: CreateBookingInput) {
       customerName: customerName ?? null,
       customerEmail: customerEmail ?? null,
       customerPhone: customerPhone ?? null,
+      smsOptIn: input.smsOptIn ?? false,
       vrm: normalisedVrm,
       vehicleMake: vehicleMake ?? null,
       vehicleModel: vehicleModel ?? null,
@@ -329,6 +333,9 @@ export async function transitionBooking(input: TransitionInput) {
   })
 
   if (input.actor.role === "GARAGE") {
+    // Customers who opted in to texts hear about a confirmation or cancellation straight away.
+    if (input.to === "CONFIRMED") await notifyCustomerSms(updated.id, "CONFIRMED", now)
+    if (input.to === "CANCELLED") await notifyCustomerSms(updated.id, "CANCELLED", now)
     await notifyBookingOwner(updated, {
       type: "BOOKING_STATUS_CHANGED",
       title: `Booking ${label}`,
@@ -487,6 +494,7 @@ export async function rescheduleBooking(input: RescheduleInput) {
     await recordBookingEvent(prisma, { bookingId: booking.id, actorType: input.actor ?? "GARAGE", type: "TECHNICIAN", detail: technicianId ? "Technician assigned" : "Technician removed" })
   }
   if (timeChanged && (input.actor ?? "GARAGE") === "GARAGE") {
+    await notifyCustomerSms(updated.id, "RESCHEDULED", now)
     await notifyBookingOwner(updated, {
       type: "BOOKING_STATUS_CHANGED",
       title: "Booking rescheduled",

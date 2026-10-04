@@ -38,6 +38,19 @@ describe("/api/account", () => {
   })
 })
 
+describe("/api/account text-message consent", () => {
+  it("saves and returns the opt-in, independently of the other profile fields", async () => {
+    const { user } = await makeOwner(PREFIX)
+    mockSession.mockResolvedValue({ user: { id: user.id, role: "OWNER" } } as any)
+    expect((await (await GET()).json()).smsOptIn).toBe(false)
+    expect((await PATCH(json("PATCH", { smsOptIn: true }))).status).toBe(200)
+    const me = await (await GET()).json()
+    expect(me).toMatchObject({ smsOptIn: true, email: user.email })
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).name).toBe(user.name) // untouched
+    expect((await PATCH(json("PATCH", {}))).status).toBe(400)
+  })
+})
+
 describe("/api/account/change-password", () => {
   it("changes the password when the current one is right, and counts wrong attempts", async () => {
     const { user } = await makeOwner(PREFIX)

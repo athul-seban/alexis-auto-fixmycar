@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { FieldError, FieldLabel, TextInput } from "@/components/ui/form-controls"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/toast"
 import { sendJson, useApi } from "@/hooks/use-api"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
@@ -12,6 +13,7 @@ interface Account {
   name: string | null
   email: string
   phone: string | null
+  smsOptIn: boolean
   hasPassword: boolean
 }
 
@@ -19,6 +21,7 @@ function ProfileForm({ account, onSaved }: { account: Account; onSaved: () => vo
   const { toast } = useToast()
   const [name, setName] = useState(account.name ?? "")
   const [phone, setPhone] = useState(account.phone ?? "")
+  const [smsOptIn, setSmsOptIn] = useState(account.smsOptIn)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
 
@@ -26,7 +29,7 @@ function ProfileForm({ account, onSaved }: { account: Account; onSaved: () => vo
     e.preventDefault()
     setBusy(true)
     setError("")
-    const res = await sendJson("/api/account", "PATCH", { name, phone: phone || null })
+    const res = await sendJson("/api/account", "PATCH", { name, phone: phone || null, smsOptIn })
     setBusy(false)
     if (!res.ok) return setError(res.error ?? "Couldn't save")
     toast("Profile saved")
@@ -47,6 +50,13 @@ function ProfileForm({ account, onSaved }: { account: Account; onSaved: () => vo
         <FieldLabel htmlFor="acc-phone">Phone</FieldLabel>
         <TextInput id="acc-phone" type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
       </div>
+      <label className="flex cursor-pointer items-start gap-3">
+        <Switch checked={smsOptIn} onCheckedChange={setSmsOptIn} aria-label="Text me about my bookings" />
+        <span>
+          <span className="block text-sm font-semibold text-slate-900 dark:text-white">Text me about my bookings</span>
+          <span className="block text-xs text-slate-500 dark:text-slate-400">Reminders and changes from garages that offer texts. Needs a UK mobile number above; you can switch this off any time.</span>
+        </span>
+      </label>
       <FieldError>{error}</FieldError>
       <Button type="submit" variant="primary" loading={busy}>
         Save changes

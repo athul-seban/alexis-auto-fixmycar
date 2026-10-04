@@ -18,7 +18,7 @@ interface WidgetService {
 
 interface WidgetConfig {
   garage: { name: string; logo: string | null; phone: string; city: string; address: string; postcode: string }
-  settings: { accent: string; leadHours: number; maxDaysAhead: number; slotMins: number; autoConfirm: boolean; successMessage: string }
+  settings: { accent: string; leadHours: number; maxDaysAhead: number; slotMins: number; autoConfirm: boolean; successMessage: string; smsAvailable: boolean }
   hoursConfigured: boolean
   services: WidgetService[]
 }
@@ -115,6 +115,7 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
   const [notice, setNotice] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({ name: "", email: "", phone: "", vrm: "", make: "", model: "", notes: "", website: "" })
+  const [smsOptIn, setSmsOptIn] = useState(false)
   const [error, setError] = useState("")
   const [result, setResult] = useState<{ reference: string; scheduledAt: string; status: string; message: string; checkoutUrl?: string | null } | null>(null)
 
@@ -159,7 +160,7 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
       const res = await fetch(`/api/widget/${encodeURIComponent(slug)}/bookings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ service: service.serviceType, start: slot.start, ...form }),
+        body: JSON.stringify({ service: service.serviceType, start: slot.start, ...form, smsOptIn: config.settings.smsAvailable && smsOptIn }),
       })
       const data = await res.json().catch(() => ({}))
       if (res.status === 409 && data.code === "slot_taken") {
@@ -318,6 +319,12 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
               <input id="w-phone" type="tel" className={input} style={ring} value={form.phone} onChange={set("phone")} autoComplete="tel" required />
             </div>
           </div>
+          {config.settings.smsAvailable && (
+            <label className="flex cursor-pointer items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer" checked={smsOptIn} onChange={(e) => setSmsOptIn(e.target.checked)} />
+              Text me a reminder and any changes to this booking (UK mobiles only)
+            </label>
+          )}
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="sm:col-span-1">
               <label htmlFor="w-vrm" className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">Registration *</label>

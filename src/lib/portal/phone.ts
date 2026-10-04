@@ -15,3 +15,12 @@ export function formatPhone(input: string | null | undefined): string {
   if (/^07\d{9}$/.test(n)) return `${n.slice(0, 5)} ${n.slice(5)}`
   return n
 }
+
+/**
+ * UK number → E.164 ("+447700900123") for the SMS provider, or null when it isn't a plausible UK mobile.
+ * Only mobiles can receive texts, so landlines (01/02/03) and malformed numbers are rejected rather than paid for.
+ */
+export function toE164Mobile(input: string | null | undefined): string | null {
+  const n = normalisePhone(input)
+  return /^07\d{9}$/.test(n) ? `+44${n.slice(1)}` : null
+}
