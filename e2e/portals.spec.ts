@@ -43,6 +43,16 @@ test.describe("garage portal", () => {
   })
 })
 
+test.describe("garage website settings", () => {
+  test("shows the online deposits card (disabled when the platform has no Stripe keys)", async ({ page }) => {
+    await login(page, "garage")
+    await page.goto("/garage-dashboard/website")
+    await expect(page.getByRole("heading", { name: "Online deposits" })).toBeVisible()
+    await expect(page.getByText(/aren.t switched on for the platform yet|Take deposits online/).first()).toBeVisible()
+    expect(await hasHorizontalScroll(page)).toBe(false)
+  })
+})
+
 test.describe("admin portal", () => {
   test("garages page lists pending garages with readiness", async ({ page }) => {
     await login(page, "admin")

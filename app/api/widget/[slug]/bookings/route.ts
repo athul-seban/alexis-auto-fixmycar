@@ -6,6 +6,7 @@ import { sendMail } from "@/lib/mail"
 import { widgetBookingCustomerEmail } from "@/lib/email-templates"
 import { BookingError } from "@/lib/portal/booking-error"
 import { createBooking, vehicleLabel } from "@/lib/portal/booking-service"
+import { createDepositCheckout } from "@/lib/portal/payment-service"
 import { clientIp, hashIp } from "@/lib/portal/ip-hash"
 import { handleRouteError } from "@/lib/portal/route-errors"
 import { formatLondonDateTime, londonDateString } from "@/lib/portal/tz"
@@ -143,7 +144,16 @@ export async function POST(req: Request, props: { params: Promise<{ slug: string
       }),
     }).catch((err) => console.error("[widget] customer email failed:", err))
 
-    return NextResponse.json({ reference: booking.reference, scheduledAt: booking.scheduledAt.toISOString(), status: booking.status, message }, { status: 201 })
+    // Deposit: when the garage takes online payments, send the customer to Stripe. A failure here must not lose the
+    // booking, so it falls back to booking without a deposit (the garage still sees it).
+    let checkoutUrl: string | null = null
+    try {
+      checkoutUrl = (await createDepositCheckout(booking.id))?.url ?? null
+    } catch (err) {
+      console.error("[widget] deposit checkout failed:", err)
+    }
+
+    return NextResponse.json({ reference: booking.reference, scheduledAt: booking.scheduledAt.toISOString(), status: booking.status, message, checkoutUrl }, { status: 201 })
   } catch (err) {
     if (err instanceof BookingError || err instanceof z.ZodError) return handleRouteError(err, "Widget booking POST")
     console.error("Widget booking POST error:", err)

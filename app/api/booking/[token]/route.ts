@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { limitByIp, rateLimit, tooManyRequests } from "@/lib/rate-limit"
 import { z } from "zod"
@@ -10,9 +11,26 @@ import { handleRouteError } from "@/lib/portal/route-errors"
 import { reviewInputSchema, submitReview } from "@/lib/portal/review-service"
 import { londonDateString, formatLondonDateTime } from "@/lib/portal/tz"
 import { loadRescheduleContext } from "@/lib/portal/customer-reschedule"
+import { refundPence, toPence, toPounds } from "@/lib/portal/payments"
+import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { loadByToken } from "@/lib/portal/booking-token"
 
 type Params = { token: string }
+
+/** What cancelling now would do to a paid deposit, in plain words (shown before the customer decides). */
+async function cancelRefundNote(b: Awaited<ReturnType<typeof loadByToken>>): Promise<string | null> {
+  if (b.paymentStatus !== "PAID") return null
+  const garage = await prisma.garage.findUnique({ where: { id: b.garageId }, select: { portalSettings: true } })
+  const pence = refundPence({
+    policy: parsePortalSettings(garage?.portalSettings).payments.refundPolicy,
+    cancelledBy: "CUSTOMER",
+    scheduledAt: b.scheduledAt,
+    now: new Date(),
+    paidPence: toPence(b.depositAmount ?? 0),
+    alreadyRefundedPence: toPence(b.refundedAmount ?? 0),
+  })
+  return pence > 0 ? `Your deposit of £${toPounds(pence).toFixed(2)} will be refunded to your card.` : "Your deposit is non-refundable if you cancel now."
+}
 
 async function view(b: Awaited<ReturnType<typeof loadByToken>>) {
   const active = ["PENDING", "CONFIRMED"].includes(b.status)
@@ -30,6 +48,10 @@ async function view(b: Awaited<ReturnType<typeof loadByToken>>) {
     cancelReason: b.cancelReason,
     garage: b.garage,
     review: b.review,
+    paymentStatus: b.paymentStatus,
+    depositAmount: b.depositAmount,
+    refundedAmount: b.refundedAmount,
+    cancelRefundNote: active ? await cancelRefundNote(b) : null,
     canCancel: active,
     // Moving a booking needs the garage's online slot rules, so it's only offered when its widget is on.
     canReschedule: active && b.scheduledAt.getTime() > Date.now() && (await loadRescheduleContext(b)) !== null,

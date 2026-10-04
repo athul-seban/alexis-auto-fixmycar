@@ -200,6 +200,12 @@ model Booking {
   ipHash            String?   // widget abuse limiting
   timeConfirmed     Boolean   @default(true) // false when created from a quote/job without an explicit time
   manageToken       String?   @unique // secret in the customer's email link: view / cancel / review without an account
+  // Online deposit (Stripe Checkout). NONE = no online payment; PENDING = checkout started; PAID; REFUNDED; FAILED.
+  paymentStatus        String    @default("NONE")
+  depositAmount        Float?    // GBP charged online
+  refundedAmount       Float?
+  stripeSessionId      String?   @unique
+  stripePaymentIntent  String?
   reminderSentAt    DateTime? // set once the 24h-before reminder email has gone out
 
   owner       User?       @relation("OwnerBookings", fields: [ownerId], references: [id], onDelete: Restrict)
@@ -437,4 +443,11 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([targetType, targetId])
+}
+
+// Stripe webhook events already handled, so a redelivered event is a no-op (webhooks are at-least-once).
+model StripeEvent {
+  id        String   @id // Stripe's event id
+  type      String
+  createdAt DateTime @default(now())
 }

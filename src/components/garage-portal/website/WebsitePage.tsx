@@ -13,10 +13,12 @@ import { sendJson, useApi } from "@/hooks/use-api"
 import { cn } from "@/lib/utils"
 import { SLOT_MINUTES, type PortalSettings } from "@/lib/portal/portal-settings"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
+import { PaymentsCard } from "@/components/garage-portal/website/PaymentsCard"
 
 interface SettingsResponse {
   settings: PortalSettings
   garage: { status: string; slug: string }
+  paymentsAvailable: boolean
 }
 interface MeResponse {
   garage: { openingHours: unknown | null; services: string[] }
@@ -37,14 +39,17 @@ export function WebsitePage() {
       ) : !data ? (
         <div className="space-y-4"><Skeleton className="h-32 w-full rounded-xl" /><Skeleton className="h-64 w-full rounded-xl" /></div>
       ) : (
-        <WidgetManager
-          key={JSON.stringify(data.settings.widget)}
-          settings={data.settings}
-          garage={data.garage}
-          hoursSet={!!me?.garage.openingHours}
-          serviceCount={me?.garage.services.length ?? null}
-          onSaved={reload}
-        />
+        <>
+          <WidgetManager
+            key={JSON.stringify(data.settings.widget)}
+            settings={data.settings}
+            garage={data.garage}
+            hoursSet={!!me?.garage.openingHours}
+            serviceCount={me?.garage.services.length ?? null}
+            onSaved={reload}
+          />
+          <PaymentsCard key={JSON.stringify(data.settings.payments)} payments={data.settings.payments} available={data.paymentsAvailable} onSaved={reload} />
+        </>
       )}
     </>
   )

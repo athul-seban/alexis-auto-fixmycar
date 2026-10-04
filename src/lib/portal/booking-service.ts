@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { notifyGarage, notifyUser } from "@/lib/notifications"
 import type { BookingSource, BookingStatus } from "@/types"
 import { randomBytes } from "crypto"
+import { refundOnCancel } from "@/lib/portal/payment-service"
 import { creationActor, recordBookingEvent, type EventActor } from "@/lib/portal/booking-events"
 import { BookingError } from "@/lib/portal/booking-error"
 import { generateReference } from "@/lib/portal/booking-ref"
@@ -318,6 +319,8 @@ export async function transitionBooking(input: TransitionInput) {
 
   const updated = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } })
   const label = STATUS_LABELS[input.to].toLowerCase()
+  // A cancelled booking gives its deposit back per the garage's policy (full if the garage cancelled).
+  if (input.to === "CANCELLED") await refundOnCancel(booking.id, input.actor.role === "GARAGE" ? "GARAGE" : "CUSTOMER", now)
   await recordBookingEvent(prisma, {
     bookingId: booking.id,
     actorType: "viaToken" in input.actor ? "CUSTOMER" : input.actor.role,

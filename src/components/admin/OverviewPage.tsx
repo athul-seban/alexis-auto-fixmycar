@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowDownRight, ArrowUpRight, ClipboardCheck, PoundSterling, Users, Wrench } from "lucide-react"
+import { ArrowDownRight, ArrowUpRight, ClipboardCheck, CreditCard, PoundSterling, Users, Wrench } from "lucide-react"
 import { StatTile } from "@/components/ui/stat-tile"
 import { useApi } from "@/hooks/use-api"
 import { cn, formatCurrency, timeAgo } from "@/lib/utils"
@@ -17,6 +17,7 @@ interface Stats {
   revenue: number
   revenueGrowth: number
   pendingApprovals: number
+  depositsCollected: number
 }
 
 interface Overview {
@@ -44,6 +45,7 @@ export function AdminOverviewPage() {
     { label: "Garages", value: s?.totalGarages, growth: s?.garageGrowth, icon: Wrench, tone: "purple" as const, href: "/admin/garages?status=APPROVED" },
     { label: "Bookings", value: s?.totalBookings, growth: s?.bookingGrowth, icon: ClipboardCheck, tone: "orange" as const, href: "/admin/bookings" },
     { label: "Completed revenue", value: s ? formatCurrency(s.revenue) : undefined, growth: s?.revenueGrowth, icon: PoundSterling, tone: "green" as const, href: "/admin/analytics" },
+    { label: "Deposits collected", value: s ? formatCurrency(s.depositsCollected) : undefined, growth: undefined, icon: CreditCard, tone: "blue" as const, href: "/admin/bookings" },
   ]
 
   return (
@@ -71,7 +73,7 @@ export function AdminOverviewPage() {
         </Link>
       )}
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         {tiles.map((t) => (
           <StatTile
             key={t.label}

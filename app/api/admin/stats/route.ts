@@ -32,6 +32,7 @@ export async function GET() {
     revenueThisPeriod,
     revenuePrevPeriod,
     revenueTotal,
+    deposits,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { createdAt: { gte: periodStart } } }),
@@ -55,6 +56,7 @@ export async function GET() {
       _sum: { totalPrice: true },
       where: { status: "COMPLETED" },
     }),
+    prisma.booking.aggregate({ _sum: { depositAmount: true, refundedAmount: true }, where: { paymentStatus: { in: ["PAID", "REFUNDED"] } } }),
   ])
 
   return NextResponse.json({
@@ -70,5 +72,7 @@ export async function GET() {
       revenuePrevPeriod._sum.totalPrice ?? 0
     ),
     pendingApprovals,
+    // Deposits taken online through Stripe, net of refunds.
+    depositsCollected: Math.round(((deposits._sum.depositAmount ?? 0) - (deposits._sum.refundedAmount ?? 0)) * 100) / 100,
   })
 }

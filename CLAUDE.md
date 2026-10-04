@@ -79,6 +79,10 @@ All three roles share one shell, `src/components/portal-shell/` (`PortalShell`, 
 
 Every booking gets a `manageToken` (128-bit). Emails link to `/booking/[token]`, a public page (noindex, no-referrer) backed by `/api/booking/[token]`: view, cancel (`transitionBooking` with `actor: { role: "OWNER", viaToken: true }`) and review (`review-service.ts`, which also serves signed-in customers; `Review.ownerId` is nullable). `GET /api/cron/booking-reminders` (CRON_SECRET) sends 24h reminders once each (`reminderSentAt` claim). `BookingEvent` is an append-only history written by the booking service and shown as the drawer timeline; the job sheet prints at `/garage-dashboard/bookings/[id]/job-sheet`.
 
+### Online deposits (Stripe)
+
+Garages can take a deposit on widget bookings (`portalSettings.payments`: enabled, depositPercent, refundPolicy). Flow: widget POST creates the booking, then `createDepositCheckout()` (`payment-service.ts`) returns a Stripe Checkout URL and marks `paymentStatus = PENDING`; `POST /api/stripe/webhook` (signature-verified over the raw body, idempotent via `StripeEvent`) marks it PAID or, on expiry, cancels the unpaid booking so the slot is released. Cancelling any booking goes through `transitionBooking`, which calls `refundOnCancel()` (pure rules in `payments.ts`: a garage or system cancel refunds in full; a customer cancel follows the garage's policy). Refund failures never block a cancel; they are written to the booking history for manual follow-up. With no `STRIPE_SECRET_KEY` the feature is off and booking works as before. **Not built: payouts.** Deposits land in the platform's Stripe account; paying garages (Stripe Connect) and taking a commission are separate work.
+
 ### Rate limiting, audit log and accessibility
 
 - `src/lib/rate-limit.ts`: DB-backed (`RateLimitHit`, no in-memory state, so it holds across instances). `limitByIp(req.headers, name, limit, windowMs)` returns a ready 429 or null; unknown and loopback IPs are skipped. Applied to sign-in, register, forgot/reset password, public job requests and manage-link POSTs. Behind a proxy set `TRUSTED_PROXY_HOPS` or per-IP limits are spoofable (see above).

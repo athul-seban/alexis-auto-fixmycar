@@ -126,7 +126,8 @@ npx prisma db push --schema=prisma/schema.prod.prisma
    npm run db:backfill
    ```
 
-5. Schedule the reminder job: call `GET /api/cron/booking-reminders` hourly with `Authorization: Bearer $CRON_SECRET` (EventBridge Scheduler). It emails customers about appointments in the next 24 hours, once each; running it more often is harmless.
+5. Online deposits (optional): add `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` to Secrets Manager, and in the Stripe dashboard add a webhook endpoint `https://<your-domain>/api/stripe/webhook` for `checkout.session.completed`, `checkout.session.expired`, `checkout.session.async_payment_succeeded` and `checkout.session.async_payment_failed`. Test with Stripe test keys first. Without the keys the payments switch stays disabled. New columns on `Booking` (`paymentStatus`, `depositAmount`, `refundedAmount`, `stripeSessionId` unique, `stripePaymentIntent`) and a `StripeEvent` table are additive.
+6. Schedule the reminder job: call `GET /api/cron/booking-reminders` hourly with `Authorization: Bearer $CRON_SECRET` (EventBridge Scheduler). It emails customers about appointments in the next 24 hours, once each; running it more often is harmless.
 
 Local/CI use SQLite via `prisma/schema.prisma`; keep the two schema files identical apart from `provider`.
 

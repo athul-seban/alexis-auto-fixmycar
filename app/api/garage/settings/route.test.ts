@@ -21,6 +21,34 @@ beforeEach(async () => {
 })
 afterAll(() => cleanupPrefix(PREFIX))
 
+describe("garage settings: online payments", () => {
+  it("reports whether the platform can take payments, and refuses to switch deposits on when it can't", async () => {
+    delete process.env.STRIPE_SECRET_KEY
+    const { user } = await makeGarage(PREFIX)
+    asUser(user.id)
+    expect((await (await GET(new Request("http://x"))).json()).paymentsAvailable).toBe(false)
+
+    const blocked = await PATCH(json("PATCH", { payments: { enabled: true } }))
+    expect(blocked.status).toBe(409)
+    expect((await blocked.json()).code).toBe("PAYMENTS_UNAVAILABLE")
+  })
+
+  it("saves deposit options once Stripe is configured, and validates them", async () => {
+    process.env.STRIPE_SECRET_KEY = "sk_test_dummy"
+    try {
+      const { user, garage } = await makeGarage(PREFIX)
+      asUser(user.id)
+      const ok = await PATCH(json("PATCH", { payments: { enabled: true, depositPercent: 30, refundPolicy: "FULL" } }))
+      expect((await ok.json()).settings.payments).toEqual({ enabled: true, depositPercent: 30, refundPolicy: "FULL" })
+      expect(JSON.parse((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).portalSettings!).payments.depositPercent).toBe(30)
+      expect((await PATCH(json("PATCH", { payments: { depositPercent: 2 } }))).status).toBe(400)
+      expect((await PATCH(json("PATCH", { payments: { refundPolicy: "SOMETIMES" } }))).status).toBe(400)
+    } finally {
+      delete process.env.STRIPE_SECRET_KEY
+    }
+  })
+})
+
 describe("garage settings", () => {
   it("returns defaults plus account info", async () => {
     const { user, garage } = await makeGarage(PREFIX)

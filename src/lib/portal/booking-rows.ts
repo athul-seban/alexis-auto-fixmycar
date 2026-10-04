@@ -26,6 +26,8 @@ export interface BookingRow {
   createdAt: string
   contactedAt: string | null
   hasOwner: boolean
+  paymentStatus: string
+  depositAmount: number | null
   timeConfirmed: boolean
 }
 
@@ -63,6 +65,8 @@ export const BOOKING_ROW_SELECT = {
   contactedAt: true,
   ownerId: true,
   timeConfirmed: true,
+  paymentStatus: true,
+  depositAmount: true,
 } satisfies Prisma.BookingSelect
 
 export const BOOKING_DETAIL_SELECT = {
@@ -105,6 +109,8 @@ export function toBookingRow(b: RowSource, now: Date = new Date()): BookingRow {
     createdAt: b.createdAt.toISOString(),
     contactedAt: iso(b.contactedAt),
     hasOwner: b.ownerId !== null,
+    paymentStatus: b.paymentStatus,
+    depositAmount: b.depositAmount,
     timeConfirmed: b.timeConfirmed,
   }
 }

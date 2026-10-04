@@ -11,6 +11,7 @@ import { sendJson, useApi } from "@/hooks/use-api"
 import { FieldLabel, TextInput } from "@/components/ui/form-controls"
 import { cn, formatCurrency, getServiceLabel } from "@/lib/utils"
 import { formatLondonDateTime } from "@/lib/portal/tz"
+import { PaymentPill } from "@/components/garage-portal/shared/PaymentPill"
 import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
 
 interface ManagedBooking {
@@ -26,6 +27,10 @@ interface ManagedBooking {
   cancelReason: string | null
   garage: { name: string; slug: string; phone: string; address: string; city: string; postcode: string }
   review: { rating: number; comment: string; reply: string | null } | null
+  paymentStatus: string
+  depositAmount: number | null
+  refundedAmount: number | null
+  cancelRefundNote: string | null
   canCancel: boolean
   canReschedule: boolean
   canReview: boolean
@@ -98,6 +103,8 @@ export function ManageBooking({ token }: { token: string }) {
   const [comment, setComment] = useState("")
   const [reviewError, setReviewError] = useState("")
   const b = data?.booking
+  // Stripe sends the customer back with ?paid=1; the webhook may land a moment after they do.
+  const [returnedFromStripe] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("paid") === "1")
 
   async function cancel() {
     setBusy(true)
@@ -138,6 +145,11 @@ export function ManageBooking({ token }: { token: string }) {
         </p>
       )}
       <section className={card}>
+        {returnedFromStripe && b.paymentStatus === "PENDING" && (
+          <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+            Thanks — we&apos;re confirming your payment. Refresh this page in a moment.
+          </p>
+        )}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h1 className="text-xl font-bold text-slate-900 dark:text-white">Your booking{b.customerName ? `, ${b.customerName.split(" ")[0]}` : ""}</h1>
@@ -174,6 +186,16 @@ export function ManageBooking({ token }: { token: string }) {
               </dd>
             </div>
           </div>
+          {b.paymentStatus !== "NONE" && (
+            <div className="flex flex-wrap items-center gap-2 text-slate-700 dark:text-slate-300">
+              <dt className="sr-only">Payment</dt>
+              <dd className="flex flex-wrap items-center gap-2">
+                <PaymentPill status={b.paymentStatus} />
+                {b.depositAmount !== null && <span>Deposit {formatCurrency(b.depositAmount)}</span>}
+                {b.refundedAmount ? <span>· {formatCurrency(b.refundedAmount)} refunded</span> : null}
+              </dd>
+            </div>
+          )}
           <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
             <Phone className="h-4 w-4 flex-shrink-0 text-slate-400" />
             <dt className="sr-only">Phone</dt>
@@ -192,6 +214,7 @@ export function ManageBooking({ token }: { token: string }) {
             <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">
               {b.canReschedule ? "Need a different time, or no longer need it? You can change or cancel your booking here." : "To change the time, call the garage. If you no longer need the booking you can cancel it here."}
             </p>
+            {b.cancelRefundNote && <p className="mb-3 text-sm font-medium text-slate-700 dark:text-slate-200">{b.cancelRefundNote}</p>}
             <div className="flex flex-col gap-3">
               {b.canReschedule && (
                 <ReschedulePanel

@@ -116,7 +116,7 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({ name: "", email: "", phone: "", vrm: "", make: "", model: "", notes: "", website: "" })
   const [error, setError] = useState("")
-  const [result, setResult] = useState<{ reference: string; scheduledAt: string; status: string; message: string } | null>(null)
+  const [result, setResult] = useState<{ reference: string; scheduledAt: string; status: string; message: string; checkoutUrl?: string | null } | null>(null)
 
   const today = todayLondon()
   const days = useMemo(() => {
@@ -175,6 +175,15 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
       }
       setResult(data)
       setStep("done")
+      // Stripe's checkout can't be framed, and this widget usually lives in an iframe: take the whole window there.
+      // If the browser blocks that, the "Pay deposit" button below does the same on a click.
+      if (data.checkoutUrl) {
+        try {
+          ;(window.top ?? window).location.href = data.checkoutUrl
+        } catch {
+          /* blocked: the button handles it */
+        }
+      }
     } catch {
       setError("Network error — please try again.")
     } finally {
@@ -352,6 +361,15 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
           </p>
           <p className="mx-auto mt-3 inline-block rounded-lg bg-slate-100 px-3 py-1.5 font-mono text-sm font-bold tracking-wider text-slate-900 dark:bg-white/10 dark:text-white">{result.reference}</p>
           <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">{result.message}</p>
+          {result.checkoutUrl && (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+              <p className="font-semibold">One more step: pay your deposit</p>
+              <p className="mt-0.5 text-xs">Your slot is held for 30 minutes while you pay.</p>
+              <a href={result.checkoutUrl} target="_top" rel="noopener" className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg px-4 text-sm font-semibold" style={btn}>
+                Pay deposit securely
+              </a>
+            </div>
+          )}
           <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"><Clock className="h-3.5 w-3.5" /> A confirmation has been emailed to you.</p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Need to change it? Call {garage.phone}.</p>
         </div>

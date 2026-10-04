@@ -5,6 +5,7 @@ import { DataTable, type DataColumn } from "@/components/ui/data-table"
 import { formatCurrency, getServiceLabel } from "@/lib/utils"
 import { sourceLabel } from "@/lib/portal/labels"
 import { formatLondonDateTime, formatLondonDate } from "@/lib/portal/tz"
+import { PaymentPill } from "@/components/garage-portal/shared/PaymentPill"
 import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
 import { VrmPlate } from "@/components/garage-portal/shared/VrmPlate"
 import type { BookingRow } from "@/components/garage-portal/bookings/types"
@@ -92,6 +93,7 @@ const COLUMNS: DataColumn<BookingRow, SortKey>[] = [
       </>
     ),
   },
+  { id: "payment", header: "Payment", cell: (r) => (r.paymentStatus === "NONE" ? dash : <PaymentPill status={r.paymentStatus} />) },
   { id: "created", header: "Created", sortKey: "created", mobile: "hidden", className: muted, cell: (r) => formatLondonDate(r.createdAt) },
   {
     id: "contacted",

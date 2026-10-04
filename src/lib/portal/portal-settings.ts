@@ -23,8 +23,19 @@ export const notificationSettingsSchema = z.object({
   emailReview: z.boolean().default(true),
 })
 
+export const REFUND_POLICIES = ["FULL", "UNTIL_24H", "NONE"] as const
+
+// Online deposits taken through Stripe Checkout when a customer books via the widget.
+export const paymentSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  depositPercent: z.number().int().min(5).max(100).default(25),
+  // What a customer gets back when THEY cancel (a garage cancelling always refunds in full).
+  refundPolicy: z.enum(REFUND_POLICIES).default("UNTIL_24H"),
+})
+
 export const portalSettingsSchema = z.object({
   widget: widgetSettingsSchema.default({}),
+  payments: paymentSettingsSchema.default({}),
   notifications: notificationSettingsSchema.default({}),
   // Overrides capacity (concurrent jobs). Default = number of active technicians, min 1.
   bays: z.number().int().min(1).max(50).optional(),
@@ -32,6 +43,7 @@ export const portalSettingsSchema = z.object({
 
 export type PortalSettings = z.infer<typeof portalSettingsSchema>
 export type WidgetSettings = z.infer<typeof widgetSettingsSchema>
+export type PaymentSettings = z.infer<typeof paymentSettingsSchema>
 
 export const DEFAULT_PORTAL_SETTINGS: PortalSettings = portalSettingsSchema.parse({})
 
@@ -57,6 +69,7 @@ export function mergePortalSettings(current: PortalSettings, patch: DeepPartial<
     ...current,
     ...patch,
     widget: { ...current.widget, ...(patch.widget ?? {}) },
+    payments: { ...current.payments, ...(patch.payments ?? {}) },
     notifications: { ...current.notifications, ...(patch.notifications ?? {}) },
   })
 }

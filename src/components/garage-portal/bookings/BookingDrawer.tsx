@@ -17,6 +17,7 @@ import { formatPhone } from "@/lib/portal/phone"
 import { MessageThread } from "@/components/shared/MessageThread"
 import { DateTimeFields, dateTimeFromIso, dateTimeToIso } from "@/components/garage-portal/shared/DateTimeFields"
 import { OverlapNotice } from "@/components/garage-portal/shared/OverlapNotice"
+import { PaymentPill } from "@/components/garage-portal/shared/PaymentPill"
 import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
 import { VrmPlate } from "@/components/garage-portal/shared/VrmPlate"
 import type { BookingDetail, OverlapDetails, TechnicianOption } from "@/components/garage-portal/bookings/types"
@@ -230,6 +231,16 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
       </Section>
 
       {/* Review */}
+      {b.paymentStatus !== "NONE" && (
+        <Section title="Payment">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <PaymentPill status={b.paymentStatus} />
+            {b.depositAmount !== null && <span className="text-slate-700 dark:text-slate-300">Deposit {formatCurrency(b.depositAmount)} of {formatCurrency(b.totalPrice)}</span>}
+          </div>
+          {b.paymentStatus === "PAID" && <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">The deposit is refunded automatically if you cancel. Collect the balance when the job is done.</p>}
+        </Section>
+      )}
+
       <Section title="History">
         <ol className="space-y-3 border-l border-slate-200 pl-4 dark:border-white/10">
           {b.events.map((e) => (
