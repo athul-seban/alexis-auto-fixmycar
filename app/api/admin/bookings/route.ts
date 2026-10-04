@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
+import { normaliseSearchQuery } from "@/lib/portal/search-text"
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -21,8 +22,13 @@ export async function GET(req: Request) {
   if (from) createdAt.gte = new Date(from)
   if (to) createdAt.lte = new Date(`${to}T23:59:59.999Z`)
 
+  const source = searchParams.get("source")
+  const q = searchParams.get("q")?.trim()
+
   const where = {
     ...(status ? { status } : {}),
+    ...(source ? { source } : {}),
+    ...(q ? { searchText: { contains: normaliseSearchQuery(q) } } : {}),
     ...(from || to ? { createdAt } : {}),
   }
 
@@ -52,7 +58,10 @@ export async function GET(req: Request) {
       totalPrice: b.totalPrice,
       scheduledAt: b.scheduledAt,
       garage: b.garage.name,
-      customer: b.owner.name ?? b.owner.email,
+      // Walk-in / widget bookings have no owner account; fall back to the captured customer name.
+      customer: b.owner?.name ?? b.owner?.email ?? b.customerName ?? "Walk-in customer",
+      source: b.source,
+      reference: b.reference,
     })),
     total,
     page,

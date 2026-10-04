@@ -15,3 +15,7 @@ prisma/*.db-shm
 prisma/*.db-wal
 .vercel
 .env*
+
+# Playwright
+/test-results/
+/playwright-report/

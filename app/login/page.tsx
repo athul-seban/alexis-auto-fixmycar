@@ -7,11 +7,13 @@ import { signIn } from "next-auth/react"
 import { Wrench, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { postLoginPath } from "@/lib/auth-routes"
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard"
+  // Every sign-in hops through /post-login, which sends each role to its own dashboard.
+  const postLogin = postLoginPath(searchParams.get("callbackUrl"))
   const error = searchParams.get("error")
 
   const [email, setEmail] = useState("")
@@ -41,12 +43,12 @@ function LoginForm() {
       return
     }
 
-    router.push(callbackUrl)
+    router.push(postLogin)
     router.refresh()
   }
 
   const handleGoogleSignIn = () => {
-    signIn("google", { callbackUrl })
+    signIn("google", { callbackUrl: postLogin })
   }
 
   return (
@@ -99,7 +101,7 @@ function LoginForm() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} method="post" className="space-y-4">
             <Input
               label="Email address"
               type="email"

@@ -6,6 +6,7 @@ import { Providers } from "@/components/layout/Providers"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
     default: "Quote My Garage – Find Trusted Local Garages & Mechanics",
     template: "%s | Quote My Garage",

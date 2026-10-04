@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { notifyUser, notifyGarage } from "@/lib/notifications"
+import { garageLinks } from "@/lib/portal/links"
 import { z } from "zod"
 
 const querySchema = z.object({
@@ -94,6 +95,13 @@ export async function POST(req: Request) {
     if (!isOwnerParty && !isGarageParty) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
+    // Walk-in / widget bookings have no customer account to message.
+    if (!thread.ownerId) {
+      return NextResponse.json(
+        { error: "This customer doesn't have an account — contact them by phone or email instead." },
+        { status: 409 }
+      )
+    }
 
     const message = await prisma.message.create({
       data: {
@@ -113,7 +121,7 @@ export async function POST(req: Request) {
         type: "MESSAGE_RECEIVED",
         title: "New message",
         body: data.body.slice(0, 140),
-        link: data.quoteId ? `/garage-dashboard?quote=${data.quoteId}` : `/garage-dashboard?booking=${data.bookingId}`,
+        link: data.quoteId ? garageLinks.enquiry(data.quoteId) : garageLinks.booking(data.bookingId!),
       })
     } else {
       await notifyUser({

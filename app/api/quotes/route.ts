@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { notifyGarage, notifyUser } from "@/lib/notifications"
+import { garageLinks } from "@/lib/portal/links"
 import { z } from "zod"
 
 const createSchema = z.object({
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
         type: "QUOTE_REQUESTED",
         title: "New quote request",
         body: `${data.serviceType} request for ${quote.vehicle.year} ${quote.vehicle.make} ${quote.vehicle.model}`,
-        link: `/garage-dashboard?quote=${quote.id}`,
+        link: garageLinks.enquiry(quote.id),
       })
       return NextResponse.json({ quote }, { status: 201 })
     }
@@ -104,6 +105,10 @@ export async function POST(req: Request) {
         where: { id: data.quoteId, garageId: garage.id },
       })
       if (!quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 })
+      // A request can be quoted (or re-quoted while still open) — not once it's accepted, declined or expired.
+      if (quote.status !== "PENDING" && quote.status !== "SENT") {
+        return NextResponse.json({ error: `This request is ${quote.status.toLowerCase()} and can no longer be quoted` }, { status: 409 })
+      }
 
       const validUntil = new Date()
       validUntil.setDate(validUntil.getDate() + data.validDays)

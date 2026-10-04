@@ -10,6 +10,7 @@ import { NotificationBell } from "@/components/layout/NotificationBell"
 import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { getInitials } from "@/lib/utils"
 import { cn } from "@/lib/utils"
+import { roleHome } from "@/lib/auth-routes"
 
 const services = [
   { label: "MOT Test", href: "/search?service=MOT" },
@@ -33,11 +34,7 @@ export function Header() {
 
   const user = session?.user as any
 
-  const getDashboardLink = () => {
-    if (user?.role === "ADMIN") return "/admin"
-    if (user?.role === "GARAGE") return "/garage-dashboard"
-    return "/dashboard"
-  }
+  const getDashboardLink = () => roleHome(user?.role)
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-black/[0.06] dark:border-white/10 shadow-[0_1px_20px_rgba(0,0,0,0.05)] dark:shadow-none">

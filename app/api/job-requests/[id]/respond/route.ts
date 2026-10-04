@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { sendMail } from "@/lib/mail"
 import { jobResponseGuestNotification } from "@/lib/email-templates"
+import { jobMatchesGarage } from "@/lib/job-matching"
 import { z } from "zod"
 
 const respondSchema = z.object({
@@ -30,8 +31,16 @@ export async function POST(req: Request, props: Params) {
     const garage = await prisma.garage.findUnique({ where: { userId: user.id } })
     if (!garage) return NextResponse.json({ error: "Garage not found" }, { status: 404 })
 
+    // Only live (approved) garages may quote on marketplace jobs.
+    if (garage.status !== "APPROVED") {
+      return NextResponse.json({ error: "Your listing isn't live, so you can't quote on jobs yet" }, { status: 403 })
+    }
+
     const jobRequest = await prisma.jobRequest.findUnique({ where: { id: params.id } })
     if (!jobRequest) return NextResponse.json({ error: "Job request not found" }, { status: 404 })
+    if (!jobMatchesGarage(jobRequest, garage)) {
+      return NextResponse.json({ error: "This job isn't in your area or services" }, { status: 403 })
+    }
 
     if (jobRequest.status === "BOOKED" || jobRequest.status === "CANCELLED") {
       return NextResponse.json({ error: "This job is no longer accepting quotes" }, { status: 409 })

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
-import { notifyGarage, notifyUser } from "@/lib/notifications"
+import { PLACEHOLDER_LEAD_MS, createBooking, transitionBooking, type Actor } from "@/lib/portal/booking-service"
+import { handleRouteError } from "@/lib/portal/route-errors"
 import { z } from "zod"
 
 const statusSchema = z.object({
@@ -16,7 +17,8 @@ const createSchema = z.object({
   quoteId: z.string().optional(),
   serviceType: z.string(),
   description: z.string().optional(),
-  scheduledAt: z.string().datetime(),
+  // Optional: when omitted the time is a placeholder the garage later agrees with the customer.
+  scheduledAt: z.string().datetime().optional(),
   totalPrice: z.number().positive(),
 })
 
@@ -89,51 +91,24 @@ export async function POST(req: Request) {
     const body = await req.json()
     const data = createSchema.parse(body)
 
-    const booking = await prisma.booking.create({
-      data: {
-        ownerId: user.id,
-        vehicleId: data.vehicleId,
-        garageId: data.garageId,
-        quoteId: data.quoteId,
-        serviceType: data.serviceType as any,
-        description: data.description,
-        scheduledAt: new Date(data.scheduledAt),
-        totalPrice: data.totalPrice,
-        status: "PENDING",
-      },
-      include: {
-        vehicle: true,
-        garage: { select: { name: true, city: true } },
-      },
-    })
-
-    if (data.quoteId) {
-      await prisma.quote.update({
-        where: { id: data.quoteId },
-        data: { status: "ACCEPTED" },
-      })
-    }
-
-    await prisma.garage.update({
-      where: { id: data.garageId },
-      data: { totalBookings: { increment: 1 } },
-    })
-
-    await notifyGarage({
+    const explicitTime = data.scheduledAt ? new Date(data.scheduledAt) : null
+    // The service verifies the vehicle/quote belong to this customer and the garage is approved.
+    const booking = await createBooking({
       garageId: data.garageId,
-      type: "BOOKING_CREATED",
-      title: "New booking",
-      body: `${booking.serviceType} booking for ${booking.vehicle.year} ${booking.vehicle.make} ${booking.vehicle.model}`,
-      link: `/garage-dashboard?booking=${booking.id}`,
+      source: data.quoteId ? "QUOTE" : "MARKETPLACE",
+      ownerId: user.id,
+      vehicleId: data.vehicleId,
+      quoteId: data.quoteId,
+      serviceType: data.serviceType,
+      description: data.description,
+      scheduledAt: explicitTime ?? new Date(Date.now() + PLACEHOLDER_LEAD_MS),
+      timeConfirmed: explicitTime !== null,
+      totalPrice: data.totalPrice,
     })
 
     return NextResponse.json({ booking }, { status: 201 })
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid data", details: err.errors }, { status: 400 })
-    }
-    console.error("Bookings POST error:", err)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return handleRouteError(err, "Bookings POST")
   }
 }
 
@@ -150,50 +125,28 @@ export async function PATCH(req: Request) {
     const booking = await prisma.booking.findUnique({ where: { id: data.bookingId } })
     if (!booking) return NextResponse.json({ error: "Booking not found" }, { status: 404 })
 
+    let actor: Actor
     if (user.role === "GARAGE") {
       const garage = await prisma.garage.findUnique({ where: { userId: user.id } })
       if (!garage || garage.id !== booking.garageId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      // Suspended garages are read-only (same rule as the portal's { write: true } routes).
+      if (garage.status === "SUSPENDED") {
+        return NextResponse.json({ error: "Your garage is suspended — the portal is read-only", code: "GARAGE_SUSPENDED" }, { status: 403 })
+      }
+      actor = { role: "GARAGE", garageId: garage.id }
     } else if (user.role === "OWNER") {
       if (user.id !== booking.ownerId || data.status !== "CANCELLED") {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
+      actor = { role: "OWNER", userId: user.id }
     } else {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const updated = await prisma.booking.update({
-      where: { id: data.bookingId },
-      data: {
-        status: data.status,
-        completedAt: data.status === "COMPLETED" ? new Date() : booking.completedAt,
-      },
-    })
-
-    const statusLabel = data.status.replace("_", " ").toLowerCase()
-    if (user.role === "GARAGE") {
-      await notifyUser({
-        userId: booking.ownerId,
-        type: "BOOKING_STATUS_CHANGED",
-        title: `Booking ${statusLabel}`,
-        body: `Your ${booking.serviceType} booking is now ${statusLabel}`,
-        link: `/dashboard?booking=${booking.id}`,
-      })
-    } else {
-      await notifyGarage({
-        garageId: booking.garageId,
-        type: "BOOKING_STATUS_CHANGED",
-        title: `Booking ${statusLabel}`,
-        body: `A customer cancelled their ${booking.serviceType} booking`,
-        link: `/garage-dashboard?booking=${booking.id}`,
-      })
-    }
-
+    // Applies the transition rules (e.g. terminal statuses can't be changed) and notifies the other party.
+    const updated = await transitionBooking({ bookingId: booking.id, to: data.status, actor })
     return NextResponse.json({ booking: updated })
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid data", details: err.errors }, { status: 400 })
-    }
-    console.error("Bookings PATCH error:", err)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return handleRouteError(err, "Bookings PATCH")
   }
 }

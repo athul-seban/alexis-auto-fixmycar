@@ -10,7 +10,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { getServiceLabel } from "@/lib/utils"
-import type { GarageProfile, Review, ServiceType } from "@/types"
+import type { GarageProfile, PublicServicePrice, Review, ServiceType } from "@/types"
+import { priceLabel } from "@/lib/portal/service-defaults"
 
 interface VehicleOption {
   id: string
@@ -36,7 +37,7 @@ export function GarageProfilePage({ slug }: Props) {
 
   const [activeTab, setActiveTab] = useState<"services" | "reviews" | "info">("services")
   const [showQuoteForm, setShowQuoteForm] = useState(false)
-  const [garage, setGarage] = useState<(GarageProfile & { reviews: Review[]; verificationBadges: string[] }) | null>(null)
+  const [garage, setGarage] = useState<(GarageProfile & { reviews: Review[]; verificationBadges: string[]; prices?: PublicServicePrice[] }) | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
@@ -191,12 +192,19 @@ export function GarageProfilePage({ slug }: Props) {
                   <p className="text-sm text-slate-400 dark:text-slate-500">No services listed yet.</p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {garage.services.map((s) => (
-                      <div key={s} className="flex items-center gap-2.5 p-3 bg-slate-50 dark:bg-white/5 rounded-lg border border-slate-100 dark:border-white/10">
-                        <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{getServiceLabel(s)}</span>
-                      </div>
-                    ))}
+                    {garage.services.map((s) => {
+                      const price = garage.prices?.find((p) => p.serviceType === s)
+                      const label = price ? priceLabel(price.priceFrom, price.priceTo) : null
+                      return (
+                        <div key={s} className="flex items-center gap-2.5 p-3 bg-slate-50 dark:bg-white/5 rounded-lg border border-slate-100 dark:border-white/10" title={price?.notes ?? undefined}>
+                          <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <span className="block text-sm font-medium text-slate-700 dark:text-slate-200">{getServiceLabel(s)}</span>
+                            {label && <span className="block text-xs font-semibold text-[#1E3A5F] dark:text-blue-300">{label}</span>}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -256,6 +264,15 @@ export function GarageProfilePage({ slug }: Props) {
                       </div>
                       {review.title && <p className="font-semibold text-slate-900 dark:text-white text-sm mb-1">{review.title}</p>}
                       <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{review.comment}</p>
+                      {review.reply && (
+                        <div className="mt-3 rounded-lg border-l-4 border-[#F97316] bg-slate-50 p-3 dark:bg-white/5">
+                          <p className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                            Response from {garage.name}
+                            {review.repliedAt && ` · ${new Date(review.repliedAt).toLocaleDateString("en-GB")}`}
+                          </p>
+                          <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{review.reply}</p>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -310,10 +327,11 @@ export function GarageProfilePage({ slug }: Props) {
                     {garage.email}
                   </a>
                 </div>
-                {garage.website && (
+                {/* Only http(s) sites are linked: a stored javascript:/data: URL must never become a clickable href. */}
+                {garage.website && /^https?:\/\//i.test(garage.website) && (
                   <div className="flex items-center gap-3 text-sm">
                     <Globe className="h-4 w-4 text-[#F97316] flex-shrink-0" />
-                    <a href={garage.website} target="_blank" rel="noreferrer" className="text-slate-700 dark:text-slate-200 hover:text-[#1E3A5F] dark:hover:text-white transition-colors truncate">
+                    <a href={garage.website} target="_blank" rel="noopener noreferrer" className="text-slate-700 dark:text-slate-200 hover:text-[#1E3A5F] dark:hover:text-white transition-colors truncate">
                       {garage.website}
                     </a>
                   </div>

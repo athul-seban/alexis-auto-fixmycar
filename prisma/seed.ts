@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client"
 import bcrypt from "bcryptjs"
 import crypto from "crypto"
+import { backfillBookings } from "../src/lib/portal/backfill"
+import { seedGaragePortalDemo } from "./seed-garage-portal"
 
 const prisma = new PrismaClient()
 
@@ -754,11 +756,17 @@ async function main() {
         type: "REVIEW_RECEIVED",
         title: "New 5-star review",
         body: "In and out in under an hour, and they explained everything clearly. Would book again.",
-        link: "/garage-dashboard?booking=seed-booking-1",
+        link: "/garage-dashboard/bookings?booking=seed-booking-1",
       },
     })
   }
   console.log("✅ Seeded sample notifications")
+
+  // Upgrade the plain bookings above (source, snapshots, reference, searchText), then add the
+  // garage-portal demo data (technicians + ~30 bookings for Premier Auto Services).
+  const backfilled = await backfillBookings({ db: prisma })
+  console.log(`✅ Backfilled ${backfilled.updated} booking(s) with portal fields`)
+  await seedGaragePortalDemo(prisma)
 
   console.log("\nSeed summary:")
   console.log(`  Garages: ${garages.length} (statuses: APPROVED x5, PENDING x2, SUSPENDED x1)`)

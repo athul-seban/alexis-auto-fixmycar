@@ -1,0 +1,62 @@
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest"
+import bcrypt from "bcryptjs"
+import { getServerSession } from "next-auth"
+import { prisma } from "@/lib/prisma"
+import { GET, PATCH } from "./route"
+import { POST as changePassword } from "./change-password/route"
+import { cleanupPrefix, makeOwner } from "@/test/fixtures"
+
+vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
+vi.mock("@/lib/auth", () => ({ authOptions: {} }))
+
+const mockSession = vi.mocked(getServerSession)
+const PREFIX = "account-"
+const json = (method: string, body: unknown) => new Request("http://x", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+
+beforeEach(async () => {
+  mockSession.mockReset()
+  await cleanupPrefix(PREFIX)
+})
+afterAll(() => cleanupPrefix(PREFIX))
+
+describe("/api/account", () => {
+  it("requires a session", async () => {
+    mockSession.mockResolvedValue(null)
+    expect((await GET()).status).toBe(401)
+    expect((await PATCH(json("PATCH", { name: "x" }))).status).toBe(401)
+  })
+
+  it("reads and updates the caller's own profile only", async () => {
+    const { user } = await makeOwner(PREFIX)
+    mockSession.mockResolvedValue({ user: { id: user.id, role: "OWNER" } } as any)
+    const res = await PATCH(json("PATCH", { name: "  New Name ", phone: "07123 456789" }))
+    expect(res.status).toBe(200)
+    const me = await (await GET()).json()
+    expect(me).toMatchObject({ name: "New Name", email: user.email, hasPassword: false })
+    expect(me.phone).toMatch(/^07123/)
+    expect((await PATCH(json("PATCH", { name: "" }))).status).toBe(400)
+  })
+})
+
+describe("/api/account/change-password", () => {
+  it("changes the password when the current one is right, and counts wrong attempts", async () => {
+    const { user } = await makeOwner(PREFIX)
+    await prisma.user.update({ where: { id: user.id }, data: { password: await bcrypt.hash("oldpassword", 4) } })
+    mockSession.mockResolvedValue({ user: { id: user.id, role: "OWNER" } } as any)
+
+    expect((await changePassword(json("POST", { current: "wrong", next: "brandnewpass" }))).status).toBe(400)
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).failedLoginAttempts).toBe(1)
+    expect((await changePassword(json("POST", { current: "oldpassword", next: "short" }))).status).toBe(400)
+    expect((await changePassword(json("POST", { current: "oldpassword", next: "brandnewpass" }))).status).toBe(200)
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    expect(await bcrypt.compare("brandnewpass", after.password!)).toBe(true)
+    expect(after.failedLoginAttempts).toBe(0)
+  })
+
+  it("tells Google-only accounts there is no password", async () => {
+    const { user } = await makeOwner(PREFIX)
+    mockSession.mockResolvedValue({ user: { id: user.id, role: "OWNER" } } as any)
+    expect((await changePassword(json("POST", { current: "x", next: "brandnewpass" }))).status).toBe(400)
+  })
+})

@@ -15,9 +15,11 @@ export async function GET(req: Request) {
   const page = Math.max(1, Number(searchParams.get("page")) || 1)
   const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || 10))
 
-  const [allForStatus, statusCounts] = await Promise.all([
+  const where = status ? { status } : undefined
+  const [allForStatus, statusCounts, totalNoSearch] = await Promise.all([
     prisma.quote.findMany({
-      where: status ? { status } : undefined,
+      where,
+      ...(q ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
       include: {
         owner: { select: { name: true, email: true } },
         garage: { select: { name: true } },
@@ -26,6 +28,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
     }),
     prisma.quote.groupBy({ by: ["status"], _count: { status: true } }),
+    prisma.quote.count({ where }),
   ])
 
   const filtered = q
@@ -36,9 +39,8 @@ export async function GET(req: Request) {
       )
     : allForStatus
 
-  const total = filtered.length
-  const start = (page - 1) * pageSize
-  const quotes = filtered.slice(start, start + pageSize).map((quote) => ({
+  const total = q ? filtered.length : totalNoSearch
+  const quotes = (q ? filtered.slice((page - 1) * pageSize, page * pageSize) : filtered).map((quote) => ({
     id: quote.id,
     serviceType: quote.serviceType,
     description: quote.description,

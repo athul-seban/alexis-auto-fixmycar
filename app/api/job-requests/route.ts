@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
-import { findMatchingGaragesForJob, findMatchingJobRequestsForGarage } from "@/lib/job-matching"
+import { findMatchingGaragesForJob, findMatchingJobRequestsForGarage, toGarageJobView } from "@/lib/job-matching"
 import { sendMail } from "@/lib/mail"
 import { jobRequestGarageNotification, jobRequestGuestConfirmation } from "@/lib/email-templates"
 import { z } from "zod"
@@ -101,7 +101,7 @@ export async function GET() {
 
     const jobs = await findMatchingJobRequestsForGarage(garage)
     const mapped = jobs.map((job) => ({
-      ...job,
+      ...toGarageJobView(job),
       hasResponded: job.responses.length > 0,
       myResponse: job.responses[0] ?? null,
     }))

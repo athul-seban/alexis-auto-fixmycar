@@ -2,7 +2,13 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
+import { ratingAfterRemove } from "@/lib/portal/ratings"
 import { z } from "zod"
+
+/** Reviews left through a booking link have no owner account; fall back to the name snapshot. */
+function reviewerName(r: { owner: { name: string | null; email: string } | null; customerName: string | null }) {
+  return r.owner?.name ?? r.owner?.email ?? r.customerName ?? "Customer"
+}
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
@@ -16,30 +22,35 @@ export async function GET(req: Request) {
   const page = Math.max(1, Number(searchParams.get("page")) || 1)
   const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || 10))
 
-  const all = await prisma.review.findMany({
-    where: rating ? { rating: Number(rating) } : undefined,
+  const where = rating ? { rating: Number(rating) } : undefined
+  const [all, ratingGroups, totalNoSearch] = await Promise.all([
+    prisma.review.findMany({
+    where,
+    ...(q ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
     include: {
       owner: { select: { name: true, email: true } },
       garage: { select: { name: true } },
     },
     orderBy: { createdAt: "desc" },
-  })
+    }),
+    prisma.review.groupBy({ by: ["rating"], _count: { _all: true } }),
+    prisma.review.count({ where }),
+  ])
 
   const filtered = q
     ? all.filter(
         (r) =>
           r.comment.toLowerCase().includes(q) ||
           r.garage.name.toLowerCase().includes(q) ||
-          (r.owner.name ?? r.owner.email).toLowerCase().includes(q)
+          reviewerName(r).toLowerCase().includes(q)
       )
     : all
 
-  const total = filtered.length
-  const start = (page - 1) * pageSize
-  const pageItems = filtered.slice(start, start + pageSize)
+  const total = q ? filtered.length : totalNoSearch
+  const pageItems = q ? filtered.slice((page - 1) * pageSize, page * pageSize) : filtered
 
   const ratingCounts: Record<number, number> = {}
-  for (const r of all) ratingCounts[r.rating] = (ratingCounts[r.rating] ?? 0) + 1
+  for (const g of ratingGroups) ratingCounts[g.rating] = g._count._all
 
   return NextResponse.json({
     reviews: pageItems.map((r) => ({
@@ -49,7 +60,7 @@ export async function GET(req: Request) {
       comment: r.comment,
       createdAt: r.createdAt,
       garage: r.garage.name,
-      customer: r.owner.name ?? r.owner.email,
+      customer: reviewerName(r),
     })),
     total,
     page,
@@ -70,7 +81,15 @@ export async function DELETE(req: Request) {
   try {
     const body = await req.json()
     const { reviewId } = deleteSchema.parse(body)
-    await prisma.review.delete({ where: { id: reviewId } })
+    const review = await prisma.review.findUnique({ where: { id: reviewId } })
+    if (!review) return NextResponse.json({ error: "Review not found" }, { status: 404 })
+
+    // Keep the garage's public rating in step with the removal (it was never adjusted before).
+    const garage = await prisma.garage.findUnique({ where: { id: review.garageId } })
+    await prisma.$transaction([
+      prisma.review.delete({ where: { id: reviewId } }),
+      ...(garage ? [prisma.garage.update({ where: { id: garage.id }, data: ratingAfterRemove(garage, review.rating) })] : []),
+    ])
     return NextResponse.json({ success: true })
   } catch (err) {
     if (err instanceof z.ZodError) {

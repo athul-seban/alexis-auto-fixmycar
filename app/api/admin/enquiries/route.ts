@@ -15,15 +15,18 @@ export async function GET(req: Request) {
   const page = Math.max(1, Number(searchParams.get("page")) || 1)
   const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || 10))
 
-  const [allForStatus, statusCounts] = await Promise.all([
+  const where = status ? { status } : undefined
+  const [allForStatus, statusCounts, totalNoSearch] = await Promise.all([
     prisma.jobRequest.findMany({
-      where: status ? { status } : undefined,
+      where,
+      ...(q ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
       include: {
         responses: { select: { id: true, price: true, status: true, garage: { select: { name: true } } } },
       },
       orderBy: { createdAt: "desc" },
     }),
     prisma.jobRequest.groupBy({ by: ["status"], _count: { status: true } }),
+    prisma.jobRequest.count({ where }),
   ])
 
   const filtered = q
@@ -32,9 +35,8 @@ export async function GET(req: Request) {
       )
     : allForStatus
 
-  const total = filtered.length
-  const start = (page - 1) * pageSize
-  const enquiries = filtered.slice(start, start + pageSize).map((j) => ({
+  const total = q ? filtered.length : totalNoSearch
+  const enquiries = (q ? filtered.slice((page - 1) * pageSize, page * pageSize) : filtered).map((j) => ({
     id: j.id,
     token: j.token,
     status: j.status,

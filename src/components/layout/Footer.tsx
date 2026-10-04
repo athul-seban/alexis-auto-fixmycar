@@ -1,3 +1,4 @@
+import { DevelopedBy } from "@/components/layout/DevelopedBy"
 import Link from "next/link"
 import { Wrench, Phone, Mail, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react"
 
@@ -141,9 +142,12 @@ export function Footer() {
       <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-slate-500">
-              © {new Date().getFullYear()} Quote My Garage Ltd. All rights reserved. Registered in England & Wales.
-            </p>
+            <div className="flex flex-col items-center gap-1 text-center md:items-start md:text-left">
+              <p className="text-xs text-slate-500">
+                © {new Date().getFullYear()} Quote My Garage Ltd. All rights reserved. Registered in England & Wales.
+              </p>
+              <DevelopedBy className="text-xs text-slate-500" linkClassName="text-slate-300 hover:text-white" />
+            </div>
             <div className="flex items-center gap-6">
               {footerLinks.legal.map((link) => (
                 <Link

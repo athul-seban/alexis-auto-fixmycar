@@ -29,8 +29,11 @@ export async function GET(req: Request) {
   const page = Math.max(1, Number(searchParams.get("page")) || 1)
   const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || 10))
 
+  const where = role ? { role } : undefined
+  // Text search is in memory (SQLite/Postgres differ on case-insensitive contains); plain browsing pages in the DB.
   const users = await prisma.user.findMany({
-    where: role ? { role } : undefined,
+    where,
+    ...(q ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
     select: {
       id: true,
       name: true,
@@ -50,9 +53,8 @@ export async function GET(req: Request) {
       )
     : users
 
-  const total = filtered.length
-  const start = (page - 1) * pageSize
-  const pageItems = filtered.slice(start, start + pageSize)
+  const total = q ? filtered.length : await prisma.user.count({ where })
+  const pageItems = q ? filtered.slice((page - 1) * pageSize, page * pageSize) : filtered
 
   return NextResponse.json({
     users: pageItems.map((u) => ({

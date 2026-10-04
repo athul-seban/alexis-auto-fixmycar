@@ -9,7 +9,10 @@ export type NotificationType =
   | "JOB_RESPONSE_ACCEPTED"
   | "MESSAGE_RECEIVED"
   | "REVIEW_RECEIVED"
+  | "REVIEW_REPLY"
   | "VEHICLE_REMINDER"
+  | "GARAGE_STATUS_CHANGED"
+  | "BOOKING_REMINDER"
 
 interface NotifyUserInput {
   userId: string

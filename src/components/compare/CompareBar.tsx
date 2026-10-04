@@ -12,7 +12,11 @@ export function CompareBar() {
   const pathname = usePathname()
   const router = useRouter()
 
-  if (count === 0 || pathname === "/compare") return null
+  // The garage portal, admin and the embeddable widget are not part of the garage-search flow.
+  const hidden = ["/compare", "/garage-dashboard", "/admin", "/widget"].some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  )
+  if (count === 0 || hidden) return null
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-40 bg-[#1E3A5F] text-white shadow-2xl animate-fade-in">

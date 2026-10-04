@@ -12,9 +12,9 @@ export async function GET() {
 
   const now = new Date()
   const trendStart = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)
-  trendStart.setHours(0, 0, 0, 0)
+  trendStart.setUTCHours(0, 0, 0, 0) // buckets below are keyed by UTC date
 
-  const [completedBookings, allBookings, garages, recentBookings, recentGarages, recentReviews, enquiryStatusCounts, recentEnquiries] = await Promise.all([
+  const [completedBookings, allBookings, garages, recentBookings, recentGarages, recentReviews, enquiryStatusCounts, recentEnquiries, sourceGroups] = await Promise.all([
     prisma.booking.findMany({
       where: { status: "COMPLETED", completedAt: { gte: trendStart } },
       select: { completedAt: true, totalPrice: true },
@@ -24,7 +24,7 @@ export async function GET() {
     }),
     prisma.garage.findMany({ select: { city: true } }),
     prisma.booking.findMany({
-      select: { id: true, serviceType: true, createdAt: true, owner: { select: { name: true, email: true } }, garage: { select: { name: true } } },
+      select: { id: true, serviceType: true, createdAt: true, customerName: true, owner: { select: { name: true, email: true } }, garage: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
@@ -44,6 +44,7 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
+    prisma.booking.groupBy({ by: ["source"], _count: { _all: true }, _sum: { totalPrice: true } }),
   ])
 
   // Revenue trend: last 30 days, bucketed by day
@@ -94,7 +95,7 @@ export async function GET() {
   const activity = [
     ...recentBookings.map((b) => ({
       type: "booking" as const,
-      message: `${b.owner.name ?? b.owner.email} booked ${getServiceLabel(b.serviceType)} at ${b.garage.name}`,
+      message: `${b.owner?.name ?? b.owner?.email ?? b.customerName ?? "A customer"} booked ${getServiceLabel(b.serviceType)} at ${b.garage.name}`,
       createdAt: b.createdAt,
     })),
     ...recentGarages.map((g) => ({
@@ -120,6 +121,7 @@ export async function GET() {
   return NextResponse.json({
     revenueTrend,
     serviceBreakdown,
+    bySource: sourceGroups.map((g) => ({ source: g.source, count: g._count._all, value: g._sum.totalPrice ?? 0 })).sort((a, b) => b.count - a.count),
     topCities,
     activity: [
       ...activity,

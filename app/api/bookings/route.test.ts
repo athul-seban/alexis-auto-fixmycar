@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
-import { PATCH } from "./route"
+import { PATCH, POST } from "./route"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
 vi.mock("@/lib/auth", () => ({ authOptions: {} }))
@@ -65,6 +65,7 @@ async function makeFixtures() {
 
 async function cleanup() {
   await prisma.booking.deleteMany({ where: { vehicle: { registration: `${PREFIX}REG` } } })
+  await prisma.quote.deleteMany({ where: { vehicle: { registration: `${PREFIX}REG` } } })
   await prisma.vehicle.deleteMany({ where: { registration: `${PREFIX}REG` } })
   await prisma.garage.deleteMany({ where: { name: { startsWith: PREFIX } } })
   await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } })
@@ -153,5 +154,147 @@ describe("PATCH /api/bookings — status transition guards", () => {
 
     expect(res.status).toBe(200)
     expect(data.booking.completedAt).not.toBeNull()
+  })
+
+  it("refuses to change a terminal booking (a completed booking can't be cancelled)", async () => {
+    const { owner, garageUser, booking } = await makeFixtures()
+    mockSession.mockResolvedValue({ user: { id: garageUser.id, role: "GARAGE" } } as any)
+    await PATCH(patchRequest({ bookingId: booking.id, status: "CONFIRMED" }))
+    await PATCH(patchRequest({ bookingId: booking.id, status: "COMPLETED" }))
+
+    mockSession.mockResolvedValue({ user: { id: owner.id, role: "OWNER" } } as any)
+    const res = await PATCH(patchRequest({ bookingId: booking.id, status: "CANCELLED" }))
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe("INVALID_TRANSITION")
+  })
+
+  it("notifies the customer when the garage changes the status", async () => {
+    const { owner, garageUser, booking } = await makeFixtures()
+    mockSession.mockResolvedValue({ user: { id: garageUser.id, role: "GARAGE" } } as any)
+    await PATCH(patchRequest({ bookingId: booking.id, status: "CONFIRMED" }))
+    const n = await prisma.notification.findFirst({ where: { userId: owner.id } })
+    expect(n?.title).toBe("Booking confirmed")
+    expect(n?.link).toBe(`/dashboard?booking=${booking.id}`)
+  })
+})
+
+function postRequest(body: unknown) {
+  return new Request("http://localhost/api/bookings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+}
+
+describe("POST /api/bookings — owner creates a booking", () => {
+  beforeEach(cleanup)
+  afterAll(cleanup)
+
+  const payload = (f: Awaited<ReturnType<typeof makeFixtures>>, extra: object = {}) => ({
+    vehicleId: f.vehicle.id,
+    garageId: f.garage.id,
+    serviceType: "MOT",
+    totalPrice: 50,
+    scheduledAt: new Date(Date.now() + 2 * 86400000).toISOString(),
+    ...extra,
+  })
+
+  it("creates a MARKETPLACE booking with a reference, snapshots and a garage notification", async () => {
+    const f = await makeFixtures()
+    mockSession.mockResolvedValue({ user: { id: f.owner.id, role: "OWNER" } } as any)
+
+    const res = await POST(postRequest(payload(f)))
+    const data = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(data.booking.source).toBe("MARKETPLACE")
+    expect(data.booking.reference).toMatch(/^QMG-/)
+    expect(data.booking.timeConfirmed).toBe(true)
+    expect(data.booking.vrm).toBe(`${PREFIX}REG`.toUpperCase().replace(/[^A-Z0-9]/g, ""))
+    expect((await prisma.garage.findUniqueOrThrow({ where: { id: f.garage.id } })).totalBookings).toBe(1)
+    expect(await prisma.notification.count({ where: { garageId: f.garage.id, type: "BOOKING_CREATED" } })).toBe(1)
+  })
+
+  it("flags the time as unconfirmed when the customer doesn't choose one", async () => {
+    const f = await makeFixtures()
+    mockSession.mockResolvedValue({ user: { id: f.owner.id, role: "OWNER" } } as any)
+
+    const res = await POST(postRequest(payload(f, { scheduledAt: undefined })))
+    const data = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(data.booking.timeConfirmed).toBe(false)
+  })
+
+  it("rejects a vehicle that isn't the caller's", async () => {
+    const f = await makeFixtures()
+    const stranger = await prisma.user.create({ data: { email: `${PREFIX}stranger2@example.com`, role: "OWNER" } })
+    mockSession.mockResolvedValue({ user: { id: stranger.id, role: "OWNER" } } as any)
+
+    const res = await POST(postRequest(payload(f)))
+    expect(res.status).toBe(403)
+    expect((await res.json()).code).toBe("VEHICLE_NOT_OWNED")
+  })
+
+  it("books from a quote (source QUOTE) and marks the quote accepted", async () => {
+    const f = await makeFixtures()
+    const quote = await prisma.quote.create({
+      data: { ownerId: f.owner.id, vehicleId: f.vehicle.id, garageId: f.garage.id, serviceType: "MOT", description: "Needs an MOT test", status: "SENT", price: 50 },
+    })
+    mockSession.mockResolvedValue({ user: { id: f.owner.id, role: "OWNER" } } as any)
+
+    const res = await POST(postRequest(payload(f, { quoteId: quote.id })))
+    expect(res.status).toBe(201)
+    expect((await res.json()).booking.source).toBe("QUOTE")
+    expect((await prisma.quote.findUniqueOrThrow({ where: { id: quote.id } })).status).toBe("ACCEPTED")
+  })
+
+  it("won't use a quote that belongs to a different garage", async () => {
+    const f = await makeFixtures()
+    const quote = await prisma.quote.create({
+      data: { ownerId: f.owner.id, vehicleId: f.vehicle.id, garageId: f.otherGarage.id, serviceType: "MOT", description: "Needs an MOT test", status: "SENT", price: 50 },
+    })
+    mockSession.mockResolvedValue({ user: { id: f.owner.id, role: "OWNER" } } as any)
+
+    const res = await POST(postRequest(payload(f, { quoteId: quote.id })))
+    expect(res.status).toBe(409)
+    expect((await prisma.quote.findUniqueOrThrow({ where: { id: quote.id } })).status).toBe("SENT")
+  })
+
+  it("won't book a quote that isn't open (unpriced, declined or expired)", async () => {
+    const f = await makeFixtures()
+    const quote = await prisma.quote.create({
+      data: { ownerId: f.owner.id, vehicleId: f.vehicle.id, garageId: f.garage.id, serviceType: "MOT", description: "Needs an MOT test", status: "EXPIRED", price: 50 },
+    })
+    mockSession.mockResolvedValue({ user: { id: f.owner.id, role: "OWNER" } } as any)
+
+    const res = await POST(postRequest(payload(f, { quoteId: quote.id })))
+    expect(res.status).toBe(409)
+    expect((await prisma.quote.findUniqueOrThrow({ where: { id: quote.id } })).status).toBe("EXPIRED")
+  })
+
+  it("rejects a garage that isn't approved", async () => {
+    const f = await makeFixtures()
+    await prisma.garage.update({ where: { id: f.garage.id }, data: { status: "SUSPENDED" } })
+    mockSession.mockResolvedValue({ user: { id: f.owner.id, role: "OWNER" } } as any)
+
+    const res = await POST(postRequest(payload(f)))
+    expect(res.status).toBe(409)
+    expect((await res.json()).code).toBe("GARAGE_NOT_APPROVED")
+  })
+
+  it("is owner-only", async () => {
+    const f = await makeFixtures()
+    mockSession.mockResolvedValue({ user: { id: f.garageUser.id, role: "GARAGE" } } as any)
+    expect((await POST(postRequest(payload(f)))).status).toBe(403)
+
+    mockSession.mockResolvedValue(null)
+    expect((await POST(postRequest(payload(f)))).status).toBe(401)
+  })
+
+  it("validates the body", async () => {
+    const f = await makeFixtures()
+    mockSession.mockResolvedValue({ user: { id: f.owner.id, role: "OWNER" } } as any)
+    expect((await POST(postRequest(payload(f, { totalPrice: -5 })))).status).toBe(400)
   })
 })

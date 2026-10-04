@@ -70,19 +70,45 @@ export function getServiceLabel(service: string): string {
 
 export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
-    PENDING: "bg-yellow-100 text-yellow-800",
-    CONFIRMED: "bg-blue-100 text-blue-800",
-    IN_PROGRESS: "bg-purple-100 text-purple-800",
-    COMPLETED: "bg-green-100 text-green-800",
-    CANCELLED: "bg-red-100 text-red-800",
-    SENT: "bg-blue-100 text-blue-800",
-    ACCEPTED: "bg-green-100 text-green-800",
-    REJECTED: "bg-red-100 text-red-800",
-    EXPIRED: "bg-gray-100 text-gray-800",
-    APPROVED: "bg-green-100 text-green-800",
-    SUSPENDED: "bg-red-100 text-red-800",
+    PENDING: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/15 dark:text-yellow-300",
+    CONFIRMED: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+    IN_PROGRESS: "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300",
+    COMPLETED: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+    CANCELLED: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+    NO_SHOW: "bg-orange-100 text-orange-800 dark:bg-orange-500/15 dark:text-orange-300",
+    AWAITING_OUTCOME: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
+    SENT: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+    ACCEPTED: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+    REJECTED: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+    DECLINED: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+    EXPIRED: "bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-slate-300",
+    APPROVED: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
+    SUSPENDED: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+    OPEN: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
+    QUOTED: "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300",
+    BOOKED: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
   }
-  return colors[status] ?? "bg-gray-100 text-gray-800"
+  return colors[status] ?? "bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-slate-300"
+}
+
+export function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return "just now"
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
+}
+
+// For interpolating user-supplied text into HTML (emails).
+export function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
 }
 
 export function truncate(text: string, length: number): string {

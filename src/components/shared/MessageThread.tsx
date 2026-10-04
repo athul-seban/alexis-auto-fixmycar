@@ -75,7 +75,7 @@ export function MessageThread({ quoteId, bookingId, currentUserId }: Props) {
     <div className="flex flex-col gap-3">
       <div className="max-h-64 overflow-y-auto flex flex-col gap-2 pr-1">
         {messages.length === 0 ? (
-          <p className="text-xs text-slate-400 text-center py-4">No messages yet — say hello.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-4">No messages yet — say hello.</p>
         ) : (
           messages.map((m) => {
             const isMine = m.sender.id === currentUserId
@@ -84,11 +84,13 @@ export function MessageThread({ quoteId, bookingId, currentUserId }: Props) {
                 <div
                   className={cn(
                     "max-w-[75%] rounded-2xl px-3 py-2 text-sm",
-                    isMine ? "bg-[#1E3A5F] text-white rounded-br-sm" : "bg-slate-100 text-slate-800 rounded-bl-sm"
+                    isMine
+                      ? "bg-[#1E3A5F] text-white rounded-br-sm"
+                      : "bg-slate-100 text-slate-800 rounded-bl-sm dark:bg-slate-700 dark:text-slate-100"
                   )}
                 >
                   {m.body}
-                  <div className={cn("text-[10px] mt-1", isMine ? "text-blue-200" : "text-slate-400")}>
+                  <div className={cn("text-[10px] mt-1", isMine ? "text-blue-200" : "text-slate-400 dark:text-slate-300")}>
                     {new Date(m.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                   </div>
                 </div>
@@ -109,7 +111,7 @@ export function MessageThread({ quoteId, bookingId, currentUserId }: Props) {
             }
           }}
           placeholder="Type a message..."
-          className="flex-1 h-10 px-3 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]"
+          className="flex-1 h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]"
         />
         <Button size="sm" onClick={handleSend} loading={sending} disabled={!body.trim()}>
           <Send className="h-3.5 w-3.5" />

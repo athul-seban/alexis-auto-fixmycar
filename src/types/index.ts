@@ -1,7 +1,8 @@
 export type UserRole = "OWNER" | "GARAGE" | "ADMIN"
 export type GarageStatus = "PENDING" | "APPROVED" | "SUSPENDED"
 export type QuoteStatus = "PENDING" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED"
-export type BookingStatus = "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED"
+export type BookingStatus = "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "NO_SHOW"
+export type BookingSource = "MARKETPLACE" | "QUOTE" | "JOB_REQUEST" | "WIDGET" | "DIRECT"
 export type ServiceType =
   | "MOT"
   | "FULL_SERVICE"
@@ -111,7 +112,8 @@ export interface Booking {
   completedAt: Date | null
   totalPrice: number
   createdAt: Date
-  vehicle: Vehicle
+  // Null for walk-in / widget bookings made without an owner account.
+  vehicle: Vehicle | null
   garage: GarageProfile
   review: Review | null
 }
@@ -122,7 +124,19 @@ export interface Review {
   title: string | null
   comment: string
   createdAt: Date
+  // The garage's public reply, if it has written one.
+  reply?: string | null
+  repliedAt?: string | null
   owner: { name: string | null; image: string | null }
+}
+
+/** A garage's published price for one service (from its Pricing page). */
+export interface PublicServicePrice {
+  serviceType: string
+  priceFrom: number | null
+  priceTo: number | null
+  durationMins: number
+  notes: string | null
 }
 
 export interface SearchFilters {

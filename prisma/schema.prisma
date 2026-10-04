@@ -86,6 +86,8 @@ model Vehicle {
   owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   quotes   Quote[]
   bookings Booking[]
+
+  @@index([ownerId])
 }
 
 model Garage {
@@ -113,6 +115,8 @@ model Garage {
   totalReviews       Int       @default(0)
   averageRating      Float     @default(0)
   totalBookings      Int       @default(0)
+  // JSON string validated by src/lib/portal/portal-settings.ts (widget config, notification prefs)
+  portalSettings     String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -123,6 +127,10 @@ model Garage {
   jobResponses JobResponse[]
   messages     Message[]
   notifications Notification[]
+  technicians   Technician[]
+  servicePrices ServicePrice[]
+  diaryBlocks   DiaryBlock[]
+  leads         GarageLead[]
 }
 
 model Quote {
@@ -138,6 +146,7 @@ model Quote {
   partsCost   Float?
   notes       String?
   validUntil  DateTime?
+  contactedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -145,16 +154,22 @@ model Quote {
   vehicle Vehicle @relation(fields: [vehicleId], references: [id])
   garage  Garage  @relation(fields: [garageId], references: [id])
   booking Booking?
+
+  @@index([garageId, status])
+  @@index([ownerId])
 }
 
 model Booking {
   id          String    @id @default(cuid())
-  ownerId     String
-  vehicleId   String
+  // Null for walk-in / phone / widget bookings made without an owner account.
+  // Invariant (enforced in booking-service): ownerId != null => vehicleId != null.
+  ownerId     String?
+  vehicleId   String?
   garageId    String
   quoteId     String?   @unique
   serviceType String
   description String?
+  // PENDING | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED | NO_SHOW
   status      String    @default("PENDING")
   scheduledAt DateTime
   completedAt DateTime?
@@ -164,28 +179,82 @@ model Booking {
 
   jobResponseId String?     @unique
 
-  owner       User        @relation("OwnerBookings", fields: [ownerId], references: [id])
-  vehicle     Vehicle     @relation(fields: [vehicleId], references: [id])
+  // Garage-portal fields. Customer/vehicle snapshots let the portal read walk-in bookings
+  // without ever joining owner/vehicle.
+  reference         String?   @unique // QMG-XXXXXX
+  source            String    @default("MARKETPLACE") // MARKETPLACE | QUOTE | JOB_REQUEST | WIDGET | DIRECT
+  customerName      String?
+  customerEmail     String?
+  customerPhone     String?
+  vrm               String?   // normalised: upper-case, no spaces
+  vehicleMake       String?
+  vehicleModel      String?
+  vehicleYear       Int?
+  technicianId      String?
+  durationMins      Int?
+  contactedAt       DateTime?
+  notes             String?   // garage-internal; `description` stays customer-supplied
+  finalInvoiceValue Float?
+  cancelReason      String?
+  searchText        String?   // lower-cased concat so search behaves the same on SQLite and Postgres
+  ipHash            String?   // widget abuse limiting
+  timeConfirmed     Boolean   @default(true) // false when created from a quote/job without an explicit time
+  manageToken       String?   @unique // secret in the customer's email link: view / cancel / review without an account
+  reminderSentAt    DateTime? // set once the 24h-before reminder email has gone out
+
+  owner       User?       @relation("OwnerBookings", fields: [ownerId], references: [id], onDelete: Restrict)
+  vehicle     Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
   garage      Garage      @relation(fields: [garageId], references: [id])
   quote       Quote?      @relation(fields: [quoteId], references: [id])
   jobResponse JobResponse? @relation(fields: [jobResponseId], references: [id])
+  technician  Technician? @relation(fields: [technicianId], references: [id], onDelete: SetNull)
   review      Review?
+  events      BookingEvent[]
+
+  @@index([ownerId])
+  @@index([createdAt])
+  @@index([garageId, scheduledAt])
+  @@index([garageId, createdAt])
+  @@index([garageId, status])
+  @@index([garageId, source])
+  @@index([customerEmail])
 }
 
 model Review {
   id        String   @id @default(cuid())
-  ownerId   String
+  // Null when a customer without an account reviews via their booking's manage link.
+  ownerId      String?
+  customerName String? // name snapshot, used when there is no owner account
   garageId  String
   bookingId String   @unique
   rating    Int
   title     String?
   comment   String
+  reply     String?
+  repliedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  owner   User    @relation("OwnerReviews", fields: [ownerId], references: [id])
+  owner   User?   @relation("OwnerReviews", fields: [ownerId], references: [id])
   garage  Garage  @relation(fields: [garageId], references: [id])
   booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([garageId, createdAt])
+}
+
+// Append-only history of what happened to a booking (shown as the timeline in the garage portal).
+model BookingEvent {
+  id        String   @id @default(cuid())
+  bookingId String
+  actorType String // GARAGE | OWNER | CUSTOMER | ADMIN | SYSTEM
+  actorName String?
+  type      String // CREATED | STATUS | RESCHEDULED | TECHNICIAN | CONTACTED | NOTE | REMINDER | REVIEW
+  detail    String?
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
 }
 
 model JobRequest {
@@ -215,6 +284,7 @@ model JobRequest {
   updatedAt DateTime @updatedAt
 
   responses JobResponse[]
+  leads     GarageLead[]
 }
 
 model JobResponse {
@@ -271,4 +341,74 @@ model Notification {
 
   @@index([userId])
   @@index([garageId])
+}
+
+model Technician {
+  id        String   @id @default(cuid())
+  garageId  String
+  name      String
+  email     String?
+  phone     String?
+  color     String   @default("#1E3A5F")
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  garage      Garage       @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  bookings    Booking[]
+  diaryBlocks DiaryBlock[]
+
+  @@index([garageId])
+}
+
+model ServicePrice {
+  id           String   @id @default(cuid())
+  garageId     String
+  serviceType  String
+  priceFrom    Float?
+  priceTo      Float?
+  durationMins Int      @default(60)
+  notes        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  garage Garage @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  @@unique([garageId, serviceType])
+}
+
+// Time off / closures. A null technician blocks the whole garage.
+model DiaryBlock {
+  id           String   @id @default(cuid())
+  garageId     String
+  technicianId String?
+  startAt      DateTime
+  endAt        DateTime
+  allDay       Boolean  @default(false)
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  garage     Garage      @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  technician Technician? @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  @@index([garageId, startAt])
+}
+
+// Per-garage state for a guest job lead. Rows are created lazily, only after a garage
+// acts on a lead (so "new" simply means no row).
+model GarageLead {
+  id           String    @id @default(cuid())
+  garageId     String
+  jobRequestId String
+  status       String    @default("IGNORED") // IGNORED | CONTACTED
+  contactedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  garage     Garage     @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  jobRequest JobRequest @relation(fields: [jobRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([garageId, jobRequestId])
 }

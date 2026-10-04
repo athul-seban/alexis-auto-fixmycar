@@ -1,26 +1,23 @@
-import { getServerSession } from "next-auth"
+import { Suspense } from "react"
 import { redirect } from "next/navigation"
-import { Header } from "@/components/layout/Header"
-import { Footer } from "@/components/layout/Footer"
-import { GarageDashboard } from "@/components/dashboard/garage/GarageDashboard"
-import { authOptions } from "@/lib/auth"
+import { legacyGarageRedirect } from "@/lib/portal/links"
+import { DashboardPage } from "@/components/garage-portal/dashboard/DashboardPage"
 
-export const metadata = { title: "Garage Dashboard" }
+export const metadata = { title: "Dashboard" }
 
-export default async function GarageDashboardPage() {
-  const session = await getServerSession(authOptions)
-  if (!session) redirect("/login?callbackUrl=/garage-dashboard")
+export default async function GarageDashboardRoute({
+  searchParams,
+}: {
+  searchParams: Promise<{ booking?: string; quote?: string }>
+}) {
+  // Notifications/emails created before the portal link to /garage-dashboard?booking=ID (or ?quote=ID).
+  const legacy = legacyGarageRedirect(await searchParams)
+  if (legacy) redirect(legacy)
 
-  const user = session.user as any
-  if (user.role !== "GARAGE") redirect("/dashboard")
-
+  // DashboardPage keeps the date range in the query string, which requires Suspense.
   return (
-    <>
-      <Header />
-      <main className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
-        <GarageDashboard user={user} />
-      </main>
-      <Footer />
-    </>
+    <Suspense>
+      <DashboardPage />
+    </Suspense>
   )
 }

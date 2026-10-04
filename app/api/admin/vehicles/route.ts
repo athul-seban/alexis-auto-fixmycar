@@ -27,14 +27,18 @@ export async function GET(req: Request) {
       }
     : undefined
 
-  const allVehicles = await prisma.vehicle.findMany({
+  const [allVehicles, totalNoSearch] = await Promise.all([
+    prisma.vehicle.findMany({
     where,
+    ...(q ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
     include: {
       owner: { select: { name: true, email: true } },
       _count: { select: { bookings: true, quotes: true } },
     },
     orderBy: { createdAt: "desc" },
-  })
+    }),
+    prisma.vehicle.count({ where }),
+  ])
 
   const filtered = q
     ? allVehicles.filter((v) =>
@@ -42,9 +46,8 @@ export async function GET(req: Request) {
       )
     : allVehicles
 
-  const total = filtered.length
-  const start = (page - 1) * pageSize
-  const vehicles = filtered.slice(start, start + pageSize).map((v) => ({
+  const total = q ? filtered.length : totalNoSearch
+  const vehicles = (q ? filtered.slice((page - 1) * pageSize, page * pageSize) : filtered).map((v) => ({
     id: v.id,
     registration: v.registration,
     make: v.make,
