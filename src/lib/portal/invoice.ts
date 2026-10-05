@@ -76,18 +76,21 @@ export function buildInvoiceModel(b: InvoiceSource): InvoiceModel {
  */
 export async function ensureInvoiceNumber(bookingId: string, garageId: string): Promise<{ number: string; issuedAt: Date }> {
   return prisma.$transaction(async (tx) => {
-    const booking = await tx.booking.findFirst({ where: { id: bookingId, garageId }, select: { invoiceNumber: true, invoicedAt: true, status: true } })
-    if (!booking) throw new BookingError("NOT_FOUND", "Booking not found")
-    if (booking.invoiceNumber) return { number: booking.invoiceNumber, issuedAt: booking.invoicedAt ?? new Date() }
-    if (booking.status !== "COMPLETED") throw new BookingError("INVALID_TRANSITION", "Complete the booking before creating an invoice")
-
+    // The transaction opens with its write (the claim), so concurrent callers queue for the write lock instead of
+    // all reading first and then failing to upgrade (SQLite) or racing past each other (Postgres).
     const issuedAt = new Date()
-    const claimed = await tx.booking.updateMany({ where: { id: bookingId, garageId, invoiceNumber: null, invoicedAt: null }, data: { invoicedAt: issuedAt } })
+    const claimed = await tx.booking.updateMany({
+      where: { id: bookingId, garageId, status: "COMPLETED", invoiceNumber: null, invoicedAt: null },
+      data: { invoicedAt: issuedAt },
+    })
+
     if (claimed.count === 0) {
-      // Someone else claimed it first; their transaction has committed by the time ours can see the row again.
-      const winner = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, select: { invoiceNumber: true, invoicedAt: true } })
-      if (!winner.invoiceNumber) throw new BookingError("CONFLICT", "This invoice is being created — try again in a moment")
-      return { number: winner.invoiceNumber, issuedAt: winner.invoicedAt ?? issuedAt }
+      // Nothing was claimed: unknown booking, not finished yet, or already numbered (possibly by a concurrent caller).
+      const b = await tx.booking.findFirst({ where: { id: bookingId, garageId }, select: { invoiceNumber: true, invoicedAt: true, status: true } })
+      if (!b) throw new BookingError("NOT_FOUND", "Booking not found")
+      if (b.invoiceNumber) return { number: b.invoiceNumber, issuedAt: b.invoicedAt ?? issuedAt }
+      if (b.status !== "COMPLETED") throw new BookingError("INVALID_TRANSITION", "Complete the booking before creating an invoice")
+      throw new BookingError("CONFLICT", "This invoice is being created — try again in a moment")
     }
 
     const { invoiceCounter } = await tx.garage.update({ where: { id: garageId }, data: { invoiceCounter: { increment: 1 } }, select: { invoiceCounter: true } })

@@ -102,6 +102,10 @@ async function createInTx(db: Db, input: CreateBookingInput) {
   }
   if (!(input.totalPrice >= 0)) throw new BookingError("INVALID_INPUT", "Price cannot be negative")
 
+  // Take the garage lock FIRST. A transaction that reads and only later writes can't be upgraded to a writer on SQLite
+  // when another transaction has written in between (it fails instead of waiting), so the write has to come first.
+  if (input.checkAvailability) await lockGarage(db, input.garageId)
+
   const garage = await db.garage.findUnique({ where: { id: input.garageId }, select: { id: true, status: true } })
   if (!garage) throw new BookingError("NOT_FOUND", "Garage not found")
   const enforce = input.enforceApproved ?? input.source !== "DIRECT"
@@ -115,7 +119,6 @@ async function createInTx(db: Db, input: CreateBookingInput) {
   }
 
   if (input.checkAvailability) {
-    await lockGarage(db, input.garageId)
     const o = await findOverlaps(
       { garageId: input.garageId, start: input.scheduledAt, durationMins: input.durationMins, technicianId: input.technicianId },
       db
@@ -377,7 +380,8 @@ export interface BusyData {
  * writers. Portable: no advisory locks or raw SQL.
  */
 async function lockGarage(db: Db, garageId: string) {
-  await db.garage.update({ where: { id: garageId }, data: { updatedAt: new Date() } })
+  // updateMany (not update) so a missing garage is reported by the caller's own NOT_FOUND check instead of throwing here.
+  await db.garage.updateMany({ where: { id: garageId }, data: { updatedAt: new Date() } })
 }
 
 /**

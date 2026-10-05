@@ -1,4 +1,6 @@
 import { execSync } from "child_process"
+import { rmSync } from "fs"
+import path from "path"
 import { PrismaClient } from "@prisma/client"
 
 // Route/service tests hit a real database. By default they use an isolated, freshly-pushed SQLite file
@@ -11,6 +13,11 @@ export default async function setup() {
   // socket_timeout is Prisma's SQLite busy timeout (seconds): how long a writer waits for the lock before giving up.
   const url = process.env.TEST_DATABASE_URL ?? "file:./test.db?socket_timeout=60"
   process.env.DATABASE_URL = url
+  if (!process.env.TEST_DATABASE_URL) {
+    // A WAL-mode database leaves -wal/-shm files next to it. `db push --force-reset` recreates only the main file, and a
+    // stale -wal replayed onto the fresh database leaves it without its tables, so start from nothing.
+    for (const suffix of ["", "-wal", "-shm", "-journal"]) rmSync(path.join(__dirname, "prisma", `test.db${suffix}`), { force: true })
+  }
   const schema = process.env.PRISMA_SCHEMA ? ` --schema=${process.env.PRISMA_SCHEMA}` : ""
   execSync(`npx prisma db push --skip-generate --force-reset --accept-data-loss${schema}`, {
     stdio: "pipe",
