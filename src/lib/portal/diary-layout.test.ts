@@ -14,6 +14,8 @@ import {
   dropSlot,
   sameTimeOnDay,
   blockedDays,
+  shiftSlot,
+  keyboardMove,
 } from "@/lib/portal/diary-layout"
 import { londonWallToUtc } from "@/lib/portal/tz"
 
@@ -235,5 +237,43 @@ describe("blockedDays", () => {
   it("ignores blocks outside the range and handles none", () => {
     expect(blockedDays([block("2026-11-01 09:00", "2026-11-01 10:00")], days).size).toBe(0)
     expect(blockedDays([], days).size).toBe(0)
+  })
+})
+
+describe("shiftSlot", () => {
+  const at = (day: string, hhmm: string) => londonWallToUtc(day, hhmm).toISOString()
+  it("moves by days or by half hours, keeping wall-clock time", () => {
+    expect(shiftSlot(londonWallToUtc("2026-10-20", "09:00"), 1, 0).toISOString()).toBe(at("2026-10-21", "09:00"))
+    expect(shiftSlot(londonWallToUtc("2026-10-20", "09:00"), 0, 30).toISOString()).toBe(at("2026-10-20", "09:30"))
+    expect(shiftSlot(londonWallToUtc("2026-10-20", "09:00"), 0, -30).toISOString()).toBe(at("2026-10-20", "08:30"))
+  })
+  it("carries minutes across midnight in both directions", () => {
+    expect(shiftSlot(londonWallToUtc("2026-10-20", "23:30"), 0, 30).toISOString()).toBe(at("2026-10-21", "00:00"))
+    expect(shiftSlot(londonWallToUtc("2026-10-20", "00:00"), 0, -30).toISOString()).toBe(at("2026-10-19", "23:30"))
+  })
+  it("holds 09:00 across the clock change", () => {
+    expect(shiftSlot(londonWallToUtc("2026-10-23", "09:00"), 4, 0).toISOString()).toBe("2026-10-27T09:00:00.000Z")
+  })
+  it("combines a day and minute shift", () => {
+    expect(shiftSlot(londonWallToUtc("2026-10-20", "23:30"), 1, 60).toISOString()).toBe(at("2026-10-22", "00:30"))
+  })
+})
+
+describe("keyboardMove", () => {
+  const k = (key: string, extra = {}) => ({ key, altKey: true, ...extra })
+  it("maps Alt+arrows to day moves and (outside month view) half-hour moves", () => {
+    expect(keyboardMove(k("ArrowRight"), "week")).toEqual({ days: 1, minutes: 0 })
+    expect(keyboardMove(k("ArrowLeft"), "day")).toEqual({ days: -1, minutes: 0 })
+    expect(keyboardMove(k("ArrowDown"), "week")).toEqual({ days: 0, minutes: 30 })
+    expect(keyboardMove(k("ArrowUp"), "day")).toEqual({ days: 0, minutes: -30 })
+  })
+  it("moves by whole weeks with up/down in the month view", () => {
+    expect(keyboardMove(k("ArrowDown"), "month")).toEqual({ days: 7, minutes: 0 })
+    expect(keyboardMove(k("ArrowUp"), "month")).toEqual({ days: -7, minutes: 0 })
+  })
+  it("ignores plain arrows, other modifiers and other keys", () => {
+    expect(keyboardMove({ key: "ArrowRight", altKey: false }, "week")).toBeNull()
+    expect(keyboardMove(k("ArrowRight", { ctrlKey: true }), "week")).toBeNull()
+    expect(keyboardMove(k("Enter"), "week")).toBeNull()
   })
 })

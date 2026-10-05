@@ -6,6 +6,7 @@ import {
   closedRanges,
   dropSlot,
   hourWindow,
+  keyboardMove,
   layoutDay,
   minutesOnDay,
   snapToTime,
@@ -34,6 +35,8 @@ interface TimeGridProps {
   onDragStateChange: (bookingId: string | null) => void
   /** Only bookings that can still be moved are draggable. */
   draggable: (b: BookingRow) => boolean
+  /** Keyboard move: Alt+arrow on a focused booking. */
+  onBookingKeyMove: (bookingId: string, move: { days: number; minutes: number }) => void
 }
 
 const dayLabel = (day: string) => {
@@ -44,7 +47,7 @@ const dayLabel = (day: string) => {
   }
 }
 
-export function TimeGrid({ days, bookings, blocks, openingHours, onSlotClick, onBookingClick, onBlockClick, onBookingDrop, dragging, onDragStateChange, draggable }: TimeGridProps) {
+export function TimeGrid({ days, bookings, blocks, openingHours, onSlotClick, onBookingClick, onBlockClick, onBookingDrop, dragging, onDragStateChange, draggable, onBookingKeyMove }: TimeGridProps) {
   // "Now" only exists on the client after mount, so the current-time line never causes a hydration mismatch.
   const [now, setNow] = useState<Date | null>(null)
   useEffect(() => {
@@ -184,6 +187,15 @@ export function TimeGrid({ days, bookings, blocks, openingHours, onSlotClick, on
                         onDragStateChange(event.id)
                       }}
                       onDragEnd={() => onDragStateChange(null)}
+                      aria-keyshortcuts={draggable(event) ? "Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown" : undefined}
+                      onKeyDown={(e) => {
+                        const move = draggable(event) ? keyboardMove(e, days.length === 1 ? "day" : "week") : null
+                        if (move) {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          onBookingKeyMove(event.id, move)
+                        }
+                      }}
                       onClick={(e) => { e.stopPropagation(); onBookingClick(event.id) }}
                       className={cn(
                         "absolute cursor-pointer overflow-hidden rounded-md px-1.5 py-1 text-left text-[11px] leading-tight shadow-sm transition-shadow hover:z-10 hover:shadow-md",

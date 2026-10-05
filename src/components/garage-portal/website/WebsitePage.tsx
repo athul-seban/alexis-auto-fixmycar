@@ -19,6 +19,7 @@ interface SettingsResponse {
   settings: PortalSettings
   garage: { status: string; slug: string }
   paymentsAvailable: boolean
+  stripe: { connected: boolean; enabled: boolean }
 }
 interface MeResponse {
   garage: { openingHours: unknown | null; services: string[] }
@@ -48,7 +49,7 @@ export function WebsitePage() {
             serviceCount={me?.garage.services.length ?? null}
             onSaved={reload}
           />
-          <PaymentsCard key={JSON.stringify(data.settings.payments)} payments={data.settings.payments} available={data.paymentsAvailable} onSaved={reload} />
+          <PaymentsCard key={JSON.stringify(data.settings.payments)} payments={data.settings.payments} available={data.paymentsAvailable} stripe={data.stripe} onSaved={reload} />
         </>
       )}
     </>

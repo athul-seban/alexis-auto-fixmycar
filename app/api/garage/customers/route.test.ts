@@ -74,7 +74,7 @@ describe("GET /api/garage/customers", () => {
 
 describe("customer detail and notes", () => {
   it("returns a customer's history and saves, updates and clears a private note", async () => {
-    await seed()
+    const { garage } = await seed()
     const key = "e:ann@example.com"
     const d = await (await get(detail, `key=${encodeURIComponent(key)}`)).json()
     expect(d.customer.name).toBe("Ann Lee")
@@ -85,7 +85,7 @@ describe("customer detail and notes", () => {
     await put({ key, body: "Prefers a courtesy car; allergic to cats" })
     expect((await (await get(detail, `key=${encodeURIComponent(key)}`)).json()).note.body).toContain("allergic")
     expect((await (await put({ key, body: "   " })).json()).note).toBeNull()
-    expect(await prisma.customerNote.count({ where: { customerKey: key } })).toBe(0)
+    expect(await prisma.customerNote.count({ where: { garageId: garage.id, customerKey: key } })).toBe(0)
   })
 
   it("rejects malformed keys and unknown customers, and keeps notes per garage", async () => {

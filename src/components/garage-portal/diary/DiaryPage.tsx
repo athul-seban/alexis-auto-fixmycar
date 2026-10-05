@@ -11,7 +11,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useToast } from "@/components/ui/toast"
 import { sendJson } from "@/hooks/use-api"
 import { cn } from "@/lib/utils"
-import { monthGrid, sameTimeOnDay, startOfWeek, weekDays } from "@/lib/portal/diary-layout"
+import { monthGrid, sameTimeOnDay, shiftSlot, startOfWeek, weekDays } from "@/lib/portal/diary-layout"
 import { addDays, addMonths, formatCivilDate, formatLondonDateTime, isValidDateString, londonDateString, londonWallToUtc, todayLondon } from "@/lib/portal/tz"
 import type { BookingRow } from "@/lib/portal/booking-rows"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
@@ -73,6 +73,12 @@ export function DiaryPage() {
     setMove({ booking, start, clash: false })
   }
 
+  /** Keyboard moves go through the same confirmation as a drop. */
+  function keyMove(bookingId: string, m: { days: number; minutes: number }) {
+    const b = data?.bookings.find((x) => x.id === bookingId)
+    if (b) proposeMove(bookingId, shiftSlot(new Date(b.scheduledAt), m.days, m.minutes))
+  }
+
   async function confirmMove(allowOverlap = false) {
     if (!move) return
     setMoving(true)
@@ -93,7 +99,7 @@ export function DiaryPage() {
     <>
       <PageHeader
         title="Diary"
-        description="Your bookings, technicians and time off. Click an empty slot to add a booking, or drag a booking to move it."
+        description="Your bookings, technicians and time off. Click an empty slot to add a booking, drag a booking to move it, or focus one and press Alt + arrow keys."
         actions={
           <>
             <Button variant="white" className="gap-2 border border-slate-200 dark:border-white/10" onClick={() => setBlockOpen(true)}>
@@ -184,6 +190,7 @@ export function DiaryPage() {
                 dragging={dragging}
                 onDragStateChange={setDragging}
                 draggable={canMove}
+                onBookingKeyMove={keyMove}
               />
             ) : (
               <TimeGrid
@@ -198,6 +205,7 @@ export function DiaryPage() {
                 dragging={dragging}
                 onDragStateChange={setDragging}
                 draggable={canMove}
+                onBookingKeyMove={keyMove}
               />
             )}
           </div>

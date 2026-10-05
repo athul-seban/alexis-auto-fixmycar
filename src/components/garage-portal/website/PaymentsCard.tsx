@@ -20,16 +20,30 @@ interface PaymentsCardProps {
   payments: PaymentSettings
   /** False when the platform has no Stripe keys: the card explains instead of offering a switch that can't work. */
   available: boolean
+  /** Stripe Connect state for this garage. Deposits can only be switched on once it is enabled. */
+  stripe: { connected: boolean; enabled: boolean }
   onSaved: () => void
 }
 
 /** Take a deposit through Stripe when a customer books on the garage's widget. */
-export function PaymentsCard({ payments, available, onSaved }: PaymentsCardProps) {
+export function PaymentsCard({ payments, available, stripe, onSaved }: PaymentsCardProps) {
   const { toast } = useToast()
   const [form, setForm] = useState(payments)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const dirty = JSON.stringify(form) !== JSON.stringify(payments)
+  const [connecting, setConnecting] = useState(false)
+
+  async function connect() {
+    setConnecting(true)
+    setError("")
+    const res = await sendJson<{ url: string }>("/api/garage/stripe/connect", "POST")
+    if (!res.ok || !res.data) {
+      setConnecting(false)
+      return setError(res.error ?? "Couldn't start Stripe setup")
+    }
+    window.location.href = res.data.url // Stripe-hosted onboarding
+  }
 
   async function save() {
     setSaving(true)
@@ -57,8 +71,22 @@ export function PaymentsCard({ payments, available, onSaved }: PaymentsCardProps
         </p>
       ) : (
         <div className="max-w-md space-y-4">
+          <div className="rounded-lg border border-slate-200 p-3 text-sm dark:border-white/10">
+            {stripe.enabled ? (
+              <p className="font-semibold text-green-700 dark:text-green-400">Stripe connected — deposits are paid straight to your account.</p>
+            ) : (
+              <>
+                <p className="mb-2 text-slate-700 dark:text-slate-300">
+                  {stripe.connected ? "Your Stripe setup isn't finished yet. Continue to finish verifying your business." : "Connect a Stripe account so deposits can be paid to you."}
+                </p>
+                <Button type="button" size="sm" variant="primary" loading={connecting} onClick={connect}>
+                  {stripe.connected ? "Continue Stripe setup" : "Connect Stripe"}
+                </Button>
+              </>
+            )}
+          </div>
           <label className="flex cursor-pointer items-start gap-3">
-            <Switch checked={form.enabled} onCheckedChange={(v) => setForm((f) => ({ ...f, enabled: v }))} aria-label="Take deposits online" />
+            <Switch checked={form.enabled} disabled={!stripe.enabled} onCheckedChange={(v) => setForm((f) => ({ ...f, enabled: v }))} aria-label="Take deposits online" />
             <span>
               <span className="block text-sm font-semibold text-slate-900 dark:text-white">Take deposits online</span>
               <span className="block text-xs text-slate-500 dark:text-slate-400">Customers pay by card on Stripe. Bookings with no price are never charged.</span>

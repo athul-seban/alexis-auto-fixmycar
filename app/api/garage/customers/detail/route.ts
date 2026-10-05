@@ -2,8 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withGarage } from "@/lib/garage-auth"
 import { BookingError } from "@/lib/portal/booking-error"
-import { buildCustomers, customerKey } from "@/lib/portal/customers"
-import { loadCustomerRows } from "@/lib/portal/customers-db"
+import { buildCustomers, customerKey, resolveKey } from "@/lib/portal/customers"
+import { loadCustomerRows, loadRedirects } from "@/lib/portal/customers-db"
 
 const KEY_PATTERN = /^[epvu]:[^\s]{1,190}$/
 
@@ -12,8 +12,9 @@ export const GET = withGarage("Garage customer detail GET", async (req, { garage
   const key = new URL(req.url).searchParams.get("key") ?? ""
   if (!KEY_PATTERN.test(key)) throw new BookingError("INVALID_INPUT", "Invalid customer")
 
-  const rows = (await loadCustomerRows(garage.id)).filter((r) => customerKey(r) === key)
-  const customer = buildCustomers(rows)[0]
+  const redirects = await loadRedirects(garage.id)
+  const rows = (await loadCustomerRows(garage.id)).filter((r) => resolveKey(customerKey(r), redirects) === key)
+  const customer = buildCustomers(rows, new Date(), redirects)[0]
   if (!customer) throw new BookingError("NOT_FOUND", "Customer not found")
 
   const [note, recent] = await Promise.all([

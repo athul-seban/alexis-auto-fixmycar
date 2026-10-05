@@ -21,6 +21,7 @@ export const GET = withGarage("Garage settings GET", async (_req, { userId, gara
     garage: { status: garage.status, slug: garage.slug },
     // Whether the platform has Stripe keys; the payments toggle is disabled in the UI when it doesn't.
     paymentsAvailable: stripeConfigured(),
+    stripe: { connected: Boolean(garage.stripeAccountId), enabled: garage.stripeChargesEnabled },
     smsAvailable: smsConfigured(),
   })
 })
@@ -41,6 +42,10 @@ export const PATCH = withGarage(
     const data = patchSchema.parse(await req.json())
     if (data.payments?.enabled && !stripeConfigured()) {
       return NextResponse.json({ error: "Online payments aren't set up on this platform yet.", code: "PAYMENTS_UNAVAILABLE" }, { status: 409 })
+    }
+    // Deposits are paid to the garage, so it must have finished connecting its Stripe account first.
+    if (data.payments?.enabled && !garage.stripeChargesEnabled) {
+      return NextResponse.json({ error: "Connect your Stripe account before taking deposits.", code: "STRIPE_NOT_CONNECTED" }, { status: 409 })
     }
     if (data.notifications?.smsCustomer && !smsConfigured()) {
       return NextResponse.json({ error: "Text messages aren't set up on this platform yet.", code: "SMS_UNAVAILABLE" }, { status: 409 })

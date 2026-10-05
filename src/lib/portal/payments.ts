@@ -40,3 +40,18 @@ export function refundPence(c: RefundContext): number {
       return 0
   }
 }
+
+/** Highest platform fee we allow, so a typo in the environment can't take most of a garage's deposit. */
+export const MAX_PLATFORM_FEE_PERCENT = 30
+
+/** The platform commission from PLATFORM_FEE_PERCENT (default 0 = none). Invalid or out-of-range values mean 0. */
+export function platformFeePercent(raw: string | undefined = process.env.PLATFORM_FEE_PERCENT): number {
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 && n <= MAX_PLATFORM_FEE_PERCENT ? n : 0
+}
+
+/** The platform's cut of a deposit, in pence: rounded to the nearest penny and always less than the whole payment. */
+export function platformFeePence(depositPence: number, percent: number = platformFeePercent()): number {
+  if (percent <= 0 || depositPence <= 1) return 0
+  return Math.min(Math.round((depositPence * percent) / 100), depositPence - 1)
+}

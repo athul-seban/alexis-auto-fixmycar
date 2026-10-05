@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildCustomers, customerKey, searchCustomers, sortCustomers, type CustomerBookingRow } from "@/lib/portal/customers"
+import { buildCustomers, canMerge, customerKey, resolveKey, searchCustomers, sortCustomers, type CustomerBookingRow } from "@/lib/portal/customers"
 
 const now = new Date("2026-10-10T12:00:00Z")
 const day = (n: number) => new Date(now.getTime() + n * 86_400_000)
@@ -78,5 +78,40 @@ describe("searchCustomers / sortCustomers", () => {
     expect(sortCustomers(customers, "spend", "desc").map((c) => c.name)).toEqual(["Bob Ray", "Ann Lee"])
     expect(sortCustomers(customers, "bookings", "desc")[0].name).toBe("Bob Ray")
     expect(sortCustomers(customers, "lastVisit", "desc")[0].name).toBe("Bob Ray") // visited yesterday
+  })
+})
+
+describe("merging customers", () => {
+  const r = (pairs: [string, string][]) => new Map(pairs)
+
+  it("resolves single hops, chains, and never loops on a cycle", () => {
+    expect(resolveKey("a", r([]))).toBe("a")
+    expect(resolveKey("a", r([["a", "b"]]))).toBe("b")
+    expect(resolveKey("a", r([["a", "b"], ["b", "c"]]))).toBe("c")
+    expect(["a", "b"]).toContain(resolveKey("a", r([["a", "b"], ["b", "a"]]))) // terminates
+  })
+
+  it("allows a merge only between two different customers and never one that would create a cycle", () => {
+    expect(canMerge("a", "a", r([]))).toBe(false)
+    expect(canMerge("a", "b", r([]))).toBe(true)
+    expect(canMerge("a", "b", r([["a", "b"]]))).toBe(false) // already merged
+    expect(canMerge("b", "a", r([["a", "b"]]))).toBe(false) // would loop back
+    expect(canMerge("c", "a", r([["a", "b"]]))).toBe(true) // joins the group via a's current identity
+  })
+
+  it("folds two identities into one customer with combined totals", () => {
+    const work = row({ customerEmail: "ann.work@example.com", customerPhone: null, customerName: "Ann L", scheduledAt: day(-8), totalPrice: 60, vrm: "ZZ99ZZZ" })
+    const home = row({ scheduledAt: day(-2), totalPrice: 40 })
+    const both = [work, home]
+    expect(buildCustomers(both, now)).toHaveLength(2)
+
+    const merged = buildCustomers(both, now, r([["e:ann.work@example.com", "e:ann@example.com"]]))
+    expect(merged).toHaveLength(1)
+    expect(merged[0]).toMatchObject({ key: "e:ann@example.com", completed: 2, spend: 100, mergedFrom: ["e:ann.work@example.com"] })
+    expect(merged[0].vehicles.map((v) => v.vrm).sort()).toEqual(["AB12CDE", "ZZ99ZZZ"])
+  })
+
+  it("lists no merged identities for an ordinary customer", () => {
+    expect(buildCustomers([row()], now)[0].mergedFrom).toEqual([])
   })
 })

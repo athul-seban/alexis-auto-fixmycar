@@ -3,7 +3,7 @@ import { z } from "zod"
 import { withGarage } from "@/lib/garage-auth"
 import { CSV_MAX_ROWS, toCsv } from "@/lib/portal/csv"
 import { buildCustomers, CUSTOMER_SORTS, searchCustomers, sortCustomers, type Customer } from "@/lib/portal/customers"
-import { loadCustomerRows } from "@/lib/portal/customers-db"
+import { loadCustomerRows, loadRedirects } from "@/lib/portal/customers-db"
 import { formatPhone } from "@/lib/portal/phone"
 import { londonDateString } from "@/lib/portal/tz"
 
@@ -29,7 +29,8 @@ export const GET = withGarage("Garage customers GET", async (req, { garage }) =>
   // Names read A→Z by default; everything else is biggest/most recent first.
   const dir = q.dir ?? (sort === "name" ? "asc" : "desc")
 
-  const all = buildCustomers(await loadCustomerRows(garage.id))
+  const [rows, redirects] = await Promise.all([loadCustomerRows(garage.id), loadRedirects(garage.id)])
+  const all = buildCustomers(rows, new Date(), redirects)
   const matched = sortCustomers(searchCustomers(all, q.q), sort, dir)
 
   if (q.format === "csv") {

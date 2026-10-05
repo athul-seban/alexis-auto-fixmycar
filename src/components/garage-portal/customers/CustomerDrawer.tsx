@@ -13,17 +13,18 @@ import { sendJson, useApi } from "@/hooks/use-api"
 import { formatCurrency, getServiceLabel } from "@/lib/utils"
 import { formatPhone } from "@/lib/portal/phone"
 import { formatLondonDate } from "@/lib/portal/tz"
+import { MergeSection } from "@/components/garage-portal/customers/MergeSection"
 import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
 import { VrmPlate } from "@/components/garage-portal/shared/VrmPlate"
 import type { CustomerDetail } from "@/components/garage-portal/customers/types"
 
-export function CustomerDrawer({ customerKey, onClose }: { customerKey: string | null; onClose: () => void }) {
+export function CustomerDrawer({ customerKey, onClose, onChanged }: { customerKey: string | null; onClose: () => void; onChanged: () => void }) {
   return (
     <Dialog open={!!customerKey} onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="right" className="sm:max-w-lg">
         <DialogTitle className="sr-only">Customer details</DialogTitle>
         <DialogDescription className="sr-only">Contact details, booking history and a private note.</DialogDescription>
-        {customerKey && <Body key={customerKey} customerKey={customerKey} />}
+        {customerKey && <Body key={customerKey} customerKey={customerKey} onChanged={onChanged} />}
       </SheetContent>
     </Dialog>
   )
@@ -38,7 +39,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Body({ customerKey }: { customerKey: string }) {
+function Body({ customerKey, onChanged }: { customerKey: string; onChanged: () => void }) {
   const { data, error, reload } = useApi<CustomerDetail>(`/api/garage/customers/detail?key=${encodeURIComponent(customerKey)}`)
 
   if (!data) {
@@ -93,6 +94,8 @@ function Body({ customerKey }: { customerKey: string }) {
       )}
 
       <NoteSection customerKey={customerKey} initial={data.note?.body ?? ""} onSaved={reload} />
+
+      <MergeSection customer={c} onChanged={() => { reload(); onChanged() }} />
 
       <Section title="Booking history">
         {bookings.length === 0 ? (

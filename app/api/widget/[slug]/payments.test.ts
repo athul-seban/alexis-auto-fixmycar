@@ -24,6 +24,7 @@ async function setup(payments: object) {
   } as any)
   const { garage } = await makeGarage(PREFIX, { key: `g${n++}`, openingHours: ALL_OPEN, portalSettings: settings, services: ["MOT"] })
   await prisma.servicePrice.create({ data: { garageId: garage.id, serviceType: "MOT", priceFrom: 80, durationMins: 60 } })
+  await prisma.garage.update({ where: { id: garage.id }, data: { stripeAccountId: `acct_${PREFIX}${garage.id}`, stripeChargesEnabled: true } })
   return garage
 }
 

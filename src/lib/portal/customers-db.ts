@@ -10,3 +10,9 @@ export async function loadCustomerRows(garageId: string): Promise<CustomerBookin
     take: 20_000,
   })
 }
+
+/** The garage's merges as a fromKey -> toKey map, ready for buildCustomers(). */
+export async function loadRedirects(garageId: string): Promise<Map<string, string>> {
+  const rows = await prisma.customerMerge.findMany({ where: { garageId }, select: { fromKey: true, toKey: true } })
+  return new Map(rows.map((r) => [r.fromKey, r.toKey]))
+}

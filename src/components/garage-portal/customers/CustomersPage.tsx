@@ -59,7 +59,7 @@ function CustomersInner() {
 
   const api = new URLSearchParams({ sort, dir, page: String(page), pageSize: String(pageSize) })
   if (q) api.set("q", q)
-  const { data, loading, error } = useApi<ListResponse>(`/api/garage/customers?${api.toString()}`)
+  const { data, loading, error, reload } = useApi<ListResponse>(`/api/garage/customers?${api.toString()}`)
 
   const csv = new URLSearchParams({ sort, dir, format: "csv" })
   if (q) csv.set("q", q)
@@ -119,7 +119,7 @@ function CustomersInner() {
         )}
       </Panel>
 
-      <CustomerDrawer customerKey={openKey} onClose={() => setParams({ customer: null })} />
+      <CustomerDrawer customerKey={openKey} onClose={() => setParams({ customer: null })} onChanged={reload} />
     </>
   )
 }

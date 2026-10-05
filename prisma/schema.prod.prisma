@@ -120,6 +120,9 @@ model Garage {
   portalSettings     String?
   // Last invoice number issued (INV-0001...). Incremented atomically when an invoice is first generated.
   invoiceCounter     Int       @default(0)
+  // Stripe Connect (Express): deposits are paid straight to this account, minus the platform fee.
+  stripeAccountId       String?   @unique
+  stripeChargesEnabled  Boolean   @default(false) // the garage finished onboarding and can take card payments
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -135,6 +138,7 @@ model Garage {
   diaryBlocks   DiaryBlock[]
   leads         GarageLead[]
   customerNotes CustomerNote[]
+  customerMerges CustomerMerge[]
 }
 
 model Quote {
@@ -475,4 +479,19 @@ model CustomerNote {
   garage Garage @relation(fields: [garageId], references: [id], onDelete: Cascade)
 
   @@unique([garageId, customerKey])
+}
+
+// "These two customers are the same person": the garage merged one derived identity (fromKey) into another (toKey).
+// Customers are derived from bookings, so a merge is just a redirect applied when grouping (see customers.ts).
+model CustomerMerge {
+  id        String   @id @default(cuid())
+  garageId  String
+  fromKey   String
+  toKey     String
+  createdAt DateTime @default(now())
+
+  garage Garage @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  @@unique([garageId, fromKey])
+  @@index([garageId])
 }

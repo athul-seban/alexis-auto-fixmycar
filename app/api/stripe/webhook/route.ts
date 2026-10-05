@@ -6,18 +6,24 @@ import { handleStripeEvent } from "@/lib/portal/payment-service"
 // exact bytes Stripe sent, so parsing the JSON first would make every verification fail.
 export async function POST(req: Request) {
   const stripe = getStripe()
-  const secret = process.env.STRIPE_WEBHOOK_SECRET
-  if (!stripe || !secret) return NextResponse.json({ error: "Payments are not configured" }, { status: 503 })
+  // Stripe signs platform events and connected-account events (account.updated) with different endpoint secrets.
+  const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_CONNECT_WEBHOOK_SECRET].filter((s): s is string => Boolean(s))
+  if (!stripe || secrets.length === 0) return NextResponse.json({ error: "Payments are not configured" }, { status: 503 })
 
   const signature = req.headers.get("stripe-signature")
   if (!signature) return NextResponse.json({ error: "Missing signature" }, { status: 400 })
 
-  let event
-  try {
-    event = stripe.webhooks.constructEvent(await req.text(), signature, secret)
-  } catch {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
+  const body = await req.text()
+  let event: ReturnType<typeof stripe.webhooks.constructEvent> | null = null
+  for (const secret of secrets) {
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, secret)
+      break
+    } catch {
+      /* try the next secret */
+    }
   }
+  if (!event) return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
 
   try {
     const fresh = await handleStripeEvent(event)

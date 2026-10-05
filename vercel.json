@@ -1,3 +1,13 @@
 {
-  "buildCommand": "npx prisma generate --schema=./prisma/schema.prod.prisma && next build"
+  "buildCommand": "npx prisma generate --schema=./prisma/schema.prod.prisma && next build",
+  "crons": [
+    {
+      "path": "/api/cron/booking-reminders",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "0 7 * * *"
+    }
+  ]
 }

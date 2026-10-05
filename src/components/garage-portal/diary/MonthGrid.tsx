@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { blockedDays, groupByDay, isInMonth, monthGrid } from "@/lib/portal/diary-layout"
+import { blockedDays, groupByDay, isInMonth, keyboardMove, monthGrid } from "@/lib/portal/diary-layout"
 import { formatLondonTime, todayLondon } from "@/lib/portal/tz"
 import type { BookingRow } from "@/lib/portal/booking-rows"
 import type { DiaryBlockRow } from "@/components/garage-portal/diary/types"
@@ -22,11 +22,12 @@ interface MonthGridProps {
   dragging: string | null
   onDragStateChange: (bookingId: string | null) => void
   draggable: (b: BookingRow) => boolean
+  onBookingKeyMove: (bookingId: string, move: { days: number; minutes: number }) => void
 }
 
 const dayNumber = (day: string) => String(Number(day.slice(8)))
 
-export function MonthGrid({ date, bookings, blocks, onDayClick, onBookingClick, onBookingDrop, dragging, onDragStateChange, draggable }: MonthGridProps) {
+export function MonthGrid({ date, bookings, blocks, onDayClick, onBookingClick, onBookingDrop, dragging, onDragStateChange, draggable, onBookingKeyMove }: MonthGridProps) {
   const grid = monthGrid(date)
   const days = grid.weeks.flat()
   const today = todayLondon()
@@ -98,6 +99,14 @@ export function MonthGrid({ date, bookings, blocks, onDayClick, onBookingClick, 
                               onDragStateChange(b.id)
                             }}
                             onDragEnd={() => onDragStateChange(null)}
+                            aria-keyshortcuts={canDrag ? "Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown" : undefined}
+                            onKeyDown={(e) => {
+                              const move = canDrag ? keyboardMove(e, "month") : null
+                              if (move) {
+                                e.preventDefault()
+                                onBookingKeyMove(b.id, move)
+                              }
+                            }}
                             onClick={() => onBookingClick(b.id)}
                             className={cn("flex w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-[11px] leading-tight text-slate-900 dark:text-white", canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-pointer", b.status === "COMPLETED" && "line-through decoration-slate-400")}
                             style={{ backgroundColor: `${color}26`, borderLeft: `3px solid ${color}` }}

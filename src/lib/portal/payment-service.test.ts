@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { createBooking, transitionBooking } from "@/lib/portal/booking-service"
 import { createDepositCheckout, handleStripeEvent, refundOnCancel } from "@/lib/portal/payment-service"
@@ -31,8 +31,10 @@ afterAll(async () => {
   await cleanupPrefix(PREFIX)
 })
 
-async function setup(opts: { payments?: object; widget?: object; price?: number; startInDays?: number } = {}) {
+async function setup(opts: { payments?: object; widget?: object; price?: number; startInDays?: number; connected?: boolean } = {}) {
   const { garage } = await makeGarage(PREFIX, { portalSettings: settings(opts.payments ?? {}, opts.widget) })
+  // Deposits are paid to the garage's own Stripe account, so a garage taking them has finished connecting one.
+  if (opts.connected !== false) await prisma.garage.update({ where: { id: garage.id }, data: { stripeAccountId: `acct_${PREFIX}${garage.id}`, stripeChargesEnabled: true } })
   const booking = await createBooking({
     garageId: garage.id, source: "WIDGET", customerName: "Pat", customerEmail: `pat@${PREFIX}x.com`, vrm: "AB12CDE",
     serviceType: "MOT", scheduledAt: new Date(Date.now() + (opts.startInDays ?? 5) * DAY), totalPrice: opts.price ?? 200, notify: false,
@@ -51,6 +53,9 @@ describe("createDepositCheckout", () => {
     const args = stripe.checkout.sessions.create.mock.calls[0][0]
     expect(args.line_items[0].price_data).toMatchObject({ currency: "gbp", unit_amount: 5000 })
     expect(args.metadata.bookingId).toBe(booking.id)
+    // Destination charge to the garage's own account (no platform fee unless PLATFORM_FEE_PERCENT is set).
+    expect(args.payment_intent_data.transfer_data.destination).toMatch(/^acct_/)
+    expect(args.payment_intent_data.application_fee_amount).toBeUndefined()
     expect(args.success_url).toContain(booking.manageToken)
     expect(await reload(booking.id)).toMatchObject({ paymentStatus: "PENDING", depositAmount: 50, stripeSessionId: expect.stringContaining("cs_test_") })
   })
@@ -62,6 +67,44 @@ describe("createDepositCheckout", () => {
     expect(await createDepositCheckout(free.booking.id)).toBeNull()
     expect(stripe.checkout.sessions.create).not.toHaveBeenCalled()
     expect((await reload(off.booking.id)).paymentStatus).toBe("NONE")
+  })
+})
+
+describe("Stripe Connect", () => {
+  afterEach(() => { delete process.env.PLATFORM_FEE_PERCENT })
+
+  it("takes the platform fee as an application fee on the charge", async () => {
+    process.env.PLATFORM_FEE_PERCENT = "10"
+    const { booking } = await setup({ payments: { depositPercent: 25 } }) // £50 deposit
+    await createDepositCheckout(booking.id)
+    expect(stripe.checkout.sessions.create.mock.calls[0][0].payment_intent_data.application_fee_amount).toBe(500)
+  })
+
+  it("won't take a deposit for a garage that hasn't connected Stripe", async () => {
+    const { booking } = await setup({ connected: false })
+    expect(await createDepositCheckout(booking.id)).toBeNull()
+    expect(stripe.checkout.sessions.create).not.toHaveBeenCalled()
+    expect((await reload(booking.id)).paymentStatus).toBe("NONE")
+  })
+
+  it("won't take a deposit while the connected account can't take payments yet", async () => {
+    const { booking, garage } = await setup()
+    await prisma.garage.update({ where: { id: garage.id }, data: { stripeChargesEnabled: false } })
+    expect(await createDepositCheckout(booking.id)).toBeNull()
+  })
+
+  it("updates a garage's payment state when Stripe sends account.updated", async () => {
+    const { garage } = await setup({ connected: false })
+    const acct = `acct_${PREFIX}upd${Date.now()}`
+    await prisma.garage.update({ where: { id: garage.id }, data: { stripeAccountId: acct } })
+    const fire = (id: string, flags: object) => handleStripeEvent({ id: `evt_paysvc_${id}`, type: "account.updated", data: { object: { id: acct, charges_enabled: true, payouts_enabled: true, details_submitted: true, ...flags } } } as any)
+
+    await fire("acc1", { details_submitted: false })
+    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).stripeChargesEnabled).toBe(false)
+    await fire("acc2", {})
+    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).stripeChargesEnabled).toBe(true)
+    await fire("acc3", { payouts_enabled: false }) // Stripe later restricts the account
+    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).stripeChargesEnabled).toBe(false)
   })
 })
 
@@ -117,7 +160,11 @@ describe("refundOnCancel", () => {
   it("refunds a customer who cancels 24h+ ahead, and records it", async () => {
     const { booking } = await paidBooking({ startInDays: 5 })
     await refundOnCancel(booking.id, "CUSTOMER")
-    expect(stripe.refunds.create).toHaveBeenCalledWith({ payment_intent: "pi_1", amount: 5000 }, expect.objectContaining({ idempotencyKey: expect.any(String) }))
+    // The money was already paid to the garage, so the refund must be taken back from it.
+    expect(stripe.refunds.create).toHaveBeenCalledWith(
+      { payment_intent: "pi_1", amount: 5000, reverse_transfer: true, refund_application_fee: true },
+      expect.objectContaining({ idempotencyKey: expect.any(String) })
+    )
     expect(await reload(booking.id)).toMatchObject({ paymentStatus: "REFUNDED", refundedAmount: 50 })
   })
 

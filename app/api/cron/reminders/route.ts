@@ -1,7 +1,5 @@
-// Not triggered by anything in this repo — the deployment target is AWS App
-// Runner (see AWS-DEPLOYMENT.md), which has no built-in scheduler. Point an
-// EventBridge Scheduler rule (or any external cron) at this endpoint with
-// `Authorization: Bearer $CRON_SECRET`.
+// Run by Vercel Cron (see vercel.json). Vercel sends `Authorization: Bearer $CRON_SECRET` when the CRON_SECRET
+// environment variable is set, which is what this route checks, so it also can't be invoked by the public.
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { sendMail } from "@/lib/mail"

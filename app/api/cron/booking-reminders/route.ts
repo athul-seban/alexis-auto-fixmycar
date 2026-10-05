@@ -1,5 +1,5 @@
-// Hit hourly by an external scheduler (EventBridge etc. — see AWS-DEPLOYMENT.md) with
-// `Authorization: Bearer $CRON_SECRET`. Sends the 24-hour appointment reminders.
+// Run by Vercel Cron (see vercel.json). Vercel sends `Authorization: Bearer $CRON_SECRET` when the CRON_SECRET
+// environment variable is set, which is what this route checks, so it also can't be invoked by the public.
 import { NextResponse } from "next/server"
 import { sendDueBookingReminders, sendDueSmsReminders } from "@/lib/portal/reminders"
 

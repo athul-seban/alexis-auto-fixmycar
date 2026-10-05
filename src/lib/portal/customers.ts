@@ -26,6 +26,8 @@ export interface CustomerVehicle {
 
 export interface Customer {
   key: string
+  /** Other identities the garage merged into this customer (each can be split off again). */
+  mergedFrom: string[]
   name: string
   email: string | null
   phone: string | null
@@ -54,21 +56,50 @@ export function customerKey(b: Pick<CustomerBookingRow, "id" | "customerEmail" |
 
 const ACTIVE = ["PENDING", "CONFIRMED", "IN_PROGRESS"]
 
-export function buildCustomers(rows: CustomerBookingRow[], now: Date = new Date()): Customer[] {
+/** Where a garage's merges send each identity (fromKey -> toKey). */
+export type Redirects = ReadonlyMap<string, string>
+
+const MAX_HOPS = 20
+
+/** Follow merges to the final identity. Chains (A→B→C) resolve to C, and a cycle can never loop forever. */
+export function resolveKey(key: string, redirects: Redirects): string {
+  let current = key
+  const seen = new Set([current])
+  for (let i = 0; i < MAX_HOPS; i++) {
+    const next = redirects.get(current)
+    if (next === undefined || seen.has(next)) break
+    current = next
+    seen.add(current)
+  }
+  return current
+}
+
+/** Would merging `from` into `to` be valid? It must be a different customer, and must not point back at itself. */
+export function canMerge(from: string, to: string, redirects: Redirects): boolean {
+  if (from === to) return false
+  return resolveKey(to, redirects) !== resolveKey(from, redirects) && resolveKey(to, redirects) !== from
+}
+
+export function buildCustomers(rows: CustomerBookingRow[], now: Date = new Date(), redirects: Redirects = new Map()): Customer[] {
   const byKey = new Map<string, CustomerBookingRow[]>()
+  const originals = new Map<string, Set<string>>()
   for (const r of rows) {
-    const k = customerKey(r)
+    const own = customerKey(r)
+    const k = resolveKey(own, redirects)
     const list = byKey.get(k)
     if (list) list.push(r)
     else byKey.set(k, [r])
+    if (own !== k) (originals.get(k) ?? originals.set(k, new Set()).get(k)!).add(own)
   }
 
   const out: Customer[] = []
   for (const [key, list] of byKey) {
-    // Newest first so the most recent name/contact wins when they changed.
+    // Newest first so the most recent name/contact wins when they changed. After a merge, the identity the garage
+    // merged INTO is the one it chose to keep, so its details take priority over the merged-in ones.
     const newest = [...list].sort((a, b) => b.scheduledAt.getTime() - a.scheduledAt.getTime())
+    const preferred = [...newest.filter((r) => customerKey(r) === key), ...newest.filter((r) => customerKey(r) !== key)]
     const pick = <T>(f: (r: CustomerBookingRow) => T | null | undefined): T | null => {
-      for (const r of newest) {
+      for (const r of preferred) {
         const v = f(r)
         if (v) return v
       }
@@ -87,6 +118,7 @@ export function buildCustomers(rows: CustomerBookingRow[], now: Date = new Date(
 
     out.push({
       key,
+      mergedFrom: [...(originals.get(key) ?? [])].sort(),
       name: pick((r) => r.customerName?.trim()) ?? "Unknown customer",
       email: pick((r) => r.customerEmail?.trim().toLowerCase()),
       phone: pick((r) => (r.customerPhone ? normalisePhone(r.customerPhone) : null)),

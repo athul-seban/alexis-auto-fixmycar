@@ -199,3 +199,36 @@ export function blockedDays(blocks: { start: Date; end: Date }[], days: string[]
   }
   return out
 }
+
+/** Slot length the keyboard moves by (matches the grid's snapping). */
+export const KEY_STEP_MINUTES = 30
+
+/**
+ * Shift a booking by whole days and/or minutes, in London wall-clock time (so a 09:00 booking is still 09:00 after a
+ * clock change). Minutes may carry over midnight into the next/previous day.
+ */
+export function shiftSlot(start: Date, days: number, minutes: number): Date {
+  const p = londonParts(start)
+  const total = p.hour * 60 + p.minute + minutes
+  const dayShift = days + Math.floor(total / 1440)
+  const inDay = ((total % 1440) + 1440) % 1440
+  const hhmm = `${String(Math.floor(inDay / 60)).padStart(2, "0")}:${String(inDay % 60).padStart(2, "0")}`
+  return londonWallToUtc(addDays(londonDateString(start), dayShift), hhmm)
+}
+
+/** The Alt+arrow a keyboard user pressed, as a (days, minutes) move; null for anything else. */
+export function keyboardMove(e: { key: string; altKey: boolean; ctrlKey?: boolean; metaKey?: boolean }, view: "week" | "day" | "month"): { days: number; minutes: number } | null {
+  if (!e.altKey || e.ctrlKey || e.metaKey) return null
+  switch (e.key) {
+    case "ArrowLeft":
+      return { days: -1, minutes: 0 }
+    case "ArrowRight":
+      return { days: 1, minutes: 0 }
+    case "ArrowUp":
+      return view === "month" ? { days: -7, minutes: 0 } : { days: 0, minutes: -KEY_STEP_MINUTES }
+    case "ArrowDown":
+      return view === "month" ? { days: 7, minutes: 0 } : { days: 0, minutes: KEY_STEP_MINUTES }
+    default:
+      return null
+  }
+}

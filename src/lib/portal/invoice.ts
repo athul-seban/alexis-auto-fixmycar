@@ -68,9 +68,11 @@ export function buildInvoiceModel(b: InvoiceSource): InvoiceModel {
 }
 
 /**
- * Give a booking its invoice number the first time one is generated; every later call returns the same number. The
- * garage counter and the booking are updated together. Two simultaneous first calls could leave a gap in the
- * sequence (one number consumed, not used) but never a duplicate: the booking is only claimed while it has no number.
+ * Give a booking its invoice number the first time one is generated; every later call returns the same number.
+ *
+ * The booking is **claimed first** (stamping `invoicedAt` only while it has none) and the garage counter is drawn only
+ * after winning that claim, all in one transaction. A caller that loses the race never touches the counter, so the
+ * sequence has no gaps and no duplicates however many requests arrive at once.
  */
 export async function ensureInvoiceNumber(bookingId: string, garageId: string): Promise<{ number: string; issuedAt: Date }> {
   return prisma.$transaction(async (tx) => {
@@ -79,14 +81,18 @@ export async function ensureInvoiceNumber(bookingId: string, garageId: string): 
     if (booking.invoiceNumber) return { number: booking.invoiceNumber, issuedAt: booking.invoicedAt ?? new Date() }
     if (booking.status !== "COMPLETED") throw new BookingError("INVALID_TRANSITION", "Complete the booking before creating an invoice")
 
+    const issuedAt = new Date()
+    const claimed = await tx.booking.updateMany({ where: { id: bookingId, garageId, invoiceNumber: null, invoicedAt: null }, data: { invoicedAt: issuedAt } })
+    if (claimed.count === 0) {
+      // Someone else claimed it first; their transaction has committed by the time ours can see the row again.
+      const winner = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, select: { invoiceNumber: true, invoicedAt: true } })
+      if (!winner.invoiceNumber) throw new BookingError("CONFLICT", "This invoice is being created — try again in a moment")
+      return { number: winner.invoiceNumber, issuedAt: winner.invoicedAt ?? issuedAt }
+    }
+
     const { invoiceCounter } = await tx.garage.update({ where: { id: garageId }, data: { invoiceCounter: { increment: 1 } }, select: { invoiceCounter: true } })
     const number = formatInvoiceNumber(invoiceCounter)
-    const issuedAt = new Date()
-    const claimed = await tx.booking.updateMany({ where: { id: bookingId, invoiceNumber: null }, data: { invoiceNumber: number, invoicedAt: issuedAt } })
-    if (claimed.count === 0) {
-      const again = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, select: { invoiceNumber: true, invoicedAt: true } })
-      return { number: again.invoiceNumber!, issuedAt: again.invoicedAt ?? issuedAt }
-    }
+    await tx.booking.update({ where: { id: bookingId }, data: { invoiceNumber: number } })
     return { number, issuedAt }
   })
 }

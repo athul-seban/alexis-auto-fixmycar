@@ -4,7 +4,8 @@ import { getStripe } from "@/lib/stripe"
 import { notifyGarage } from "@/lib/notifications"
 import { recordBookingEvent } from "@/lib/portal/booking-events"
 import { absoluteUrl, garageLinks, manageUrl } from "@/lib/portal/links"
-import { depositPence, refundPence, toPence, toPounds } from "@/lib/portal/payments"
+import { applyAccountState } from "@/lib/portal/stripe-connect"
+import { depositPence, platformFeePence, refundPence, toPence, toPounds } from "@/lib/portal/payments"
 import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { getServiceLabel } from "@/lib/utils"
 
@@ -31,6 +32,9 @@ export async function createDepositCheckout(bookingId: string): Promise<Checkout
   const settings = parsePortalSettings(booking.garage.portalSettings).payments
   const pence = depositPence(booking.totalPrice, settings)
   if (pence === 0) return null
+  // The deposit is the garage's money, so it needs somewhere to go: no connected account, no online deposit.
+  if (!booking.garage.stripeAccountId || !booking.garage.stripeChargesEnabled) return null
+  const fee = platformFeePence(pence)
 
   const manage = manageUrl(booking.manageToken) ?? absoluteUrl("/")
   const session = await stripe.checkout.sessions.create({
@@ -49,7 +53,12 @@ export async function createDepositCheckout(bookingId: string): Promise<Checkout
       },
     ],
     metadata: { bookingId: booking.id },
-    payment_intent_data: { metadata: { bookingId: booking.id } },
+    // Destination charge: the customer pays, Stripe moves the money (less our fee) to the garage's own account.
+    payment_intent_data: {
+      metadata: { bookingId: booking.id },
+      transfer_data: { destination: booking.garage.stripeAccountId },
+      ...(fee > 0 ? { application_fee_amount: fee } : {}),
+    },
     success_url: `${manage}?paid=1`,
     cancel_url: `${manage}?paid=0`,
   })
@@ -118,6 +127,9 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<boolean> {
     case "checkout.session.async_payment_succeeded":
       await markPaid(event.data.object as Stripe.Checkout.Session)
       break
+    case "account.updated":
+      await applyAccountState(event.data.object as Stripe.Account)
+      break
     case "checkout.session.expired":
     case "checkout.session.async_payment_failed":
       await releaseExpired(event.data.object as Stripe.Checkout.Session)
@@ -151,7 +163,12 @@ export async function refundOnCancel(bookingId: string, cancelledBy: "GARAGE" | 
     const stripe = getStripe()
     if (!stripe) throw new Error("Stripe is not configured")
     // The idempotency key makes a retried cancel unable to refund twice.
-    await stripe.refunds.create({ payment_intent: booking.stripePaymentIntent, amount: pence }, { idempotencyKey: `refund:${bookingId}:${toPence(booking.refundedAmount ?? 0)}` })
+    // reverse_transfer takes the money back from the garage's account (it was already paid to them), and the platform
+    // fee is returned in proportion, so a refund costs the customer nothing and the platform keeps no fee on it.
+    await stripe.refunds.create(
+      { payment_intent: booking.stripePaymentIntent, amount: pence, reverse_transfer: true, refund_application_fee: true },
+      { idempotencyKey: `refund:${bookingId}:${toPence(booking.refundedAmount ?? 0)}` }
+    )
 
     const refunded = toPounds(toPence(booking.refundedAmount ?? 0) + pence)
     await prisma.booking.update({ where: { id: bookingId }, data: { refundedAmount: refunded, paymentStatus: pence >= toPence(booking.depositAmount ?? 0) ? "REFUNDED" : "PAID" } })

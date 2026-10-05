@@ -1,5 +1,6 @@
 export interface CustomerRow {
   key: string
+  mergedFrom: string[]
   name: string
   email: string | null
   phone: string | null

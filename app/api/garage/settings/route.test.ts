@@ -62,6 +62,14 @@ describe("garage settings: online payments", () => {
     try {
       const { user, garage } = await makeGarage(PREFIX)
       asUser(user.id)
+      // Not connected to Stripe yet: deposits can't be switched on.
+      const notYet = await PATCH(json("PATCH", { payments: { enabled: true } }))
+      expect(notYet.status).toBe(409)
+      expect((await notYet.json()).code).toBe("STRIPE_NOT_CONNECTED")
+      // Options can still be saved while off.
+      expect((await PATCH(json("PATCH", { payments: { depositPercent: 20 } }))).status).toBe(200)
+
+      await prisma.garage.update({ where: { id: garage.id }, data: { stripeAccountId: "acct_settings", stripeChargesEnabled: true } })
       const ok = await PATCH(json("PATCH", { payments: { enabled: true, depositPercent: 30, refundPolicy: "FULL" } }))
       expect((await ok.json()).settings.payments).toEqual({ enabled: true, depositPercent: 30, refundPolicy: "FULL" })
       expect(JSON.parse((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).portalSettings!).payments.depositPercent).toBe(30)

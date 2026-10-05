@@ -1,3 +1,5 @@
+> **Superseded.** The app is hosted on Vercel; see [VERCEL-DEPLOYMENT.md](VERCEL-DEPLOYMENT.md). This AWS App Runner plan is kept for reference and is no longer maintained.
+
 # AWS Deployment Guide — Quote My Garage
 
 ## Architecture Overview

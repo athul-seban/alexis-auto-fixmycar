@@ -76,6 +76,24 @@ test.describe("garage diary", () => {
   })
 })
 
+test.describe("garage diary keyboard", () => {
+  test("Alt+arrow on a focused booking proposes a move, and cancelling changes nothing", async ({ page, isMobile }) => {
+    test.skip(isMobile, "no physical keyboard on the phone profile")
+    await login(page, "garage")
+    await page.goto("/garage-dashboard/diary?view=month")
+    const chip = page.getByRole("grid", { name: "Month diary" }).locator("button[draggable=true]").first()
+    await expect(chip).toBeVisible()
+    const before = await chip.getAttribute("title")
+    await chip.focus()
+    await page.keyboard.press("Alt+ArrowRight")
+    const dialog = page.getByRole("dialog", { name: "Move this booking?" })
+    await expect(dialog).toBeVisible()
+    await page.getByRole("button", { name: "Cancel" }).click()
+    await expect(dialog).toBeHidden()
+    await expect(page.getByRole("grid", { name: "Month diary" }).locator("button[draggable=true]").first()).toHaveAttribute("title", before!)
+  })
+})
+
 test.describe("garage customers", () => {
   test("lists customers from bookings and opens a customer's history", async ({ page }) => {
     await login(page, "garage")
@@ -85,6 +103,7 @@ test.describe("garage customers", () => {
     await page.getByRole("button", { name: /^Open (?!navigation)/ }).locator("visible=true").first().click()
     await expect(page.getByRole("heading", { name: "Booking history" })).toBeVisible()
     await expect(page.getByRole("heading", { name: "Private note" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Same person?" })).toBeVisible()
   })
 })
 

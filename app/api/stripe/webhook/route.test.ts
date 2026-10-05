@@ -61,6 +61,24 @@ describe("POST /api/stripe/webhook", () => {
     expect(await prisma.notification.count({ where: { garageId: b.garageId, title: "Deposit received" } })).toBe(1)
   })
 
+  it("accepts a connected-account event signed with the Connect endpoint's own secret", async () => {
+    const CONNECT_SECRET = "whsec_connect_secret"
+    process.env.STRIPE_CONNECT_WEBHOOK_SECRET = CONNECT_SECRET
+    try {
+      const { garage } = await makeGarage(PREFIX, { key: "conn" })
+      await prisma.garage.update({ where: { id: garage.id }, data: { stripeAccountId: "acct_hook_conn" } })
+      const body = JSON.stringify({ id: "evt_stripehook_conn", object: "event", type: "account.updated", data: { object: { id: "acct_hook_conn", object: "account", charges_enabled: true, payouts_enabled: true, details_submitted: true } } })
+      const res = await POST(signed(body, CONNECT_SECRET))
+      expect(res.status).toBe(200)
+      expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).stripeChargesEnabled).toBe(true)
+      // A secret that matches neither endpoint is still rejected.
+      expect((await POST(signed(body, "whsec_neither"))).status).toBe(400)
+    } finally {
+      delete process.env.STRIPE_CONNECT_WEBHOOK_SECRET
+      await prisma.stripeEvent.deleteMany({ where: { id: "evt_stripehook_conn" } })
+    }
+  })
+
   it("rejects a payload altered after signing", async () => {
     const b = await pendingBooking()
     const body = payload(b.id)

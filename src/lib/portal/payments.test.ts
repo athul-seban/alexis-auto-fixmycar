@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { depositPence, refundPence, toPence, toPounds } from "@/lib/portal/payments"
+import { MAX_PLATFORM_FEE_PERCENT, depositPence, platformFeePence, platformFeePercent, refundPence, toPence, toPounds } from "@/lib/portal/payments"
 import { parsePortalSettings } from "@/lib/portal/portal-settings"
 
 const on = { enabled: true, depositPercent: 25 }
@@ -55,5 +55,23 @@ describe("payment settings", () => {
   it("default to off with a 25% deposit and the 24h policy, and ignore bad stored data", () => {
     expect(parsePortalSettings(null).payments).toEqual({ enabled: false, depositPercent: 25, refundPolicy: "UNTIL_24H" })
     expect(parsePortalSettings(JSON.stringify({ payments: { depositPercent: 500 } })).payments.enabled).toBe(false)
+  })
+})
+
+describe("platform fee", () => {
+  it("reads PLATFORM_FEE_PERCENT and treats missing, invalid or excessive values as no fee", () => {
+    expect(platformFeePercent("10")).toBe(10)
+    expect(platformFeePercent("2.5")).toBe(2.5)
+    for (const bad of [undefined, "", "abc", "-5", "0", String(MAX_PLATFORM_FEE_PERCENT + 1), "NaN"]) expect(platformFeePercent(bad)).toBe(0)
+  })
+  it("takes a rounded percentage of the deposit in pence", () => {
+    expect(platformFeePence(5000, 10)).toBe(500)
+    expect(platformFeePence(1999, 10)).toBe(200) // 199.9 -> 200
+    expect(platformFeePence(5000, 0)).toBe(0)
+  })
+  it("always leaves the garage at least a penny", () => {
+    expect(platformFeePence(100, 30)).toBe(30)
+    expect(platformFeePence(2, 30)).toBe(1)
+    expect(platformFeePence(1, 30)).toBe(0)
   })
 })

@@ -11,6 +11,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Route tests share one database; a slow CI runner can queue behind other files' writes for several seconds.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     setupFiles: [],
     globalSetup: ["./vitest.global-setup.ts"],
     projects: [

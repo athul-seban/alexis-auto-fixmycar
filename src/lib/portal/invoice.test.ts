@@ -73,6 +73,15 @@ describe("ensureInvoiceNumber", () => {
     expect((await prisma.booking.findUniqueOrThrow({ where: { id: b.id } })).invoiceNumber).toBe([...numbers][0])
   })
 
+  it("leaves no gap in the sequence after a race: the next invoice is the very next number", async () => {
+    const { garage } = await makeGarage(PREFIX)
+    const first = await makeWalkInBooking(garage.id, { status: "COMPLETED" })
+    await Promise.allSettled(Array.from({ length: 6 }, () => ensureInvoiceNumber(first.id, garage.id)))
+    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).invoiceCounter).toBe(1) // six callers, one number used
+    const second = await makeWalkInBooking(garage.id, { status: "COMPLETED" })
+    expect((await ensureInvoiceNumber(second.id, garage.id)).number).toBe("INV-0002")
+  })
+
   it("refuses to invoice work that isn't completed, or another garage's booking", async () => {
     const { garage } = await makeGarage(PREFIX, { key: "a" })
     const { garage: other } = await makeGarage(PREFIX, { key: "b" })
