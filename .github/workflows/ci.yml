@@ -30,9 +30,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # Pushes the schema to an isolated sqlite file (see vitest.global-setup.ts) and runs the suite.
+      # Pushes the schema to an isolated sqlite file (see vitest.global-setup.ts) and runs the suite. SQLite allows one
+      # writer at a time, and on a 2-core runner dozens of parallel files just queue behind each other until tests time
+      # out, so files run one at a time here (Postgres, below, has row locks and runs them in parallel).
       - name: Test
-        run: npm test
+        run: npm test -- --no-file-parallelism
 
       - name: Build
         run: npm run build
