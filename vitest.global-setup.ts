@@ -11,7 +11,7 @@ import { PrismaClient } from "@prisma/client"
 // PRISMA_SCHEMA=prisma/schema.prod.prisma (and generate the client from that schema first).
 export default async function setup() {
   // socket_timeout is Prisma's SQLite busy timeout (seconds): how long a writer waits for the lock before giving up.
-  const url = process.env.TEST_DATABASE_URL ?? "file:./test.db?socket_timeout=60"
+  const url = process.env.TEST_DATABASE_URL ?? "file:./test.db?socket_timeout=60&connection_limit=1"
   process.env.DATABASE_URL = url
   if (!process.env.TEST_DATABASE_URL) {
     // A WAL-mode database leaves -wal/-shm files next to it. `db push --force-reset` recreates only the main file, and a
