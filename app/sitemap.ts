@@ -8,16 +8,20 @@ import { absoluteUrl } from "@/lib/portal/links"
 export const dynamic = "force-dynamic"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const pages: MetadataRoute.Sitemap = ["/", "/search", "/how-it-works", "/for-garages", "/post-job"].map((path) => ({
+  const pages: MetadataRoute.Sitemap = ["/", "/search", "/how-it-works", "/for-garages", "/post-job", "/blog"].map((path) => ({
     url: absoluteUrl(path),
     changeFrequency: path === "/" ? "daily" : "weekly",
     priority: path === "/" ? 1 : 0.7,
   }))
 
   try {
-    const garages = await prisma.garage.findMany({ where: { status: "APPROVED" }, select: { slug: true, updatedAt: true } })
+    const [garages, articles] = await Promise.all([
+      prisma.garage.findMany({ where: { status: "APPROVED" }, select: { slug: true, updatedAt: true } }),
+      prisma.article.findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } }),
+    ])
     return [
       ...pages,
+      ...articles.map((a) => ({ url: absoluteUrl(`/blog/${a.slug}`), lastModified: a.updatedAt, changeFrequency: "monthly" as const, priority: 0.6 })),
       ...garages.map((g) => ({ url: absoluteUrl(`/garage/${g.slug}`), lastModified: g.updatedAt, changeFrequency: "weekly" as const, priority: 0.8 })),
     ]
   } catch (err) {

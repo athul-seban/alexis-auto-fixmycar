@@ -32,6 +32,8 @@ model User {
   garage   Garage?
   messages      Message[]
   notifications Notification[]
+  pushSubscriptions PushSubscription[]
+  articles      Article[]
 }
 
 model Account {
@@ -81,6 +83,8 @@ model Vehicle {
   mileage      Int?
   motDueDate   DateTime?
   serviceDueDate DateTime?
+  motHistory   String?   // JSON from the DVSA MOT history API (cached)
+  motHistoryAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -123,6 +127,16 @@ model Garage {
   // Stripe Connect (Express): deposits are paid straight to this account, minus the platform fee.
   stripeAccountId       String?   @unique
   stripeChargesEnabled  Boolean   @default(false) // the garage finished onboarding and can take card payments
+  // Phase 3: subscription plan (Stripe Billing), paid promotion, pay-per-lead balance, ranking inputs.
+  plan                  String    @default("FREE") // FREE | PRO | PREMIUM (see src/lib/portal/plans.ts)
+  stripeCustomerId      String?   @unique
+  stripeSubscriptionId  String?   @unique
+  subscriptionStatus    String?   // Stripe's status: active | trialing | past_due | canceled ...
+  subscriptionPeriodEnd DateTime?
+  featuredUntil         DateTime? // paid "Featured" placement runs until this moment
+  leadCredits           Int       @default(0)
+  avgResponseMins       Float?    // running average time to answer a job request
+  responseSamples       Int       @default(0)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -139,6 +153,9 @@ model Garage {
   leads         GarageLead[]
   customerNotes CustomerNote[]
   customerMerges CustomerMerge[]
+  pushSubscriptions PushSubscription[]
+  creditTransactions LeadCreditTransaction[]
+  documents     GarageDocument[]
 }
 
 model Quote {
@@ -252,6 +269,11 @@ model Review {
   comment   String
   reply     String?
   repliedAt DateTime?
+  // A garage can dispute a review; an admin then upholds (review removed) or rejects the dispute.
+  disputedAt     DateTime?
+  disputeReason  String?
+  disputeStatus  String? // OPEN | UPHELD | REJECTED
+  disputeNote    String? // admin's decision note
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -494,4 +516,76 @@ model CustomerMerge {
 
   @@unique([garageId, fromKey])
   @@index([garageId])
+}
+
+// A browser/device that agreed to push notifications (Web Push). Belongs to a user or a garage.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String?
+  garageId  String?
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  garage Garage? @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([garageId])
+}
+
+// Every change to a garage's pay-per-lead balance. The balance on Garage is the sum of these.
+model LeadCreditTransaction {
+  id              String   @id @default(cuid())
+  garageId        String
+  delta           Int      // + purchase / grant, - a lead answered
+  reason          String   // PURCHASE | LEAD | GRANT | REFUND
+  jobRequestId    String?
+  stripeSessionId String?  @unique
+  createdAt       DateTime @default(now())
+
+  garage Garage @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  @@index([garageId, createdAt])
+}
+
+// Verification paperwork a garage uploads (insurance, trade certificates...) for an admin to review.
+model GarageDocument {
+  id         String    @id @default(cuid())
+  garageId   String
+  kind       String    // INSURANCE | TRADE_CERTIFICATE | ID | OTHER
+  name       String
+  url        String
+  status     String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  note       String?   // admin's reason when rejected
+  reviewedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  garage Garage @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  @@index([garageId, status])
+  @@index([status])
+}
+
+// Guides and blog posts. `body` is a small Markdown subset (see src/lib/articles.ts).
+model Article {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  title           String
+  excerpt         String?
+  body            String
+  coverImage      String?
+  status          String    @default("DRAFT") // DRAFT | PUBLISHED
+  metaTitle       String?
+  metaDescription String?
+  authorId        String?
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([status, publishedAt])
 }

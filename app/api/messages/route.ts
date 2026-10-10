@@ -3,7 +3,12 @@ import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { notifyUser, notifyGarage } from "@/lib/notifications"
-import { garageLinks } from "@/lib/portal/links"
+import { absoluteUrl, garageLinks } from "@/lib/portal/links"
+import { emailGarage } from "@/lib/portal/garage-email"
+import { sendMail } from "@/lib/mail"
+import { messageReceivedEmail } from "@/lib/email-templates"
+import { isFirstUnreadFromSender, markThreadRead } from "@/lib/messaging"
+import { getServiceLabel } from "@/lib/utils"
 import { z } from "zod"
 
 const querySchema = z.object({
@@ -37,6 +42,43 @@ async function resolveThreadParty(quoteId?: string, bookingId?: string) {
   return null
 }
 
+async function emailOtherParty(a: {
+  isOwnerParty: boolean
+  thread: { ownerId: string | null; garageId: string }
+  quoteId?: string
+  bookingId?: string
+  sender: { name: string | null }
+  body: string
+}) {
+  const [garage, subject] = await Promise.all([
+    prisma.garage.findUnique({ where: { id: a.thread.garageId }, select: { name: true } }),
+    a.quoteId
+      ? prisma.quote.findUnique({ where: { id: a.quoteId }, select: { serviceType: true } })
+      : prisma.booking.findUnique({ where: { id: a.bookingId }, select: { serviceType: true } }),
+  ])
+  const about = `${a.quoteId ? "quote" : "booking"} for ${getServiceLabel(subject?.serviceType ?? "")}`.trim()
+
+  if (a.isOwnerParty) {
+    await emailGarage(a.thread.garageId, "emailMessage", (g) =>
+      messageReceivedEmail({
+        recipientName: g.name,
+        fromName: a.sender.name ?? "A customer",
+        about,
+        preview: a.body,
+        href: absoluteUrl(a.quoteId ? garageLinks.enquiry(a.quoteId) : garageLinks.booking(a.bookingId!)),
+      })
+    )
+  } else if (a.thread.ownerId) {
+    const owner = await prisma.user.findUnique({ where: { id: a.thread.ownerId }, select: { name: true, email: true } })
+    if (owner) {
+      await sendMail({
+        to: owner.email,
+        ...messageReceivedEmail({ recipientName: owner.name, fromName: garage?.name ?? "Your garage", about, preview: a.body, href: absoluteUrl("/dashboard/messages") }),
+      })
+    }
+  }
+}
+
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -68,6 +110,8 @@ export async function GET(req: Request) {
       include: { sender: { select: { id: true, name: true, role: true, image: true } } },
       orderBy: { createdAt: "asc" },
     })
+    // Opening the thread reads it (an admin looking in doesn't count as the recipient reading it).
+    if (user.role !== "ADMIN") await markThreadRead(user.id, parsed.quoteId ? { quoteId: parsed.quoteId } : { bookingId: parsed.bookingId! })
 
     return NextResponse.json({ messages })
   } catch (err) {
@@ -131,6 +175,13 @@ export async function POST(req: Request) {
         body: data.body.slice(0, 140),
         link,
       })
+    }
+
+    // Email the other side, but only for the first unread message of a burst. Never let a mail failure fail the send.
+    try {
+      if (await isFirstUnreadFromSender(message)) await emailOtherParty({ isOwnerParty, thread: { ownerId: thread.ownerId, garageId: thread.garageId }, quoteId: data.quoteId, bookingId: data.bookingId, sender: message.sender, body: data.body })
+    } catch (err) {
+      console.error("Messages email error:", err)
     }
 
     return NextResponse.json({ message }, { status: 201 })

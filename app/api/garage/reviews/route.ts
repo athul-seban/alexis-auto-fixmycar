@@ -58,6 +58,8 @@ export const GET = withGarage("Garage reviews GET", async (req, { garage }) => {
       createdAt: r.createdAt.toISOString(),
       reply: r.reply,
       repliedAt: r.repliedAt?.toISOString() ?? null,
+      disputeStatus: r.disputeStatus,
+      disputeNote: r.disputeNote,
       customerName: r.owner?.name ?? r.customerName ?? "Customer",
       serviceType: r.booking.serviceType,
       bookingId: r.booking.id,

@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { createBooking, rescheduleBooking, transitionBooking } from "@/lib/portal/booking-service"
 import { inQuietHours, MAX_SMS_PER_BOOKING, notifyCustomerSms, smsText } from "@/lib/portal/sms-notify"
@@ -147,5 +147,21 @@ describe("sendDueSmsReminders", () => {
     const landline = await setup({ phone: "01632 960001" })
     expect(await sendDueSmsReminders(noon)).toMatchObject({ sent: 0, skipped: 1 })
     expect((await prisma.booking.findUniqueOrThrow({ where: { id: landline.booking.id } })).smsReminderSentAt).not.toBeNull()
+  })
+})
+
+describe("notifyCustomerSms — plan gating", () => {
+  afterEach(() => {
+    delete process.env.PLANS_ENFORCED
+  })
+
+  it("doesn't text for a garage whose plan excludes texting, but does once it subscribes", async () => {
+    process.env.PLANS_ENFORCED = "true"
+    const { garage, booking } = await setup()
+    expect(await notifyCustomerSms(booking.id, "CONFIRMED", noon)).toBe("skipped:garage-off")
+    expect(sendSms).not.toHaveBeenCalled()
+
+    await prisma.garage.update({ where: { id: garage.id }, data: { plan: "PRO", subscriptionStatus: "active" } })
+    expect(await notifyCustomerSms(booking.id, "CONFIRMED", noon)).toBe("sent")
   })
 })

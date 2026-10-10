@@ -12,8 +12,13 @@ export type AuditAction =
   | "USER_RESET"
   | "USER_DELETED"
   | "REVIEW_DELETED"
+  | "REVIEW_DISPUTE_UPHELD"
+  | "REVIEW_DISPUTE_REJECTED"
+  | "DOCUMENT_APPROVED"
+  | "DOCUMENT_REJECTED"
+  | "SUPPORT_VIEW"
 
-export type AuditTarget = "GARAGE" | "USER" | "REVIEW"
+export type AuditTarget = "GARAGE" | "USER" | "REVIEW" | "DOCUMENT"
 
 /**
  * Record an admin action. Never throws: an audit write failing must not undo or block the change that was just

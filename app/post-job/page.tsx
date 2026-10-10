@@ -1,5 +1,6 @@
 "use client"
 
+import { VehicleLookup } from "@/components/shared/VehicleLookup"
 import { useState } from "react"
 import Link from "next/link"
 import { Wrench, CheckCircle, AlertCircle, Car, User, ChevronRight } from "lucide-react"
@@ -146,7 +147,24 @@ export default function PostJobPage() {
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-5 flex items-center gap-2">
                   <Car className="h-5 w-5 text-[#F97316]" /> Your Vehicle
                 </h2>
-                <Input label="Registration" name="registration" value={form.registration} onChange={handleChange} placeholder="AB12 CDE" required />
+                <div>
+                  <Input label="Registration" name="registration" value={form.registration} onChange={handleChange} placeholder="AB12 CDE" required />
+                  <VehicleLookup
+                    registration={form.registration}
+                    onFound={(v, advice) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        make: v.make ?? prev.make,
+                        model: v.model ?? prev.model,
+                        year: v.year ? String(v.year) : prev.year,
+                        fuel: fuelOptions.includes(v.fuel ?? "") ? (v.fuel as string) : prev.fuel,
+                        mileage: v.mileage ? String(v.mileage) : prev.mileage,
+                        // Seed the job description with what the last MOT flagged, but never overwrite what they've typed.
+                        description: prev.description || advice,
+                      }))
+                    }
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="Make" name="make" value={form.make} onChange={handleChange} placeholder="Ford" required />
                   <Input label="Model" name="model" value={form.model} onChange={handleChange} placeholder="Focus" required />

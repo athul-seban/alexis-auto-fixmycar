@@ -5,7 +5,8 @@ import { MessagesSquare } from "lucide-react"
 import { DataTable, type DataColumn } from "@/components/ui/data-table"
 import { EmptyState } from "@/components/ui/empty-state"
 import { useApi } from "@/hooks/use-api"
-import { formatDate, getServiceLabel } from "@/lib/utils"
+import { cn, formatDate, getServiceLabel } from "@/lib/utils"
+import type { ThreadSummary } from "@/lib/messaging"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
 import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
 import { ThreadDialog, type ThreadTarget } from "@/components/owner-portal/ThreadDialog"
@@ -23,6 +24,8 @@ interface Conversation {
 export function OwnerMessagesPage() {
   const bookings = useApi<{ bookings: OwnerBooking[] }>("/api/bookings")
   const quotes = useApi<{ quotes: OwnerQuote[] }>("/api/quotes")
+  const summary = useApi<{ threads: ThreadSummary[] }>("/api/messages/summary")
+  const unreadByKey = new Map((summary.data?.threads ?? []).map((t) => [t.key, t.unread]))
   const [open, setOpen] = useState<ThreadTarget | null>(null)
 
   const rows: Conversation[] = [
@@ -43,7 +46,21 @@ export function OwnerMessagesPage() {
   ].sort((a, b) => b.at.localeCompare(a.at))
 
   const columns: DataColumn<Conversation>[] = [
-    { id: "garage", header: "Garage", mobile: "title", className: "font-medium text-slate-900 dark:text-white", cell: (c) => c.target.garageName },
+    {
+      id: "garage",
+      header: "Garage",
+      mobile: "title",
+      className: "font-medium text-slate-900 dark:text-white",
+      cell: (c) => {
+        const unread = unreadByKey.get(`${c.target.kind === "quote" ? "q" : "b"}:${c.target.id}`) ?? 0
+        return (
+          <span className={cn("inline-flex items-center gap-2", unread > 0 && "font-bold")}>
+            {unread > 0 && <span className="h-2.5 w-2.5 rounded-full bg-orange-500" role="img" aria-label={`${unread} unread`} />}
+            {c.target.garageName}
+          </span>
+        )
+      },
+    },
     { id: "about", header: "About", cell: (c) => c.about },
     { id: "date", header: "Date", className: "text-slate-500 dark:text-slate-400", cell: (c) => formatDate(c.at) },
     { id: "status", header: "Status", mobile: "badge", cell: (c) => <StatusPill status={c.status} /> },
@@ -66,7 +83,13 @@ export function OwnerMessagesPage() {
           />
         </div>
       </Panel>
-      <ThreadDialog target={open} onClose={() => setOpen(null)} />
+      <ThreadDialog
+        target={open}
+        onClose={() => {
+          setOpen(null)
+          summary.reload() // opening a thread marks it read
+        }}
+      />
     </>
   )
 }

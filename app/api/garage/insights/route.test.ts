@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterAll } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterAll, afterEach } from "vitest"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { GET } from "./route"
@@ -80,5 +80,31 @@ describe("GET /api/garage/insights", () => {
   it("rejects non-garage callers", async () => {
     mockSession.mockResolvedValue(null)
     expect((await get()).status).toBe(401)
+  })
+})
+
+describe("GET /api/garage/insights — plan gating", () => {
+  afterEach(() => {
+    delete process.env.PLANS_ENFORCED
+  })
+
+  it("is open to everyone until plans are enforced", async () => {
+    const { user } = await makeGarage(PREFIX)
+    asUser(user.id)
+    expect((await get(RANGE)).status).toBe(200)
+  })
+
+  it("asks a free garage to upgrade (402 PLAN_REQUIRED) once enforced, but not a paying one", async () => {
+    process.env.PLANS_ENFORCED = "true"
+    const free = await makeGarage(PREFIX, { key: "free" })
+    asUser(free.user.id)
+    const res = await get(RANGE)
+    expect(res.status).toBe(402)
+    expect((await res.json()).code).toBe("PLAN_REQUIRED")
+
+    const paid = await makeGarage(PREFIX, { key: "paid" })
+    await prisma.garage.update({ where: { id: paid.garage.id }, data: { plan: "PRO", subscriptionStatus: "active" } })
+    asUser(paid.user.id)
+    expect((await get(RANGE)).status).toBe(200)
   })
 })

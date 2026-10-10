@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 
-const TARGETS = ["GARAGE", "USER", "REVIEW"]
+const TARGETS = ["GARAGE", "USER", "REVIEW", "DOCUMENT"]
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)

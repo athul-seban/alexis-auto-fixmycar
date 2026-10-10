@@ -47,7 +47,7 @@ describe("validation", () => {
 describe("mergePortalSettings", () => {
   it("merges per section without losing siblings", () => {
     const merged = mergePortalSettings(DEFAULT_PORTAL_SETTINGS, { notifications: { emailReview: false } })
-    expect(merged.notifications).toEqual({ emailNewBooking: true, emailCancellation: true, emailReview: false, smsCustomer: false })
+    expect(merged.notifications).toEqual({ emailNewBooking: true, emailCancellation: true, emailReview: false, emailMessage: true, smsCustomer: false })
     expect(merged.widget).toEqual(DEFAULT_PORTAL_SETTINGS.widget)
   })
 

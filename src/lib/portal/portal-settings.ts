@@ -21,6 +21,7 @@ export const notificationSettingsSchema = z.object({
   emailNewBooking: z.boolean().default(true),
   emailCancellation: z.boolean().default(true),
   emailReview: z.boolean().default(true),
+  emailMessage: z.boolean().default(true),
   // Text opted-in customers about their booking (reminder, confirmed, cancelled, moved). Off by default: SMS is billed.
   smsCustomer: z.boolean().default(false),
 })

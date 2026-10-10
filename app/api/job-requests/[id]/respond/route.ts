@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth"
 import { sendMail } from "@/lib/mail"
 import { jobResponseGuestNotification } from "@/lib/email-templates"
 import { jobMatchesGarage } from "@/lib/job-matching"
+import { leadDecision, monthStart } from "@/lib/portal/plans"
+import { refundLeadCredit, spendLeadCredit } from "@/lib/portal/billing-service"
 import { z } from "zod"
 
 const respondSchema = z.object({
@@ -59,18 +61,50 @@ export async function POST(req: Request, props: Params) {
     const validUntil = new Date()
     validUntil.setDate(validUntil.getDate() + data.validDays)
 
-    const jobResponse = await prisma.jobResponse.create({
-      data: {
-        jobRequestId: jobRequest.id,
-        garageId: garage.id,
-        price: data.price,
-        laborCost: data.laborCost,
-        partsCost: data.partsCost,
-        message: data.message,
-        validUntil,
-        status: "SENT",
-      },
-    })
+    // Plan limits (a no-op until PLANS_ENFORCED=true): past the monthly allowance a lead costs one credit.
+    const usedThisMonth = await prisma.jobResponse.count({ where: { garageId: garage.id, createdAt: { gte: monthStart(new Date()) } } })
+    const decision = leadDecision(garage, usedThisMonth)
+    if (!decision.allowed) {
+      return NextResponse.json(
+        { error: "You've used this month's leads for your plan. Buy lead credits or upgrade to answer more.", code: "LEAD_LIMIT" },
+        { status: 402 }
+      )
+    }
+    const spentCredit = decision.useCredit && (await spendLeadCredit(garage.id, jobRequest.id))
+    if (decision.useCredit && !spentCredit) {
+      return NextResponse.json({ error: "You're out of lead credits. Buy more to answer this lead.", code: "LEAD_LIMIT" }, { status: 402 })
+    }
+
+    let jobResponse
+    try {
+      jobResponse = await prisma.jobResponse.create({
+        data: {
+          jobRequestId: jobRequest.id,
+          garageId: garage.id,
+          price: data.price,
+          laborCost: data.laborCost,
+          partsCost: data.partsCost,
+          message: data.message,
+          validUntil,
+          status: "SENT",
+        },
+      })
+    } catch (err) {
+      if (spentCredit) await refundLeadCredit(garage.id, jobRequest.id).catch(() => {})
+      throw err
+    }
+
+    // Running average of how quickly this garage answers, used to rank garages (see src/lib/ranking.ts).
+    const mins = Math.max(0, (jobResponse.createdAt.getTime() - jobRequest.createdAt.getTime()) / 60_000)
+    await prisma.garage
+      .update({
+        where: { id: garage.id },
+        data: {
+          avgResponseMins: ((garage.avgResponseMins ?? 0) * garage.responseSamples + mins) / (garage.responseSamples + 1),
+          responseSamples: { increment: 1 },
+        },
+      })
+      .catch(() => {})
 
     if (jobRequest.status === "OPEN") {
       await prisma.jobRequest.update({ where: { id: jobRequest.id }, data: { status: "QUOTED" } })

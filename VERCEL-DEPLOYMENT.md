@@ -78,3 +78,24 @@ Set the Twilio variables. UK senders should register an alphanumeric sender ID o
 - [ ] `/api/cron/booking-reminders` returns 401 without the secret and 200 with `Authorization: Bearer $CRON_SECRET`
 - [ ] A test booking on a garage's widget appears in its portal and sends the confirmation email
 - [ ] (Stripe) a test-mode deposit goes PENDING → PAID and a cancel refunds it
+
+## Phase 3 additions
+
+Apply the schema first (see "Applying a schema change to production"). All changes are additive: new `Garage` columns
+(plan, Stripe customer/subscription, `featuredUntil`, `leadCredits`, response-time averages), `Vehicle.motHistory*`,
+`Review` dispute columns, and new tables `PushSubscription`, `LeadCreditTransaction`, `GarageDocument`, `Article`.
+
+| Variable | Purpose |
+|---|---|
+| `STRIPE_PRICE_PRO`, `STRIPE_PRICE_PREMIUM` | Stripe recurring Price ids for the paid plans (plans are defined in `src/lib/portal/plans.ts`) |
+| `PLANS_ENFORCED` | `true` switches on plan limits and feature gates. Off by default: deploying changes nobody's experience |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push (generate with `npx web-push generate-vapid-keys`) |
+| `DVSA_CLIENT_ID`, `DVSA_CLIENT_SECRET`, `DVSA_TOKEN_URL`, `DVSA_API_KEY` | DVSA MOT history lookup (apply to DVSA for credentials) |
+| `BLOB_READ_WRITE_TOKEN` | already required for logos; also stores garage verification documents (as **private** blobs) |
+
+Stripe webhook: add `customer.subscription.created`, `customer.subscription.updated` and `customer.subscription.deleted`
+to the existing platform endpoint. Enable the **Customer portal** in Stripe (Settings, Billing) so garages can change
+card, switch plan and cancel.
+
+Suggested order: apply the schema, deploy, create the Stripe prices, check the Billing page as a test garage, agree the
+plan limits with the client, then set `PLANS_ENFORCED=true`.

@@ -14,6 +14,7 @@ import { normaliseOpeningHours, openingHoursError } from "@/lib/portal/opening-h
 import { getServiceLabel } from "@/lib/utils"
 import type { OpeningHours } from "@/types"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
+import { DocumentsCard } from "@/components/garage-portal/profile/DocumentsCard"
 import { OpeningHoursEditor } from "@/components/garage-portal/profile/OpeningHoursEditor"
 
 interface Profile {
@@ -283,6 +284,8 @@ function ProfileForm({ profile, onSaved }: { profile: Profile; onSaved: () => vo
           </div>
         </Section>
       )}
+
+      <DocumentsCard />
 
       {/* Sticky save bar */}
       <div className={`fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur transition-transform dark:border-white/10 dark:bg-slate-900/95 lg:left-64 ${dirty || error ? "translate-y-0" : "translate-y-full"}`}>

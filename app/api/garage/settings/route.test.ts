@@ -98,7 +98,7 @@ describe("garage settings", () => {
     const res = await PATCH(json("PATCH", { widget: { enabled: false, accent: "F97316", slotMins: 60 }, notifications: { emailReview: false } }))
     const { settings } = await res.json()
     expect(settings.widget).toMatchObject({ enabled: false, accent: "F97316", slotMins: 60, leadHours: 2 })
-    expect(settings.notifications).toEqual({ emailNewBooking: true, emailCancellation: true, emailReview: false, smsCustomer: false })
+    expect(settings.notifications).toEqual({ emailNewBooking: true, emailCancellation: true, emailReview: false, emailMessage: true, smsCustomer: false })
 
     // A later partial update keeps earlier changes.
     await PATCH(json("PATCH", { widget: { leadHours: 6 } }))

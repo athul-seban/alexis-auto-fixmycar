@@ -1,11 +1,17 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Providers } from "@/components/layout/Providers"
+import { RegisterServiceWorker } from "@/components/layout/RegisterServiceWorker"
 
 const inter = Inter({ subsets: ["latin"] })
 
+export const viewport: Viewport = { themeColor: "#1E3A5F" }
+
 export const metadata: Metadata = {
+  applicationName: "Quote My Garage",
+  appleWebApp: { capable: true, title: "Quote My Garage", statusBarStyle: "default" },
+  icons: { icon: "/icons/192", apple: "/icons/192" },
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
     default: "Quote My Garage – Find Trusted Local Garages & Mechanics",
@@ -52,6 +58,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>{children}</Providers>
+        <RegisterServiceWorker />
       </body>
     </html>
   )

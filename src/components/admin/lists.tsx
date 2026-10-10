@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Trash2 } from "lucide-react"
+import { Flag, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -351,6 +351,8 @@ interface AdminReview {
   createdAt: string
   garage: string
   customer: string
+  disputeStatus: "OPEN" | "UPHELD" | "REJECTED" | null
+  disputeReason: string | null
 }
 
 function Stars({ rating }: { rating: number }) {
@@ -365,6 +367,7 @@ function Stars({ rating }: { rating: number }) {
 export function AdminReviewsPage() {
   const { toast } = useToast()
   const [target, setTarget] = useState<AdminReview | null>(null)
+  const [dispute, setDispute] = useState<AdminReview | null>(null)
   const [busy, setBusy] = useState(false)
 
   const columns: DataColumn<AdminReview>[] = [
@@ -388,9 +391,16 @@ export function AdminReviewsPage() {
       header: "",
       mobile: "actions",
       cell: (r) => (
-        <Button size="sm" variant="secondary" className="gap-1.5 text-red-700 dark:text-red-400" onClick={() => setTarget(r)} aria-label={`Delete review by ${r.customer}`}>
-          <Trash2 className="h-3.5 w-3.5" /> Delete
-        </Button>
+        <span className="flex flex-wrap gap-2">
+          {r.disputeStatus === "OPEN" && (
+            <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setDispute(r)} aria-label={`Decide dispute on review by ${r.customer}`}>
+              <Flag className="h-3.5 w-3.5" /> Dispute
+            </Button>
+          )}
+          <Button size="sm" variant="secondary" className="gap-1.5 text-red-700 dark:text-red-400" onClick={() => setTarget(r)} aria-label={`Delete review by ${r.customer}`}>
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </Button>
+        </span>
       ),
     },
   ]
@@ -410,6 +420,7 @@ export function AdminReviewsPage() {
         allValue: "ALL",
         options: [
           { value: "ALL", label: "All" },
+          { value: "DISPUTED", label: "Disputed", countKey: "DISPUTED" },
           ...[5, 4, 3, 2, 1].map((n) => ({ value: String(n), label: `${n}★` })),
         ],
       }}
@@ -417,26 +428,92 @@ export function AdminReviewsPage() {
       emptyTitle="No reviews yet"
     >
       {({ reload }) => (
-        <ConfirmDialog
-          open={target !== null}
-          onOpenChange={(o) => !o && setTarget(null)}
-          title="Delete this review?"
-          description="The review is removed permanently and the garage's average rating is recalculated."
-          confirmLabel="Delete review"
-          destructive
-          loading={busy}
-          onConfirm={async () => {
-            if (!target) return
-            setBusy(true)
-            const res = await sendJson("/api/admin/reviews", "DELETE", { reviewId: target.id })
-            setBusy(false)
-            if (!res.ok) return toast(res.error ?? "Couldn't delete the review", "error")
-            toast("Review deleted")
-            setTarget(null)
-            reload()
-          }}
-        />
+        <>
+          <ConfirmDialog
+            open={target !== null}
+            onOpenChange={(o) => !o && setTarget(null)}
+            title="Delete this review?"
+            description="The review is removed permanently and the garage's average rating is recalculated."
+            confirmLabel="Delete review"
+            destructive
+            loading={busy}
+            onConfirm={async () => {
+              if (!target) return
+              setBusy(true)
+              const res = await sendJson("/api/admin/reviews", "DELETE", { reviewId: target.id })
+              setBusy(false)
+              if (!res.ok) return toast(res.error ?? "Couldn't delete the review", "error")
+              toast("Review deleted")
+              setTarget(null)
+              reload()
+            }}
+          />
+          <DisputeDialog
+            review={dispute}
+            onClose={() => setDispute(null)}
+            onDecided={() => {
+              setDispute(null)
+              reload()
+            }}
+          />
+        </>
       )}
     </ResourceList>
+  )
+}
+
+/** A garage's challenge to a review: read the reason, then uphold (remove the review) or reject (keep it, with a note). */
+function DisputeDialog({ review, onClose, onDecided }: { review: AdminReview | null; onClose: () => void; onDecided: () => void }) {
+  const { toast } = useToast()
+  const [note, setNote] = useState("")
+  const [busy, setBusy] = useState<"UPHOLD" | "REJECT" | null>(null)
+
+  async function decide(decision: "UPHOLD" | "REJECT") {
+    if (!review) return
+    setBusy(decision)
+    const res = await sendJson("/api/admin/reviews", "PATCH", { reviewId: review.id, decision, note: note.trim() || undefined })
+    setBusy(null)
+    if (!res.ok) return toast(res.error ?? "Couldn't record the decision", "error")
+    toast(decision === "UPHOLD" ? "Dispute upheld — review removed" : "Dispute rejected — review kept")
+    setNote("")
+    onDecided()
+  }
+
+  return (
+    <Dialog open={review !== null} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Review dispute</DialogTitle>
+          <DialogDescription>{review?.garage} disputes a {review?.rating}★ review from {review?.customer}.</DialogDescription>
+        </DialogHeader>
+        {review && (
+          <div className="space-y-3 text-sm">
+            <div>
+              <p className="mb-1 font-semibold text-slate-900 dark:text-white">The review</p>
+              <p className="rounded-lg bg-slate-50 p-3 text-slate-700 dark:bg-white/5 dark:text-slate-300">{review.title && <strong>{review.title}. </strong>}{review.comment}</p>
+            </div>
+            <div>
+              <p className="mb-1 font-semibold text-slate-900 dark:text-white">The garage&apos;s reason</p>
+              <p className="rounded-lg bg-yellow-50 p-3 text-yellow-900 dark:bg-yellow-500/10 dark:text-yellow-200">{review.disputeReason}</p>
+            </div>
+            <div>
+              <label htmlFor="dispute-note" className="mb-1 block font-semibold text-slate-900 dark:text-white">Note to the garage (optional)</label>
+              <textarea
+                id="dispute-note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                maxLength={500}
+                rows={2}
+                className="w-full rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              />
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 pt-1">
+              <Button variant="secondary" onClick={() => decide("REJECT")} loading={busy === "REJECT"} disabled={busy !== null}>Keep the review</Button>
+              <Button variant="destructive" onClick={() => decide("UPHOLD")} loading={busy === "UPHOLD"} disabled={busy !== null}>Remove the review</Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { pushToGarage, pushToUser } from "@/lib/push"
 
 export type NotificationType =
   | "QUOTE_REQUESTED"
@@ -31,13 +32,18 @@ interface NotifyGarageInput {
 }
 
 export async function notifyUser({ userId, type, title, body, link }: NotifyUserInput) {
-  return prisma.notification.create({
+  const notification = await prisma.notification.create({
     data: { userId, type, title, body, link },
   })
+  // Also push to any devices that opted in (no-op without VAPID keys; never throws).
+  await pushToUser(userId, { title, body, link })
+  return notification
 }
 
 export async function notifyGarage({ garageId, type, title, body, link }: NotifyGarageInput) {
-  return prisma.notification.create({
+  const notification = await prisma.notification.create({
     data: { garageId, type, title, body, link },
   })
+  await pushToGarage(garageId, { title, body, link })
+  return notification
 }

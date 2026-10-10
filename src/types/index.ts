@@ -52,6 +52,10 @@ export interface GarageListItem {
   averageRating: number
   totalBookings: number
   createdAt: string
+  /** Search-only: paid placement, the ranking's pick, and the garage's average time to answer a request. */
+  featured?: boolean
+  recommended?: boolean
+  avgResponseMins?: number | null
 }
 
 export interface GarageProfile extends GarageListItem {

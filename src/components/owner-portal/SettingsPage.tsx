@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/toast"
 import { sendJson, useApi } from "@/hooks/use-api"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
+import { AppOnDeviceCard } from "@/components/shared/AppOnDeviceCard"
 
 interface Account {
   name: string | null
@@ -126,6 +127,7 @@ export function OwnerSettingsPage() {
               <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">Password</h2>
               {data.hasPassword ? <PasswordForm /> : <p className="text-sm text-slate-500 dark:text-slate-400">You sign in with Google, so there&apos;s no password to manage here.</p>}
             </Panel>
+            <AppOnDeviceCard />
           </div>
         )
       )}

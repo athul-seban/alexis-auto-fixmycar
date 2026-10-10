@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { Search, MapPin, Car, Shield, AlertCircle, SlidersHorizontal, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { GarageCard } from "@/components/search/GarageCard"
+import { PriceGuidanceNote } from "@/components/search/PriceGuidanceNote"
 import type { GarageListItem } from "@/types"
 
 const serviceOptions = [
@@ -37,14 +38,14 @@ export function SearchResults() {
   const [mobileOnly, setMobileOnly] = useState(searchParams.get("mobile") === "true")
   const [verifiedOnly, setVerifiedOnly] = useState(false)
   const [minRating, setMinRating] = useState("")
-  const [sortBy, setSortBy] = useState("rating")
+  const [sortBy, setSortBy] = useState("best")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [garages, setGarages] = useState<GarageListItem[]>([])
   const [total, setTotal] = useState(0)
   // Below `lg` the filters sit behind a toggle so results aren't pushed off-screen.
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const activeFilters = [sortBy !== "rating", !!minRating, verifiedOnly, mobileOnly].filter(Boolean).length
+  const activeFilters = [sortBy !== "best", !!minRating, verifiedOnly, mobileOnly].filter(Boolean).length
 
   useEffect(() => {
     const controller = new AbortController()
@@ -179,6 +180,7 @@ export function SearchResults() {
                     onChange={(e) => setSortBy(e.target.value)}
                     className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] cursor-pointer"
                   >
+                    <option value="best">Best match</option>
                     <option value="rating">Highest Rated</option>
                     <option value="reviews">Most Reviewed</option>
                     <option value="bookings">Most Booked</option>
@@ -263,6 +265,7 @@ export function SearchResults() {
               </div>
             ) : (
               <div className="space-y-4">
+                {serviceType && <PriceGuidanceNote service={serviceType} city={location.trim() && !POSTCODE_PATTERN.test(location.trim()) ? location.trim() : undefined} />}
                 {garages.map((garage) => (
                   <GarageCard key={garage.id} garage={garage} />
                 ))}

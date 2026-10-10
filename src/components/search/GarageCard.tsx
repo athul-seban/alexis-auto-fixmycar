@@ -1,10 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { MapPin, Star, Shield, Clock, ChevronRight, Car, GitCompareArrows, CheckSquare } from "lucide-react"
+import { MapPin, Star, Shield, Clock, ChevronRight, Car, GitCompareArrows, CheckSquare, Megaphone, ThumbsUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getServiceLabel } from "@/lib/utils"
+import { responseTimeLabel } from "@/lib/response-time"
 import { useCompare } from "@/context/CompareContext"
 import type { GarageListItem } from "@/types"
 
@@ -27,6 +28,18 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
   // Shown beside the name from `sm` up; below the rating on phones so the name keeps its full width.
   const badges = (
     <>
+      {garage.featured && (
+        <Badge variant="accent" className="gap-1 text-xs">
+          <Megaphone className="h-3 w-3" />
+          Featured
+        </Badge>
+      )}
+      {garage.recommended && (
+        <Badge variant="verified" className="gap-1 text-xs">
+          <ThumbsUp className="h-3 w-3" />
+          Recommended
+        </Badge>
+      )}
       {garage.isVerified && (
         <Badge variant="verified" className="gap-1 text-xs">
           <Shield className="h-3 w-3" />
@@ -41,7 +54,7 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
       )}
     </>
   )
-  const hasBadges = !!(garage.isVerified || garage.isMobile)
+  const hasBadges = !!(garage.featured || garage.recommended || garage.isVerified || garage.isMobile)
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 hover:shadow-lg hover:border-[#F97316]/30 transition-all duration-200 overflow-hidden">
@@ -135,10 +148,12 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
 
       {/* Footer */}
       <div className="border-t border-gray-100 dark:border-white/10 px-5 py-3 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between gap-3 flex-wrap">
-        <div className="hidden sm:flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-          <Clock className="h-3.5 w-3.5" />
-          <span>Usually responds within 1 hour</span>
-        </div>
+        {responseTimeLabel(garage.avgResponseMins) && (
+          <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+            <Clock className="h-3.5 w-3.5" />
+            <span>{responseTimeLabel(garage.avgResponseMins)}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 ml-auto">
           <Button
             variant={selected ? "primary" : "outline"}

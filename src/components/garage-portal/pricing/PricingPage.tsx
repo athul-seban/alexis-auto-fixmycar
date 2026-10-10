@@ -191,7 +191,7 @@ function PricingForm({ services, onSaved }: { services: ServicePricing[]; onSave
       )}
 
       <div className={`fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur transition-transform dark:border-white/10 dark:bg-slate-900/95 lg:left-64 ${dirty || error ? "translate-y-0" : "translate-y-full"}`}>
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <p className={`flex-1 text-sm ${error ? "text-red-700 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`} role={error ? "alert" : undefined}>
             {error ?? "You have unsaved changes."}
           </p>

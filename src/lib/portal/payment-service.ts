@@ -5,7 +5,9 @@ import { notifyGarage } from "@/lib/notifications"
 import { recordBookingEvent } from "@/lib/portal/booking-events"
 import { absoluteUrl, garageLinks, manageUrl } from "@/lib/portal/links"
 import { applyAccountState } from "@/lib/portal/stripe-connect"
+import { handleBillingEvent } from "@/lib/portal/billing-service"
 import { depositPence, platformFeePence, refundPence, toPence, toPounds } from "@/lib/portal/payments"
+import { hasFeature } from "@/lib/portal/plans"
 import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { getServiceLabel } from "@/lib/utils"
 
@@ -29,6 +31,7 @@ export async function createDepositCheckout(bookingId: string): Promise<Checkout
 
   const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { garage: true } })
   if (!booking) return null
+  if (!hasFeature(booking.garage, "deposits")) return null // online deposits aren't part of the garage's plan
   const settings = parsePortalSettings(booking.garage.portalSettings).payments
   const pence = depositPence(booking.totalPrice, settings)
   if (pence === 0) return null
@@ -122,6 +125,8 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<boolean> {
   } catch {
     return false // unique violation: already handled
   }
+  // Garage subscriptions, credit packs and featured placement (ignores booking-deposit sessions, and vice versa).
+  await handleBillingEvent(event)
   switch (event.type) {
     case "checkout.session.completed":
     case "checkout.session.async_payment_succeeded":

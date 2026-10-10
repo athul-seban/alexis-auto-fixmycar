@@ -2,13 +2,19 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { toGarageListItem, toGarageProfile } from "@/lib/garage-mapper"
 import { MAX_COMPARE_GARAGES } from "@/lib/constants"
+import { isFeatured } from "@/lib/portal/plans"
+import { haversineKm, orderGarages, priceScores, rankScore } from "@/lib/ranking"
 
 const LIST_SELECT = {
   id: true, name: true, slug: true, description: true, logo: true, images: true,
   phone: true, email: true, city: true, postcode: true, latitude: true, longitude: true,
   status: true, isVerified: true, isMobile: true, services: true,
   averageRating: true, totalReviews: true, totalBookings: true, createdAt: true,
+  featuredUntil: true, avgResponseMins: true,
 } as const
+
+// Ranking scores every garage that matches the filters, so cap how many it considers.
+const RANK_CANDIDATES = 500
 
 const COMPARE_SELECT = {
   ...LIST_SELECT,
@@ -46,7 +52,9 @@ export async function GET(req: Request) {
     const isMobile = searchParams.get("mobile") === "true"
     const isVerified = searchParams.get("verified") === "true"
     const minRating = searchParams.get("minRating")
-    const sortBy = searchParams.get("sort") ?? "rating"
+    const sortBy = searchParams.get("sort") ?? "best"
+    const lat = parseFloat(searchParams.get("lat") ?? "")
+    const lng = parseFloat(searchParams.get("lng") ?? "")
     const page = parseInt(searchParams.get("page") ?? "1")
     const limit = parseInt(searchParams.get("limit") ?? "20")
 
@@ -70,6 +78,63 @@ export async function GET(req: Request) {
       : sortBy === "reviews" ? { totalReviews: "desc" }
       : sortBy === "bookings" ? { totalBookings: "desc" }
       : { averageRating: "desc" }
+
+    if (sortBy === "best") {
+      const [candidates, total] = await Promise.all([
+        prisma.garage.findMany({ where, take: RANK_CANDIDATES, select: LIST_SELECT }),
+        prisma.garage.count({ where }),
+      ])
+      const ids = candidates.map((c) => c.id)
+      const [outcomes, prices] = await Promise.all([
+        prisma.booking.groupBy({
+          by: ["garageId", "status"],
+          where: { garageId: { in: ids }, status: { in: ["COMPLETED", "CANCELLED", "NO_SHOW"] } },
+          _count: { _all: true },
+        }),
+        service
+          ? prisma.servicePrice.findMany({ where: { garageId: { in: ids }, serviceType: service, isActive: true }, select: { garageId: true, priceFrom: true } })
+          : Promise.resolve([]),
+      ])
+      const completion = new Map<string, { done: number; all: number }>()
+      for (const o of outcomes) {
+        const c = completion.get(o.garageId) ?? { done: 0, all: 0 }
+        c.all += o._count._all
+        if (o.status === "COMPLETED") c.done += o._count._all
+        completion.set(o.garageId, c)
+      }
+      const price = priceScores(new Map(candidates.map((c) => [c.id, prices.find((p) => p.garageId === c.id)?.priceFrom ?? null])))
+      const here = Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null
+      const now = new Date()
+
+      const ranked = orderGarages(
+        candidates.map((g) => {
+          const c = completion.get(g.id)
+          return {
+            item: g,
+            totalReviews: g.totalReviews,
+            featured: isFeatured(g, now),
+            score: rankScore({
+              averageRating: g.averageRating,
+              totalReviews: g.totalReviews,
+              isVerified: g.isVerified,
+              avgResponseMins: g.avgResponseMins,
+              // Too few finished bookings to judge: stay neutral instead of punishing a 1-of-1 cancellation.
+              completionRate: c && c.all >= 3 ? c.done / c.all : null,
+              distanceKm: here && g.latitude !== null && g.longitude !== null ? haversineKm(here, { lat: g.latitude, lng: g.longitude }) : null,
+              priceScore: price.get(g.id) ?? null,
+            }),
+          }
+        })
+      )
+      const pageItems = ranked.slice((page - 1) * limit, page * limit)
+      return NextResponse.json({
+        garages: pageItems.map((r) => ({ ...toGarageListItem(r.item), featured: r.featured, recommended: r.recommended, avgResponseMins: r.item.avgResponseMins })),
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      })
+    }
 
     const [garages, total] = await Promise.all([
       prisma.garage.findMany({

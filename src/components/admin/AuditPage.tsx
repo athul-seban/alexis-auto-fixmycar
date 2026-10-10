@@ -46,6 +46,7 @@ export function AdminAuditPage() {
           { value: "GARAGE", label: "Garages", countKey: "GARAGE" },
           { value: "USER", label: "Users", countKey: "USER" },
           { value: "REVIEW", label: "Reviews", countKey: "REVIEW" },
+          { value: "DOCUMENT", label: "Documents", countKey: "DOCUMENT" },
         ],
       }}
       searchPlaceholder="Search action, detail or admin…"

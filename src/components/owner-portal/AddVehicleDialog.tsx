@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { FieldError, FieldLabel, TextInput } from "@/components/ui/form-controls"
+import { VehicleLookup } from "@/components/shared/VehicleLookup"
 import { sendJson } from "@/hooks/use-api"
 import type { OwnerVehicle } from "@/components/owner-portal/types"
 
@@ -51,6 +52,20 @@ export function AddVehicleDialog({ open, onOpenChange, onAdded }: Props) {
           <div>
             <FieldLabel htmlFor="v-reg">Registration</FieldLabel>
             <TextInput id="v-reg" value={f.registration} onChange={(e) => setF((c) => ({ ...c, registration: e.target.value.toUpperCase() }))} placeholder="AB12 CDE" autoComplete="off" className="font-mono uppercase" />
+            <VehicleLookup
+              registration={f.registration}
+              onFound={(v) =>
+                setF((c) => ({
+                  ...c,
+                  make: v.make ?? c.make,
+                  model: v.model ?? c.model,
+                  year: v.year ? String(v.year) : c.year,
+                  fuel: v.fuel ?? c.fuel,
+                  mileage: v.mileage ? String(v.mileage) : c.mileage,
+                  motDueDate: v.motExpiry ?? c.motDueDate,
+                }))
+              }
+            />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>

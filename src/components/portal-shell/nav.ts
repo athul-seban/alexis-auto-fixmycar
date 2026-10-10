@@ -1,8 +1,11 @@
 import {
   BarChart3,
+  BookOpen,
   Car,
   CalendarDays,
   ClipboardCheck,
+  CreditCard,
+  FileCheck2,
   FileText,
   Globe,
   Contact,
@@ -16,6 +19,7 @@ import {
   Wrench,
   ShieldCheck,
   ScrollText,
+  LifeBuoy,
   type LucideIcon,
 } from "lucide-react"
 
@@ -74,6 +78,7 @@ export const GARAGE_NAV: PortalNav = {
         { href: `${G}/diary`, label: "Diary", icon: CalendarDays, shortcut: "d" },
         { href: `${G}/bookings`, label: "Bookings", icon: ClipboardCheck, badge: "needsOutcome", shortcut: "b" },
         { href: `${G}/customers`, label: "Customers", icon: Contact, shortcut: "u" },
+        { href: `${G}/messages`, label: "Messages", icon: MessageSquare, badge: "unreadMessages", shortcut: "i" },
         { href: `${G}/reviews`, label: "Reviews", icon: Star, badge: "unrepliedReviews", shortcut: "r" },
       ],
     },
@@ -84,6 +89,7 @@ export const GARAGE_NAV: PortalNav = {
         { href: `${G}/website`, label: "Website", icon: Globe, shortcut: "w" },
         { href: `${G}/pricing`, label: "Pricing", icon: PoundSterling, shortcut: "c" },
         { href: `${G}/enquiries`, label: "Enquiries", icon: Inbox, badge: "newEnquiries", shortcut: "e" },
+        { href: `${G}/billing`, label: "Plan & billing", icon: CreditCard, shortcut: "m" },
       ],
     },
   ],
@@ -103,7 +109,9 @@ export const ADMIN_NAV: PortalNav = {
       items: [
         { href: `${A}/garages`, label: "Garages", icon: Wrench, badge: "pendingGarages" },
         { href: `${A}/users`, label: "Users", icon: Users },
-        { href: `${A}/reviews`, label: "Reviews", icon: Star },
+        { href: `${A}/reviews`, label: "Reviews", icon: Star, badge: "openDisputes" },
+        { href: `${A}/documents`, label: "Documents", icon: FileCheck2, badge: "pendingDocuments" },
+        { href: `${A}/articles`, label: "Guides & blog", icon: BookOpen },
       ],
     },
     {
@@ -121,6 +129,7 @@ export const ADMIN_NAV: PortalNav = {
       items: [
         { href: `${A}/widgets`, label: "Widgets", icon: ShieldCheck },
         { href: `${A}/analytics`, label: "Analytics", icon: BarChart3 },
+        { href: `${A}/support`, label: "Support lookup", icon: LifeBuoy },
         { href: `${A}/audit`, label: "Audit log", icon: ScrollText },
       ],
     },
@@ -146,7 +155,7 @@ export const OWNER_NAV: PortalNav = {
         { href: `${O}/bookings`, label: "Bookings", icon: ClipboardCheck },
         { href: `${O}/quotes`, label: "Quotes", icon: FileText, badge: "quotesToReview" },
         { href: `${O}/vehicles`, label: "My vehicles", icon: Car, badge: "vehiclesDue" },
-        { href: `${O}/messages`, label: "Messages", icon: MessageSquare },
+        { href: `${O}/messages`, label: "Messages", icon: MessageSquare, badge: "unreadMessages" },
         { href: `${O}/reviews`, label: "Reviews", icon: Star },
       ],
     },

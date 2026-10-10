@@ -72,3 +72,26 @@ export function garageJsonLd(g: SeoGarage, images: string[]) {
 export function jsonLdString(data: unknown): string {
   return JSON.stringify(data).replace(/</g, "\\u003c")
 }
+
+export interface SeoArticle {
+  slug: string
+  title: string
+  excerpt: string
+  publishedAt: Date
+  updatedAt: Date
+}
+
+/** schema.org Article for a published guide/blog post. */
+export function articleJsonLd(a: SeoArticle) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: a.title,
+    description: a.excerpt,
+    mainEntityOfPage: absoluteUrl(`/blog/${a.slug}`),
+    datePublished: a.publishedAt.toISOString(),
+    dateModified: a.updatedAt.toISOString(),
+    author: { "@type": "Organization", name: "Quote My Garage" },
+    publisher: { "@type": "Organization", name: "Quote My Garage" },
+  }
+}

@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterAll } from "vitest"
+import { describe, it, expect, vi, beforeEach, afterAll, afterEach } from "vitest"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { POST } from "./route"
 import { areaFor, cleanupPrefix, makeGarage } from "@/test/fixtures"
+import { PLANS } from "@/lib/portal/plans"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
 vi.mock("@/lib/auth", () => ({ authOptions: {} }))
@@ -64,5 +65,69 @@ describe("POST /api/job-requests/[id]/respond — guards", () => {
     asUser(user.id)
     expect((await respond((await makeJob({ status: "BOOKED" })).id)).status).toBe(409)
     expect((await respond((await makeJob()).id, { price: -1 })).status).toBe(400)
+  })
+})
+
+describe("POST /api/job-requests/[id]/respond — plan limits", () => {
+  afterEach(() => {
+    delete process.env.PLANS_ENFORCED
+  })
+
+  const exhaust = async (garageId: string) => {
+    for (let i = 0; i < PLANS.FREE.leadsPerMonth!; i++) {
+      const job = await makeJob()
+      await prisma.jobResponse.create({ data: { jobRequestId: job.id, garageId, price: 50, status: "SENT" } })
+    }
+  }
+
+  it("doesn't limit anyone while plans aren't enforced", async () => {
+    const { user, garage } = await makeGarage(PREFIX)
+    await exhaust(garage.id)
+    asUser(user.id)
+    expect((await respond((await makeJob()).id)).status).toBe(201)
+  })
+
+  it("blocks a free garage past its monthly allowance with a 402 and a code the UI can act on", async () => {
+    process.env.PLANS_ENFORCED = "true"
+    const { user, garage } = await makeGarage(PREFIX)
+    await exhaust(garage.id)
+    asUser(user.id)
+    const job = await makeJob()
+    const res = await respond(job.id)
+    expect(res.status).toBe(402)
+    expect((await res.json()).code).toBe("LEAD_LIMIT")
+    expect(await prisma.jobResponse.count({ where: { jobRequestId: job.id } })).toBe(0)
+  })
+
+  it("spends one credit to answer past the allowance, and records it", async () => {
+    process.env.PLANS_ENFORCED = "true"
+    const { user, garage } = await makeGarage(PREFIX)
+    await prisma.garage.update({ where: { id: garage.id }, data: { leadCredits: 2 } })
+    await exhaust(garage.id)
+    asUser(user.id)
+    const job = await makeJob()
+    expect((await respond(job.id)).status).toBe(201)
+    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).leadCredits).toBe(1)
+    expect(await prisma.leadCreditTransaction.count({ where: { garageId: garage.id, reason: "LEAD", jobRequestId: job.id } })).toBe(1)
+  })
+
+  it("lets a paid plan answer without spending anything", async () => {
+    process.env.PLANS_ENFORCED = "true"
+    const { user, garage } = await makeGarage(PREFIX)
+    await prisma.garage.update({ where: { id: garage.id }, data: { plan: "PREMIUM", subscriptionStatus: "active" } })
+    await exhaust(garage.id)
+    asUser(user.id)
+    expect((await respond((await makeJob()).id)).status).toBe(201)
+  })
+
+  it("keeps a running average of how fast the garage answers", async () => {
+    const { user, garage } = await makeGarage(PREFIX)
+    const job = await makeJob({ createdAt: new Date(Date.now() - 30 * 60_000) })
+    asUser(user.id)
+    await respond(job.id)
+    const g = await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })
+    expect(g.responseSamples).toBe(1)
+    expect(g.avgResponseMins).toBeGreaterThan(29)
+    expect(g.avgResponseMins).toBeLessThan(32)
   })
 })

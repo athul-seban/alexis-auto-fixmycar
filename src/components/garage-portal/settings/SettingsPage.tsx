@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/toast"
 import { sendJson, useApi } from "@/hooks/use-api"
 import type { PortalSettings } from "@/lib/portal/portal-settings"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
+import { AppOnDeviceCard } from "@/components/shared/AppOnDeviceCard"
 import { TechniciansCard } from "@/components/garage-portal/settings/TechniciansCard"
 
 interface SettingsResponse {
@@ -32,6 +33,7 @@ export function SettingsPage() {
           <TechniciansCard />
           <CapacityCard key={data.settings.bays ?? "auto"} bays={data.settings.bays ?? null} onSaved={reload} />
           <NotificationsCard settings={data.settings} smsAvailable={data.smsAvailable} onSaved={reload} />
+          <AppOnDeviceCard />
           <AccountCard account={data.account} />
         </div>
       )}
@@ -43,6 +45,7 @@ const NOTIFICATION_ROWS: { key: keyof PortalSettings["notifications"]; title: st
   { key: "emailNewBooking", title: "New bookings", description: "Email me when a customer books through the marketplace or my website widget." },
   { key: "emailCancellation", title: "Cancellations", description: "Email me when a customer cancels a booking." },
   { key: "emailReview", title: "New reviews", description: "Email me when a customer leaves a review." },
+  { key: "emailMessage", title: "Customer messages", description: "Email me when a customer sends a message about a quote or booking." },
   { key: "smsCustomer", title: "Text my customers", description: "Send a 24-hour reminder and booking updates by SMS to customers who agreed to texts. SMS is billed per message." },
 ]
 

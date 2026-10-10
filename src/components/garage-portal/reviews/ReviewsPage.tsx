@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { MessageSquareReply, Pencil, Star } from "lucide-react"
+import { Flag, MessageSquareReply, Pencil, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { NativeSelect } from "@/components/ui/form-controls"
@@ -14,6 +14,7 @@ import { formatLondonDate } from "@/lib/portal/tz"
 import { garageLinks } from "@/lib/portal/links"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
 import { ReplyForm } from "@/components/garage-portal/reviews/ReplyForm"
+import { DisputeForm } from "@/components/garage-portal/reviews/DisputeForm"
 
 interface ReviewRow {
   id: string
@@ -23,6 +24,8 @@ interface ReviewRow {
   createdAt: string
   reply: string | null
   repliedAt: string | null
+  disputeStatus: "OPEN" | "UPHELD" | "REJECTED" | null
+  disputeNote: string | null
   customerName: string
   serviceType: string
   bookingId: string
@@ -62,6 +65,7 @@ export function ReviewsPage() {
 
   const { data, loading, error, reload } = useApi<ReviewsResponse>(`/api/garage/reviews?${query}`)
   const [replying, setReplying] = useState<string | null>(null)
+  const [disputing, setDisputing] = useState<string | null>(null)
 
   const rowsTotal = data ? Object.values(data.counts.byRating).reduce((a, b) => a + b, 0) : 0
 
@@ -150,14 +154,33 @@ export function ReviewsPage() {
                         {r.bookingReference && <> · <a href={garageLinks.booking(r.bookingId)} className="hover:underline">{r.bookingReference}</a></>}
                       </p>
                     </div>
-                    {!r.reply && replying !== r.id && (
-                      <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setReplying(r.id)}>
-                        <MessageSquareReply className="h-3.5 w-3.5" /> Reply
-                      </Button>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {!r.disputeStatus && disputing !== r.id && (
+                        <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setDisputing(r.id)}>
+                          <Flag className="h-3.5 w-3.5" /> Dispute
+                        </Button>
+                      )}
+                      {!r.reply && replying !== r.id && (
+                        <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setReplying(r.id)}>
+                          <MessageSquareReply className="h-3.5 w-3.5" /> Reply
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   {r.title && <p className="text-sm font-semibold text-slate-900 dark:text-white">{r.title}</p>}
                   <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{r.comment}</p>
+
+                  {r.disputeStatus === "OPEN" && (
+                    <p role="status" className="mt-3 rounded-lg bg-yellow-50 p-2.5 text-xs font-medium text-yellow-900 dark:bg-yellow-500/10 dark:text-yellow-200">
+                      You disputed this review. A moderator is looking at it.
+                    </p>
+                  )}
+                  {r.disputeStatus === "REJECTED" && (
+                    <p role="status" className="mt-3 rounded-lg bg-slate-100 p-2.5 text-xs text-slate-700 dark:bg-white/5 dark:text-slate-300">
+                      Your dispute wasn&apos;t upheld, so this review stays.{r.disputeNote && <> Moderator&apos;s note: {r.disputeNote}</>}
+                    </p>
+                  )}
+                  {disputing === r.id && <DisputeForm reviewId={r.id} onCancel={() => setDisputing(null)} onSent={() => { setDisputing(null); reload() }} />}
 
                   {replying === r.id ? (
                     <ReplyForm reviewId={r.id} initial={r.reply ?? ""} onCancel={() => setReplying(null)} onSaved={() => { setReplying(null); reload() }} />

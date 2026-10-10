@@ -319,3 +319,27 @@ export function invoiceCustomerEmail({
   )
   return { subject, html }
 }
+
+/** "You have a new message" — sent to whichever side of a quote/booking conversation didn't write it. */
+export function messageReceivedEmail({
+  recipientName, fromName, about, preview, href,
+}: {
+  recipientName: string | null
+  fromName: string
+  about: string
+  preview: string
+  href: string
+}): { subject: string; html: string } {
+  const subject = `New message from ${fromName}`
+  const clipped = preview.length > 300 ? `${preview.slice(0, 300)}…` : preview
+  const html = wrapper(
+    subject,
+    `<p>Hi ${e(recipientName ?? "there")},</p>
+     <p><strong>${e(fromName)}</strong> sent you a message about your ${e(about)}:</p>
+     <p style="background:#f8fafc; border-radius:8px; padding:12px 16px; white-space:pre-wrap;">${e(clipped)}</p>
+     <p style="color:#64748b; font-size:12px;">Reply from your account so the whole conversation stays in one place.</p>`,
+    href,
+    "Read and reply"
+  )
+  return { subject, html }
+}

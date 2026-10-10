@@ -14,6 +14,14 @@ const nextConfig = {
   // static headers, so the widget is embeddable anywhere by design.
   async headers() {
     return [
+      // The service worker must always be re-fetched, or a bad version could stay installed for a day.
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
       {
         source: '/((?!widget(?:/|$)).*)',
         headers: [
