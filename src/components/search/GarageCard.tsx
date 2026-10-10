@@ -24,6 +24,25 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
     .slice(0, 2)
     .toUpperCase()
 
+  // Shown beside the name from `sm` up; below the rating on phones so the name keeps its full width.
+  const badges = (
+    <>
+      {garage.isVerified && (
+        <Badge variant="verified" className="gap-1 text-xs">
+          <Shield className="h-3 w-3" />
+          Verified
+        </Badge>
+      )}
+      {garage.isMobile && (
+        <Badge variant="accent" className="gap-1 text-xs">
+          <Car className="h-3 w-3" />
+          Mobile
+        </Badge>
+      )}
+    </>
+  )
+  const hasBadges = !!(garage.isVerified || garage.isMobile)
+
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 hover:shadow-lg hover:border-[#F97316]/30 transition-all duration-200 overflow-hidden">
       <div className="p-5">
@@ -46,7 +65,7 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
               <div className="min-w-0">
                 <Link
                   href={`/garage/${garage.slug}`}
-                  className="font-bold text-slate-900 dark:text-white text-lg leading-tight hover:text-[#1E3A5F] dark:hover:text-orange-400 transition-colors block truncate"
+                  className="font-bold text-slate-900 dark:text-white text-lg leading-tight hover:text-[#1E3A5F] dark:hover:text-orange-400 transition-colors block line-clamp-2 sm:truncate"
                 >
                   {garage.name}
                 </Link>
@@ -60,20 +79,7 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
                   </span>
                 </div>
               </div>
-              <div className="flex flex-col gap-1 flex-shrink-0">
-                {garage.isVerified && (
-                  <Badge variant="verified" className="gap-1 text-xs">
-                    <Shield className="h-3 w-3" />
-                    Verified
-                  </Badge>
-                )}
-                {garage.isMobile && (
-                  <Badge variant="accent" className="gap-1 text-xs">
-                    <Car className="h-3 w-3" />
-                    Mobile
-                  </Badge>
-                )}
-              </div>
+              <div className="hidden sm:flex flex-col gap-1 flex-shrink-0">{badges}</div>
             </div>
 
             {/* Rating */}
@@ -97,6 +103,8 @@ export function GarageCard({ garage, distance }: GarageCardProps) {
                 <span className="text-sm text-slate-500 dark:text-slate-400">({garage.totalReviews} reviews)</span>
               )}
             </div>
+
+            {hasBadges && <div className="flex flex-wrap gap-1.5 mt-2 sm:hidden">{badges}</div>}
           </div>
         </div>
 
