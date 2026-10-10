@@ -131,6 +131,24 @@ describe("GET /api/garage/overview — today and listing", () => {
     expect((await (await get()).json()).pendingEnquiries).toBe(1)
   })
 
+  it("compares with the previous period and lists today's bookings, checklist and unreplied reviews", async () => {
+    const { user, garage } = await makeGarage(PREFIX)
+    // Previous window of equal length (Aug 2026 is 31 days; the range below is 30, so use 2026-08-02..2026-08-31 before it).
+    await b(garage.id, { scheduledAt: D("2026-08-20T10:00:00Z"), createdAt: D("2026-08-18T10:00:00Z") })
+    await b(garage.id, { scheduledAt: D("2026-08-21T10:00:00Z"), createdAt: D("2026-08-19T10:00:00Z") })
+    await b(garage.id, {})
+    await makeWalkInBooking(garage.id, { scheduledAt: new Date(), createdAt: new Date(), status: "CONFIRMED", customerName: "Today Tim" })
+    asUser(user.id)
+
+    const body = await (await get(RANGE)).json()
+    expect(body.marketplace.created).toBe(1)
+    expect(body.previous.marketplace.created).toBe(2)
+    expect(body.todayBookings.map((x: any) => x.customer)).toContain("Today Tim")
+    expect(body.unrepliedReviews).toBe(0)
+    expect(body.unreadMessages).toBe(0)
+    expect(body.readiness).toEqual({ ready: expect.any(Boolean), missing: expect.any(Array) })
+  })
+
   it("rejects non-garage callers", async () => {
     mockSession.mockResolvedValue(null)
     expect((await get()).status).toBe(401)

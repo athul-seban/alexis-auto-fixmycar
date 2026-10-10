@@ -6,23 +6,33 @@ import { getServiceLabel } from "@/lib/utils"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== "ADMIN") {
+  const userId = (session?.user as { id?: string } | undefined)?.id
+  if (!session || (session.user as any).role !== "ADMIN" || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
+  const admin = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, suspendedAt: true } })
+  if (admin?.role !== "ADMIN" || admin.suspendedAt) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const now = new Date()
   const trendStart = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)
   trendStart.setUTCHours(0, 0, 0, 0) // buckets below are keyed by UTC date
 
-  const [completedBookings, allBookings, garages, recentBookings, recentGarages, recentReviews, enquiryStatusCounts, recentEnquiries, sourceGroups] = await Promise.all([
+  const [completedBookings, serviceGroups, cityGarageGroups, garageBookingGroups, garageCities, attention, recentBookings, recentGarages, recentReviews, enquiryStatusCounts, recentEnquiries, sourceGroups] = await Promise.all([
     prisma.booking.findMany({
       where: { status: "COMPLETED", completedAt: { gte: trendStart } },
       select: { completedAt: true, totalPrice: true },
     }),
-    prisma.booking.findMany({
-      select: { serviceType: true, totalPrice: true, garage: { select: { city: true } } },
-    }),
-    prisma.garage.findMany({ select: { city: true } }),
+    // Aggregated in the database: this page must not load every booking and garage row.
+    prisma.booking.groupBy({ by: ["serviceType"], _count: { _all: true } }),
+    prisma.garage.groupBy({ by: ["city"], _count: { _all: true } }),
+    prisma.booking.groupBy({ by: ["garageId"], _count: { _all: true }, _sum: { totalPrice: true } }),
+    prisma.garage.findMany({ select: { id: true, city: true } }),
+    Promise.all([
+      prisma.garage.count({ where: { status: "PENDING" } }),
+      prisma.garageDocument.count({ where: { status: "PENDING" } }),
+      prisma.review.count({ where: { disputeStatus: "OPEN" } }),
+      prisma.jobRequest.count({ where: { status: "OPEN" } }),
+    ]),
     prisma.booking.findMany({
       select: { id: true, serviceType: true, createdAt: true, customerName: true, owner: { select: { name: true, email: true } }, garage: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
@@ -61,32 +71,27 @@ export async function GET() {
   const revenueTrend = Object.entries(dayBuckets).map(([date, revenue]) => ({ date, revenue }))
 
   // Service type breakdown
-  const serviceCounts: Record<string, number> = {}
-  for (const b of allBookings) {
-    serviceCounts[b.serviceType] = (serviceCounts[b.serviceType] ?? 0) + 1
-  }
-  const serviceBreakdown = Object.entries(serviceCounts)
-    .map(([serviceType, count]) => ({ serviceType, label: getServiceLabel(serviceType), count }))
+  const serviceBreakdown = serviceGroups
+    .map((g) => ({ serviceType: g.serviceType, label: getServiceLabel(g.serviceType), count: g._count._all }))
     .sort((a, b) => b.count - a.count)
 
   // Top cities by garage count + real booking count/revenue
-  const cityGarageCounts: Record<string, number> = {}
-  for (const g of garages) cityGarageCounts[g.city] = (cityGarageCounts[g.city] ?? 0) + 1
-
+  const cityOf = new Map(garageCities.map((g) => [g.id, g.city]))
   const cityBookings: Record<string, { count: number; revenue: number }> = {}
-  for (const b of allBookings) {
-    const city = b.garage.city
-    if (!cityBookings[city]) cityBookings[city] = { count: 0, revenue: 0 }
-    cityBookings[city].count += 1
-    cityBookings[city].revenue += b.totalPrice
+  for (const g of garageBookingGroups) {
+    const city = cityOf.get(g.garageId)
+    if (!city) continue
+    const c = (cityBookings[city] ??= { count: 0, revenue: 0 })
+    c.count += g._count._all
+    c.revenue += g._sum.totalPrice ?? 0
   }
 
-  const topCities = Object.entries(cityGarageCounts)
-    .map(([city, garageCount]) => ({
-      city,
-      garages: garageCount,
-      bookings: cityBookings[city]?.count ?? 0,
-      revenue: cityBookings[city]?.revenue ?? 0,
+  const topCities = cityGarageGroups
+    .map((g) => ({
+      city: g.city,
+      garages: g._count._all,
+      bookings: cityBookings[g.city]?.count ?? 0,
+      revenue: cityBookings[g.city]?.revenue ?? 0,
     }))
     .sort((a, b) => b.garages - a.garages)
     .slice(0, 5)
@@ -118,7 +123,10 @@ export async function GET() {
   const totalEnquiries = Object.values(enquiryCounts).reduce((a, b) => a + b, 0)
   const conversionRate = totalEnquiries ? Math.round((enquiryCounts.BOOKED / totalEnquiries) * 1000) / 10 : 0
 
+  const [pendingGarages, pendingDocuments, openDisputes, openEnquiries] = attention
+
   return NextResponse.json({
+    attention: { pendingGarages, pendingDocuments, openDisputes, openEnquiries },
     revenueTrend,
     serviceBreakdown,
     bySource: sourceGroups.map((g) => ({ source: g.source, count: g._count._all, value: g._sum.totalPrice ?? 0 })).sort((a, b) => b.count - a.count),

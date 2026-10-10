@@ -20,6 +20,9 @@ model User {
   lockedUntil         DateTime?
   suspendedAt   DateTime?
   smsOptIn      Boolean   @default(false) // texts about their bookings (customers)
+  emailNotifications Boolean @default(true)  // booking / quote / message emails
+  marketingOptIn     Boolean @default(false) // tips and offers
+  sessionVersion     Int     @default(0)     // bump to sign the user out everywhere
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

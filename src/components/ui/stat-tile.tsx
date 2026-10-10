@@ -20,11 +20,13 @@ interface StatTileProps {
   /** Explains how the figure is calculated; shown as a tooltip + to screen readers. */
   hint?: string
   href?: string
+  /** Change against the previous period: positive is up. Omit to hide. `null` renders nothing. */
+  delta?: { change: number; label: string } | null
   loading?: boolean
   className?: string
 }
 
-export function StatTile({ label, value, icon: Icon, tone = "blue", hint, href, loading, className }: StatTileProps) {
+export function StatTile({ label, value, icon: Icon, tone = "blue", hint, href, delta, loading, className }: StatTileProps) {
   const t = TONES[tone]
   const body = (
     <>
@@ -44,6 +46,12 @@ export function StatTile({ label, value, icon: Icon, tone = "blue", hint, href, 
       </div>
       {loading ? <Skeleton className="mb-1 h-8 w-20" /> : <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{value}</div>}
       <div className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{label}</div>
+      {delta && !loading && (
+        <div className={cn("mt-1 text-xs font-medium", delta.change > 0 ? "text-green-700 dark:text-green-400" : delta.change < 0 ? "text-red-700 dark:text-red-400" : "text-slate-500 dark:text-slate-400")}>
+          {delta.change > 0 ? "▲ " : delta.change < 0 ? "▼ " : ""}
+          {delta.change === 0 ? "No change" : Math.abs(delta.change)} {delta.change === 0 ? "" : delta.label}
+        </div>
+      )}
     </>
   )
   const base = "block rounded-xl border border-gray-200 bg-white p-5 dark:border-white/10 dark:bg-slate-800"

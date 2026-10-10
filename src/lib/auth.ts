@@ -88,17 +88,38 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.role = (user as any).role
         token.id = user.id
+      }
+      if (token.id) {
+        // One light read per session check: lets "sign out everywhere" (User.sessionVersion) revoke old tokens,
+        // and lets name / photo edits show up without signing in again.
+        const fresh = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { sessionVersion: true, name: true, image: true },
+        })
+        if (!fresh) {
+          token.invalid = true
+        } else {
+          if (user || token.sv === undefined) token.sv = fresh.sessionVersion
+          token.invalid = token.sv !== fresh.sessionVersion
+          if (trigger === "update" || user) {
+            token.name = fresh.name
+            token.picture = fresh.image
+          }
+        }
       }
       return token
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).role = token.role
-        ;(session.user as any).id = token.id
+        // A revoked token yields a session with no id/role, so every guard treats it as signed out.
+        (session.user as any).role = token.invalid ? undefined : token.role
+        ;(session.user as any).id = token.invalid ? undefined : token.id
+        if (token.name !== undefined) session.user.name = token.name as string | null
+        if (token.picture !== undefined) session.user.image = token.picture as string | null
       }
       return session
     },

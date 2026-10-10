@@ -47,6 +47,8 @@ export interface PortalNav {
   /** Pages reachable from elsewhere (gear icon, in-page links) that aren't in the sidebar. */
   extraTitles: Record<string, string>
   settingsHref?: string
+  /** The signed-in user's own account page (profile, password), linked from the user menu. */
+  accountHref: string
   defaultTitle: string
 }
 
@@ -70,7 +72,8 @@ export const GARAGE_NAV: PortalNav = {
   base: G,
   defaultTitle: "Dashboard",
   settingsHref: `${G}/settings`,
-  extraTitles: { [`${G}/insights`]: "Insights", [`${G}/settings`]: "Settings" },
+  accountHref: `${G}/account`,
+  extraTitles: { [`${G}/insights`]: "Insights", [`${G}/settings`]: "Settings", [`${G}/account`]: "Account" },
   sections: [
     {
       items: [
@@ -101,7 +104,9 @@ export const ADMIN_NAV: PortalNav = {
   ariaLabel: "Admin portal",
   base: A,
   defaultTitle: "Overview",
-  extraTitles: {},
+  settingsHref: `${A}/account`,
+  accountHref: `${A}/account`,
+  extraTitles: { [`${A}/account`]: "Account" },
   sections: [
     { items: [{ href: A, label: "Overview", icon: LayoutDashboard }] },
     {
@@ -147,7 +152,8 @@ export const OWNER_NAV: PortalNav = {
   base: O,
   defaultTitle: "Overview",
   settingsHref: `${O}/settings`,
-  extraTitles: { [`${O}/settings`]: "Settings" },
+  accountHref: `${O}/settings`,
+  extraTitles: { [`${O}/settings`]: "Account" },
   sections: [
     {
       items: [

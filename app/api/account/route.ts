@@ -5,13 +5,35 @@ import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { normalisePhone } from "@/lib/portal/phone"
 
+// Avatars are uploaded to Vercel Blob by /api/account/avatar; only those URLs may be stored.
+const imageUrl = z
+  .string()
+  .url()
+  .max(500)
+  .refine((u) => u.startsWith("https://"), "Invalid image")
+
 const patchSchema = z
   .object({
     name: z.string().trim().min(1, "Enter your name").max(100).optional(),
     phone: z.string().trim().max(30).optional().nullable(),
     smsOptIn: z.boolean().optional(),
+    emailNotifications: z.boolean().optional(),
+    marketingOptIn: z.boolean().optional(),
+    image: imageUrl.optional().nullable(),
   })
   .refine((d) => Object.keys(d).length > 0, "Nothing to update")
+
+const profileSelect = {
+  name: true,
+  email: true,
+  phone: true,
+  image: true,
+  role: true,
+  smsOptIn: true,
+  emailNotifications: true,
+  marketingOptIn: true,
+  createdAt: true,
+} as const
 
 async function currentUserId() {
   const session = await getServerSession(authOptions)
@@ -22,9 +44,10 @@ async function currentUserId() {
 export async function GET() {
   const id = await currentUserId()
   if (!id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  const user = await prisma.user.findUnique({ where: { id }, select: { name: true, email: true, phone: true, password: true, smsOptIn: true } })
+  const user = await prisma.user.findUnique({ where: { id }, select: { ...profileSelect, password: true } })
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  return NextResponse.json({ name: user.name, email: user.email, phone: user.phone, smsOptIn: user.smsOptIn, hasPassword: Boolean(user.password) })
+  const { password, ...profile } = user
+  return NextResponse.json({ ...profile, hasPassword: Boolean(password) })
 }
 
 export async function PATCH(req: Request) {
@@ -32,15 +55,18 @@ export async function PATCH(req: Request) {
   if (!id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   try {
-    const { name, phone, smsOptIn } = patchSchema.parse(await req.json())
+    const { name, phone, smsOptIn, emailNotifications, marketingOptIn, image } = patchSchema.parse(await req.json())
     const user = await prisma.user.update({
       where: { id },
       data: {
         ...(name !== undefined ? { name } : {}),
         ...(phone !== undefined ? { phone: phone ? normalisePhone(phone) : null } : {}),
         ...(smsOptIn !== undefined ? { smsOptIn } : {}),
+        ...(emailNotifications !== undefined ? { emailNotifications } : {}),
+        ...(marketingOptIn !== undefined ? { marketingOptIn } : {}),
+        ...(image !== undefined ? { image } : {}),
       },
-      select: { name: true, email: true, phone: true, smsOptIn: true },
+      select: profileSelect,
     })
     return NextResponse.json({ user })
   } catch (err) {

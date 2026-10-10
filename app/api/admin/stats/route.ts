@@ -3,8 +3,9 @@ import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 
-function pctChange(current: number, previous: number): number {
-  if (previous === 0) return current > 0 ? 100 : 0
+/** Percentage change, or null when there was nothing before to compare against ("new" rather than a fake +100%). */
+function pctChange(current: number, previous: number): number | null {
+  if (previous === 0) return current > 0 ? null : 0
   return Math.round(((current - previous) / previous) * 1000) / 10
 }
 

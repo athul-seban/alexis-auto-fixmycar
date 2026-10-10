@@ -20,7 +20,7 @@ export default async function GaragePortalLayout({ children }: { children: React
   const session = await getServerSession(authOptions)
   if (!session) redirect("/login?callbackUrl=/garage-dashboard")
 
-  const user = session.user as { id: string; role?: string; name?: string | null; email?: string | null }
+  const user = session.user as { id: string; role?: string; name?: string | null; email?: string | null; image?: string | null }
   if (user.role !== "GARAGE") redirect(roleHome(user.role))
 
   const garage = await prisma.garage.findUnique({ where: { userId: user.id } })
@@ -29,7 +29,7 @@ export default async function GaragePortalLayout({ children }: { children: React
   return (
     <PortalShell
       portal="garage"
-      user={{ name: user.name ?? null, email: user.email ?? null }}
+      user={{ name: user.name ?? null, email: user.email ?? null, image: user.image ?? null }}
       identity={{ name: garage?.name ?? "Garage Portal", logo: garage?.logo }}
       garageStatus={garage?.status}
       badges={badges}

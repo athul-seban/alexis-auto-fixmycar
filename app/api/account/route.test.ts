@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { GET, PATCH } from "./route"
 import { POST as changePassword } from "./change-password/route"
+import { DELETE as signOutEverywhere } from "./sessions/route"
 import { cleanupPrefix, makeOwner } from "@/test/fixtures"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
@@ -71,5 +72,40 @@ describe("/api/account/change-password", () => {
     const { user } = await makeOwner(PREFIX)
     mockSession.mockResolvedValue({ user: { id: user.id, role: "OWNER" } } as any)
     expect((await changePassword(json("POST", { current: "x", next: "brandnewpass" }))).status).toBe(400)
+  })
+})
+
+describe("/api/account preferences, photo and sessions", () => {
+  it("returns role and preferences, saves them, and only accepts https photo URLs", async () => {
+    const { user } = await makeOwner(PREFIX)
+    mockSession.mockResolvedValue({ user: { id: user.id, role: "OWNER" } } as any)
+    expect(await (await GET()).json()).toMatchObject({ role: "OWNER", emailNotifications: true, marketingOptIn: false, image: null })
+
+    expect((await PATCH(json("PATCH", { emailNotifications: false, marketingOptIn: true }))).status).toBe(200)
+    expect(await (await GET()).json()).toMatchObject({ emailNotifications: false, marketingOptIn: true })
+
+    expect((await PATCH(json("PATCH", { image: "javascript:alert(1)" }))).status).toBe(400)
+    expect((await PATCH(json("PATCH", { image: "http://insecure.example/a.png" }))).status).toBe(400)
+    expect((await PATCH(json("PATCH", { image: "https://blob.example/a.png" }))).status).toBe(200)
+    expect((await PATCH(json("PATCH", { image: null }))).status).toBe(200)
+    expect((await GET().then((r) => r.json())).image).toBeNull()
+  })
+
+  it("never exposes the password hash", async () => {
+    const { user } = await makeOwner(PREFIX)
+    await prisma.user.update({ where: { id: user.id }, data: { password: "hash" } })
+    mockSession.mockResolvedValue({ user: { id: user.id, role: "OWNER" } } as any)
+    const me = await (await GET()).json()
+    expect(me.hasPassword).toBe(true)
+    expect(me).not.toHaveProperty("password")
+  })
+
+  it("sign out everywhere bumps the session version", async () => {
+    const { user } = await makeOwner(PREFIX)
+    mockSession.mockResolvedValue(null)
+    expect((await signOutEverywhere()).status).toBe(401)
+    mockSession.mockResolvedValue({ user: { id: user.id, role: "OWNER" } } as any)
+    expect((await signOutEverywhere()).status).toBe(200)
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).sessionVersion).toBe(1)
   })
 })

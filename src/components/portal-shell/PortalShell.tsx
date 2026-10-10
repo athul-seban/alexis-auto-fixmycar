@@ -22,7 +22,7 @@ export interface PortalGarage {
 
 interface PortalShellProps {
   portal: PortalId
-  user: { name: string | null; email: string | null }
+  user: { name: string | null; email: string | null; image?: string | null }
   /** Sidebar header. For the garage portal this is the garage; admin/owner use the user. */
   identity: { name: string; logo?: string | null }
   /** Counts shown on sidebar items (see `badge` in nav.ts). */

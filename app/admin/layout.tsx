@@ -15,11 +15,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const session = await getServerSession(authOptions)
   if (!session) redirect("/login?callbackUrl=/admin")
 
-  const user = session.user as { role?: string; name?: string | null; email?: string | null }
+  const user = session.user as { role?: string; name?: string | null; email?: string | null; image?: string | null }
   if (user.role !== "ADMIN") redirect(roleHome(user.role))
 
   return (
-    <PortalShell portal="admin" user={{ name: user.name ?? null, email: user.email ?? null }} identity={{ name: "Admin" }} badges={await adminNavBadges()}>
+    <PortalShell portal="admin" user={{ name: user.name ?? null, email: user.email ?? null, image: user.image ?? null }} identity={{ name: "Admin" }} badges={await adminNavBadges()}>
       {children}
     </PortalShell>
   )

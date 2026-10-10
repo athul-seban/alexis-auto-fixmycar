@@ -69,8 +69,8 @@ async function emailOtherParty(a: {
       })
     )
   } else if (a.thread.ownerId) {
-    const owner = await prisma.user.findUnique({ where: { id: a.thread.ownerId }, select: { name: true, email: true } })
-    if (owner) {
+    const owner = await prisma.user.findUnique({ where: { id: a.thread.ownerId }, select: { name: true, email: true, emailNotifications: true } })
+    if (owner?.emailNotifications) {
       await sendMail({
         to: owner.email,
         ...messageReceivedEmail({ recipientName: owner.name, fromName: garage?.name ?? "Your garage", about, preview: a.body, href: absoluteUrl("/dashboard/messages") }),

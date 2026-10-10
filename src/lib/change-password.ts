@@ -48,7 +48,7 @@ export async function changePassword(userId: string, input: z.infer<typeof chang
 
   await prisma.user.update({
     where: { id: userId },
-    data: { password: await bcrypt.hash(next, 10), failedLoginAttempts: 0, lockedUntil: null },
+    data: { password: await bcrypt.hash(next, 12), failedLoginAttempts: 0, lockedUntil: null },
   })
   return { status: 200, body: { success: true } }
 }

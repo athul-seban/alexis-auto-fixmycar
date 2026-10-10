@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { AlertTriangle, ArrowRight, Inbox } from "lucide-react"
+import { AlertTriangle, ArrowRight, CheckCircle2, Circle, Inbox, MessageSquare, Star } from "lucide-react"
 import { useApi } from "@/hooks/use-api"
 import { useUrlParams } from "@/hooks/use-url-params"
 import { parseCivilRange, presetRange } from "@/lib/portal/date-range"
@@ -9,6 +9,8 @@ import type { ChannelKpis } from "@/lib/portal/kpi"
 import { garageLinks } from "@/lib/portal/links"
 import { todayLondon } from "@/lib/portal/tz"
 import { Panel } from "@/components/garage-portal/shared/PageHeader"
+import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
+import { getServiceLabel } from "@/lib/utils"
 import { GreetingHeader, greetingFor, type OverviewGarage } from "@/components/garage-portal/dashboard/GreetingHeader"
 import { KpiGrid } from "@/components/garage-portal/dashboard/KpiGrid"
 import { RangePicker } from "@/components/garage-portal/dashboard/RangePicker"
@@ -21,7 +23,27 @@ interface Overview {
   widget: ChannelKpis
   direct: ChannelKpis
   noShowRate: number | null
+  previous: { marketplace: ChannelKpis; widget: ChannelKpis; noShowRate: number | null }
   pendingEnquiries: number
+  unrepliedReviews: number
+  unreadMessages: number
+  todayBookings: { id: string; time: string | null; status: string; serviceType: string; customer: string | null; vehicle: string | null }[]
+  readiness: { ready: boolean; missing: { label: string; required: boolean }[] }
+}
+
+const ALERT_TONES = {
+  amber: "border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/20",
+  blue: "border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/20",
+}
+
+function AlertLink({ href, tone, icon: Icon, children }: { href: string; tone: keyof typeof ALERT_TONES; icon: typeof Inbox; children: React.ReactNode }) {
+  return (
+    <Link href={href} className={`mb-4 flex items-center gap-3 rounded-xl border p-4 text-sm transition-colors ${ALERT_TONES[tone]}`}>
+      <Icon className="h-4 w-4 flex-shrink-0" />
+      <span className="flex-1">{children}</span>
+      <ArrowRight className="h-4 w-4" />
+    </Link>
+  )
 }
 
 export function DashboardPage() {
@@ -63,16 +85,78 @@ export function DashboardPage() {
       )}
 
       {data && data.pendingEnquiries > 0 && (
-        <Link
-          href={garageLinks.enquiries}
-          className="mb-4 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 transition-colors hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/20"
-        >
-          <Inbox className="h-4 w-4 flex-shrink-0" />
-          <span className="flex-1">
-            <strong>{data.pendingEnquiries} new enquir{data.pendingEnquiries === 1 ? "y" : "ies"}</strong> waiting for your quote.
-          </span>
-          <ArrowRight className="h-4 w-4" />
-        </Link>
+        <AlertLink href={garageLinks.enquiries} tone="blue" icon={Inbox}>
+          <strong>{data.pendingEnquiries} new enquir{data.pendingEnquiries === 1 ? "y" : "ies"}</strong> waiting for your quote.
+        </AlertLink>
+      )}
+
+      {data && data.unreadMessages > 0 && (
+        <AlertLink href={`${garageLinks.dashboard}/messages`} tone="blue" icon={MessageSquare}>
+          <strong>{data.unreadMessages} unread message{data.unreadMessages === 1 ? "" : "s"}</strong> from customers.
+        </AlertLink>
+      )}
+
+      {data && data.unrepliedReviews > 0 && (
+        <AlertLink href={`${garageLinks.dashboard}/reviews`} tone="amber" icon={Star}>
+          <strong>{data.unrepliedReviews} review{data.unrepliedReviews === 1 ? "" : "s"}</strong> still without a reply. Replying builds trust.
+        </AlertLink>
+      )}
+
+      {data && (
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Panel className="p-4 sm:p-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Today&apos;s bookings</h2>
+              <Link href={`${garageLinks.dashboard}/diary`} className="inline-flex items-center gap-1 text-sm font-medium text-[#1E3A5F] hover:underline dark:text-blue-300">
+                Open diary <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+            {data.todayBookings.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Nothing booked for today.</p>
+            ) : (
+              <ul className="divide-y divide-slate-100 dark:divide-white/10">
+                {data.todayBookings.map((b) => (
+                  <li key={b.id} className="flex items-center justify-between gap-4 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-slate-900 dark:text-white">
+                        <span className="mr-2 tabular-nums text-slate-500 dark:text-slate-400">{b.time ?? "TBC"}</span>
+                        {getServiceLabel(b.serviceType)}
+                      </p>
+                      <p className="truncate text-sm text-slate-500 dark:text-slate-400">{[b.customer, b.vehicle].filter(Boolean).join(" · ") || "Walk-in"}</p>
+                    </div>
+                    <StatusPill status={b.status} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+
+          <Panel className="p-4 sm:p-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Profile checklist</h2>
+              <Link href={`${garageLinks.dashboard}/profile`} className="inline-flex items-center gap-1 text-sm font-medium text-[#1E3A5F] hover:underline dark:text-blue-300">
+                Edit profile <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+            {data.readiness.missing.length === 0 ? (
+              <p className="flex items-center gap-2 text-sm text-green-800 dark:text-green-400">
+                <CheckCircle2 aria-hidden className="h-4 w-4" /> Your listing is complete.
+              </p>
+            ) : (
+              <>
+                <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">A complete profile wins more bookings. Still to do:</p>
+                <ul className="space-y-2">
+                  {data.readiness.missing.map((m) => (
+                    <li key={m.label} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                      <Circle aria-hidden className="h-4 w-4 text-slate-500" /> {m.label}
+                      {m.required && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">Required</span>}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </Panel>
+        </div>
       )}
 
       <section aria-labelledby="perf-heading" className="mt-8">
@@ -89,7 +173,7 @@ export function DashboardPage() {
         {error && !data ? (
           <Panel className="p-6 text-center text-sm text-red-700 dark:text-red-400" role="alert">{error}</Panel>
         ) : (
-          <KpiGrid loading={loading && !data} marketplace={data?.marketplace ?? null} widget={data?.widget ?? null} noShowRate={data?.noShowRate ?? null} />
+          <KpiGrid loading={loading && !data} marketplace={data?.marketplace ?? null} widget={data?.widget ?? null} noShowRate={data?.noShowRate ?? null} previous={data?.previous ?? null} />
         )}
 
         {data && data.direct.created + data.direct.attended > 0 && (

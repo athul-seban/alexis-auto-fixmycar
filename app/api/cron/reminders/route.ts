@@ -25,7 +25,7 @@ export async function GET(req: Request) {
           { serviceDueDate: { gte: now, lte: windowEnd } },
         ],
       },
-      include: { owner: { select: { id: true, name: true, email: true } } },
+      include: { owner: { select: { id: true, name: true, email: true, emailNotifications: true } } },
     })
 
     let sent = 0
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
           reminderType: reminder.type,
           dueDate: reminder.dueDate,
         })
-        await sendMail({ to: vehicle.owner.email, subject, html })
+        if (vehicle.owner.emailNotifications) await sendMail({ to: vehicle.owner.email, subject, html })
         await notifyUser({
           userId: vehicle.owner.id,
           type: "VEHICLE_REMINDER",

@@ -15,13 +15,13 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   const session = await getServerSession(authOptions)
   if (!session) redirect("/login?callbackUrl=/dashboard")
 
-  const user = session.user as { id: string; role?: string; name?: string | null; email?: string | null }
+  const user = session.user as { id: string; role?: string; name?: string | null; email?: string | null; image?: string | null }
   if (user.role !== "OWNER") redirect(roleHome(user.role))
 
   return (
     <PortalShell
       portal="owner"
-      user={{ name: user.name ?? null, email: user.email ?? null }}
+      user={{ name: user.name ?? null, email: user.email ?? null, image: user.image ?? null }}
       identity={{ name: user.name ?? "My account" }}
       badges={await ownerNavBadges(user.id)}
     >

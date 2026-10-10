@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs"
 import crypto from "crypto"
 import { backfillBookings } from "../src/lib/portal/backfill"
 import { seedGaragePortalDemo } from "./seed-garage-portal"
+import { seedDemoExtra } from "./seed-demo-extra"
 
 const prisma = new PrismaClient()
 
@@ -761,6 +762,8 @@ async function main() {
     })
   }
   console.log("✅ Seeded sample notifications")
+
+  await seedDemoExtra(prisma)
 
   // Upgrade the plain bookings above (source, snapshots, reference, searchText), then add the
   // garage-portal demo data (technicians + ~30 bookings for Premier Auto Services).
