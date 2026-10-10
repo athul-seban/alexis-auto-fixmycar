@@ -68,7 +68,7 @@ export function Stats() {
           {stats.map((stat, index) => (
             <div
               key={index}
-              className="text-center rounded-2xl p-6 group transition-all duration-300 hover:-translate-y-1"
+              className="text-center rounded-2xl p-4 sm:p-6 group transition-all duration-300 hover:-translate-y-1"
               style={{
                 background: "rgba(255,255,255,0.05)",
                 border: "1px solid rgba(255,255,255,0.08)",
@@ -82,7 +82,7 @@ export function Stats() {
                 <stat.icon className="h-6 w-6" style={{ color: stat.color }} />
               </div>
               <div
-                className="text-4xl font-black mb-1 tabular-nums"
+                className="text-3xl sm:text-4xl font-black mb-1 tabular-nums"
                 style={{ color: "#FFFFFF" }}
               >
                 {stat.value}

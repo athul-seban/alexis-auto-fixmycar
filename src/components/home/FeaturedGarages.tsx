@@ -117,11 +117,7 @@ export function FeaturedGarages() {
             <Link
               key={garage.id}
               href={`/garage/${garage.slug}`}
-              className="group block rounded-2xl p-5 bg-white dark:bg-slate-800 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg cursor-pointer dark:border dark:border-white/10"
-              style={{
-                border: "1px solid #E8EDF5",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-              }}
+              className="group block rounded-2xl p-5 bg-white dark:bg-slate-800 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg cursor-pointer border border-[#E8EDF5] dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
             >
               <div className="flex gap-4">
                 {/* Avatar */}
@@ -134,8 +130,8 @@ export function FeaturedGarages() {
 
                 <div className="flex-1 min-w-0">
                   {/* Header row */}
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-[15px] leading-tight group-hover:text-[#1E3A5F] dark:group-hover:text-orange-400 transition-colors truncate">
+                  <div className="flex flex-col gap-1.5 mb-1 lg:flex-row lg:items-start lg:justify-between lg:gap-2">
+                    <h3 className="font-bold text-slate-900 dark:text-white text-[15px] leading-tight group-hover:text-[#1E3A5F] dark:group-hover:text-orange-400 transition-colors lg:truncate">
                       {garage.name}
                     </h3>
                     <div className="flex items-center gap-1.5 flex-shrink-0">

@@ -58,23 +58,13 @@ export function HowItWorks() {
               {/* Arrow connector on desktop */}
               {index < steps.length - 1 && (
                 <div className="hidden md:flex absolute -right-4 top-12 z-10 items-center justify-center">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center dark:bg-slate-700"
-                    style={{ background: "#E2E8F0" }}
-                  >
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[#E2E8F0] dark:bg-slate-700">
                     <ArrowRight className="h-4 w-4 text-slate-400" />
                   </div>
                 </div>
               )}
 
-              <div
-                className="group flex-1 rounded-2xl p-7 transition-all duration-300 hover:-translate-y-1 dark:bg-slate-800 dark:border dark:border-white/10"
-                style={{
-                  background: "#FFFFFF",
-                  border: "1px solid #E8EDF5",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 4px 24px rgba(0,0,0,0.04)",
-                }}
-              >
+              <div className="group flex-1 rounded-2xl p-7 transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-slate-800 border border-[#E8EDF5] dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_24px_rgba(0,0,0,0.04)]">
                 {/* Step number badge */}
                 <div className="flex items-start justify-between mb-5">
                   {/* Icon with glow */}
@@ -85,9 +75,8 @@ export function HowItWorks() {
                     <step.icon className="h-7 w-7" style={{ color: step.iconColor }} />
                   </div>
                   <span
-                    className="text-4xl font-black leading-none before:content-[attr(data-n)]"
+                    className="text-4xl font-black leading-none tabular-nums text-[#E8EDF5] dark:text-white/10 before:content-[attr(data-n)]"
                     data-n={step.number}
-                    style={{ color: "#E8EDF5", fontVariantNumeric: "tabular-nums" }}
                     aria-hidden="true"
                   />
                 </div>

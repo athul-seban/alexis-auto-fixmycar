@@ -94,13 +94,7 @@ export function Testimonials() {
             What Our Customers Say
           </h2>
           {/* Aggregate rating */}
-          <div
-            className="inline-flex items-center gap-3 rounded-2xl px-6 py-3"
-            style={{
-              background: "linear-gradient(135deg, #FFFBEB, #FEF3C7)",
-              border: "1px solid #FDE68A",
-            }}
-          >
+          <div className="inline-flex items-center gap-3 rounded-2xl px-6 py-3 bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] dark:from-amber-500/10 dark:to-amber-500/5 dark:border-amber-500/30">
             <div className="flex gap-0.5">
               {[1, 2, 3, 4, 5].map((i) => (
                 <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
@@ -113,17 +107,17 @@ export function Testimonials() {
           </div>
         </div>
 
-        {/* Review grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* Review grid — a swipeable snap row on phones, a grid from md up */}
+        <div
+          role="region"
+          aria-label="Customer reviews"
+          tabIndex={0}
+          className="flex gap-4 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pt-1 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-5 md:mx-0 md:px-0 md:pt-0 md:pb-0 md:overflow-visible"
+        >
           {testimonials.map((t, index) => (
             <div
               key={index}
-              className="relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:bg-slate-800 dark:border dark:border-white/10"
-              style={{
-                background: "#FFFFFF",
-                border: "1px solid #E8EDF5",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-              }}
+              className="relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg bg-white dark:bg-slate-800 border border-[#E8EDF5] dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex-none w-[85%] snap-center md:w-auto"
             >
               {/* Large quote mark */}
               <div
@@ -152,20 +146,22 @@ export function Testimonials() {
               </p>
 
               {/* Author */}
-              <div className="flex items-center gap-3 pt-4 border-t border-slate-50 dark:border-white/10">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                  style={{ background: `linear-gradient(135deg, ${t.color}cc, ${t.color})` }}
-                >
-                  {t.avatar}
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-4 border-t border-slate-50 dark:border-white/10">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                    style={{ background: `linear-gradient(135deg, ${t.color}cc, ${t.color})` }}
+                  >
+                    {t.avatar}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900 dark:text-white text-sm">{t.name}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      {t.location} · {t.vehicle}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-900 dark:text-white text-sm">{t.name}</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                    {t.location} · {t.vehicle}
-                  </p>
-                </div>
-                <div className="text-right flex-shrink-0">
+                <div className="flex items-baseline gap-2 flex-shrink-0 sm:block sm:text-right">
                   <div className="text-sm font-black text-emerald-700 dark:text-emerald-400">Saved £{t.saved}</div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400">{t.service}</div>
                 </div>

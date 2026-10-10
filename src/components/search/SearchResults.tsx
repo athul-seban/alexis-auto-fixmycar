@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { Search, MapPin, Car, Shield, AlertCircle } from "lucide-react"
+import { Search, MapPin, Car, Shield, AlertCircle, SlidersHorizontal, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { GarageCard } from "@/components/search/GarageCard"
 import type { GarageListItem } from "@/types"
@@ -42,6 +42,9 @@ export function SearchResults() {
   const [error, setError] = useState("")
   const [garages, setGarages] = useState<GarageListItem[]>([])
   const [total, setTotal] = useState(0)
+  // Below `lg` the filters sit behind a toggle so results aren't pushed off-screen.
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const activeFilters = [sortBy !== "rating", !!minRating, verifiedOnly, mobileOnly].filter(Boolean).length
 
   useEffect(() => {
     const controller = new AbortController()
@@ -130,10 +133,32 @@ export function SearchResults() {
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Sidebar Filters */}
           <aside className="lg:w-64 flex-shrink-0">
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-5 sticky top-24">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((o) => !o)}
+              aria-expanded={filtersOpen}
+              aria-controls="search-filters"
+              className="lg:hidden w-full flex items-center justify-between gap-2 h-11 px-4 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-800 text-sm font-semibold text-slate-800 dark:text-slate-100 cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                Filters &amp; sort
+                {activeFilters > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-[#C2410C] text-white text-xs font-bold">
+                    {activeFilters}
+                  </span>
+                )}
+              </span>
+              <ChevronDown className={`h-4 w-4 text-slate-500 dark:text-slate-400 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+            </button>
+            <div
+              id="search-filters"
+              className={`${filtersOpen ? "mt-3" : "hidden"} lg:mt-0 lg:block bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-5 lg:sticky lg:top-24`}
+            >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="font-bold text-slate-900 dark:text-white">Filters</h2>
                 <button
+                  type="button"
                   onClick={() => {
                     setMobileOnly(false)
                     setVerifiedOnly(false)
@@ -212,7 +237,7 @@ export function SearchResults() {
           <div className="flex-1">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                <span className="font-bold text-slate-900 dark:text-white">{total}</span> garages found
+                <span className="font-bold text-slate-900 dark:text-white">{total}</span> {total === 1 ? "garage" : "garages"} found
                 {location && <span className="text-slate-500 dark:text-slate-400"> near <strong>{location}</strong></span>}
               </p>
             </div>

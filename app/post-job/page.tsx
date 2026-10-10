@@ -25,6 +25,8 @@ const serviceOptions = [
 
 const fuelOptions = ["Petrol", "Diesel", "Hybrid", "Electric"]
 
+const STEP_LABELS = ["Vehicle", "Job Details", "Your Details"]
+
 interface JobRequestResult {
   jobRequest: { token: string }
   matchedGarageCount: number
@@ -114,21 +116,24 @@ export default function PostJobPage() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <div className="flex items-center gap-2 mb-8">
+        <div className="flex items-center gap-2 mb-3 sm:mb-8">
           {[1, 2, 3].map((s) => (
-            <div key={s} className={`flex items-center gap-2 flex-1 ${s < 3 ? "after:flex-1 after:h-0.5 after:bg-gray-200 dark:after:bg-slate-700 after:ml-2" : ""}`}>
+            <div key={s} aria-current={step === s ? "step" : undefined} className={`flex items-center gap-2 flex-1 ${s < 3 ? "after:flex-1 after:h-0.5 after:bg-gray-200 dark:after:bg-slate-700 after:ml-2" : ""}`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${step >= s ? "bg-[#C2410C] text-white" : "bg-gray-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400"}`}>
                 {step > s ? <CheckCircle className="h-4 w-4" /> : s}
               </div>
               <span className={`text-sm font-medium hidden sm:block ${step >= s ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"}`}>
-                {s === 1 ? "Vehicle" : s === 2 ? "Job Details" : "Your Details"}
+                {STEP_LABELS[s - 1]}
               </span>
             </div>
           ))}
         </div>
+        <p className="sm:hidden text-sm text-slate-600 dark:text-slate-400 mb-5">
+          Step {step} of 3 · <span className="font-semibold text-slate-900 dark:text-white">{STEP_LABELS[step - 1]}</span>
+        </p>
 
         <form onSubmit={step < 3 ? (e) => { e.preventDefault(); setStep((s) => s + 1) } : handleSubmit}>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-white/10 p-8 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-white/10 p-5 sm:p-8 shadow-sm">
             {error && (
               <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg mb-5 text-sm text-red-700 dark:text-red-400">
                 <AlertCircle className="h-4 w-4" />
@@ -182,7 +187,7 @@ export default function PostJobPage() {
                       onClick={() => setForm((prev) => ({ ...prev, serviceType: s.value }))}
                       className={`p-3 rounded-lg border text-sm font-medium text-left transition-all cursor-pointer ${
                         form.serviceType === s.value
-                          ? "border-[#F97316] bg-orange-50 dark:bg-orange-500/10 text-[#F97316]"
+                          ? "border-[#F97316] bg-orange-50 dark:bg-orange-500/10 text-[#C2410C] dark:text-[#F97316]"
                           : "border-gray-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-white/5"
                       }`}
                     >
@@ -192,7 +197,7 @@ export default function PostJobPage() {
                   ))}
                 </div>
                 {!form.serviceType && (
-                  <p className="text-xs text-red-500 dark:text-red-400">Please select a service</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Choose a service to continue.</p>
                 )}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Describe the job</label>

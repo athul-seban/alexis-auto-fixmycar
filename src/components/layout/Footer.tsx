@@ -41,9 +41,9 @@ export function Footer() {
     <footer className="bg-[#0F1F3D] text-white">
       {/* Main Footer */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-10 lg:gap-10">
           {/* Brand */}
-          <div className="lg:col-span-2">
+          <div className="col-span-2 md:col-span-3 lg:col-span-2">
             <Link href="/" className="flex items-center gap-2.5 mb-4">
               <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#F97316]">
                 <Wrench className="h-5 w-5 text-white" />
@@ -72,12 +72,17 @@ export function Footer() {
             </div>
             {/* Social */}
             <div className="flex items-center gap-3 mt-6">
-              {[Facebook, Twitter, Instagram, Linkedin].map((Icon, i) => (
+              {[
+                { Icon: Facebook, label: "Facebook" },
+                { Icon: Twitter, label: "Twitter" },
+                { Icon: Instagram, label: "Instagram" },
+                { Icon: Linkedin, label: "LinkedIn" },
+              ].map(({ Icon, label }) => (
                 <a
-                  key={i}
+                  key={label}
                   href="#"
                   className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 hover:bg-[#F97316] transition-colors cursor-pointer"
-                  aria-label="Social link"
+                  aria-label={label}
                 >
                   <Icon className="h-4 w-4" />
                 </a>
@@ -148,12 +153,12 @@ export function Footer() {
               </p>
               <DevelopedBy className="text-xs text-slate-400" linkClassName="text-slate-200 hover:text-white" />
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 md:gap-x-6">
               {footerLinks.legal.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-xs text-slate-400 hover:text-white transition-colors"
+                  className="text-xs text-slate-400 hover:text-white transition-colors whitespace-nowrap"
                 >
                   {link.label}
                 </Link>

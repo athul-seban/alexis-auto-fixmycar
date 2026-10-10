@@ -51,16 +51,16 @@ const categories = [
     icon: Circle,
     label: "Tyres",
     href: "/search?service=TYRES",
-    bg: "#F8FAFC",
-    color: "#64748B",
+    bg: "#FDF2F8",
+    color: "#DB2777",
     popular: true,
   },
   {
     icon: Wrench,
     label: "Engine Repair",
     href: "/search?service=REPAIR",
-    bg: "#F9FAFB",
-    color: "#6B7280",
+    bg: "#F7FEE7",
+    color: "#65A30D",
     popular: false,
   },
   {
@@ -166,11 +166,7 @@ export function ServiceCategories() {
             <Link
               key={cat.href}
               href={cat.href}
-              className="relative flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 border-transparent hover:border-current transition-all duration-200 cursor-pointer group dark:bg-slate-800"
-              style={{
-                background: "#FAFBFC",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-              }}
+              className="relative flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 border-transparent hover:border-current transition-all duration-200 cursor-pointer group bg-[#FAFBFC] dark:bg-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
             >
               {cat.popular && (
                 <span

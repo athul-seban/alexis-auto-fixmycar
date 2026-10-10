@@ -344,14 +344,14 @@ export function GarageProfilePage({ slug }: Props) {
             </div>
 
             <div className="bg-[#F8FAFC] dark:bg-slate-950 rounded-xl border border-gray-200 dark:border-white/10 p-5">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 {[
                   { label: "Total Reviews", value: garage.totalReviews.toLocaleString() },
                   { label: "Avg Rating", value: `${garage.averageRating.toFixed(1)}★` },
                   { label: "Jobs Completed", value: garage.totalBookings.toLocaleString() },
                 ].map((stat) => (
                   <div key={stat.label} className="text-center p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-white/10">
-                    <div className="text-xl font-bold text-[#1E3A5F]">{stat.value}</div>
+                    <div className="text-xl font-bold text-[#1E3A5F] dark:text-white">{stat.value}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{stat.label}</div>
                   </div>
                 ))}
