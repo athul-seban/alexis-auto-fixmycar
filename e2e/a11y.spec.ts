@@ -19,7 +19,7 @@ async function expectNoViolations(page: Page, label: string) {
 }
 
 test.describe("accessibility", () => {
-  for (const path of ["/", "/search", "/login", "/how-it-works"]) {
+  for (const path of ["/", "/search", "/login", "/how-it-works", "/garages", "/garages/london", "/garages/london/mot"]) {
     test(`public ${path}`, async ({ page }) => {
       await page.goto(path)
       await expect(page.locator("main, [role=main]").first()).toBeVisible()
@@ -67,4 +67,31 @@ test.describe("accessibility", () => {
     await expect(page.locator("body")).toBeVisible()
     await expectNoViolations(page, "widget")
   })
+
+  for (const role of ["owner", "garage", "admin"] as const) {
+    const home = { owner: "/dashboard", garage: "/garage-dashboard", admin: "/admin" }[role]
+    const account = { owner: "/dashboard/settings", garage: "/garage-dashboard/account", admin: "/admin/account" }[role]
+
+    test(`${role} overview`, async ({ page }) => {
+      await login(page, role)
+      await page.goto(home)
+      await expect(page.locator("#portal-main h1").first()).toBeVisible()
+      await expect(page.locator("#portal-main [aria-busy=true], #portal-main .animate-pulse")).toHaveCount(0, { timeout: 15_000 })
+      await expectNoViolations(page, `${role} overview`)
+    })
+
+    test(`${role} account page`, async ({ page }) => {
+      await login(page, role)
+      await page.goto(account)
+      await expect(page.getByRole("heading", { name: "Password" })).toBeVisible()
+      await expectNoViolations(page, `${role} account`)
+    })
+
+    test(`${role} user menu open`, async ({ page }) => {
+      await login(page, role)
+      await page.getByRole("button", { name: "Account menu" }).click()
+      await expect(page.getByRole("menuitem", { name: /my account/i })).toBeVisible()
+      await expectNoViolations(page, `${role} user menu`)
+    })
+  }
 })

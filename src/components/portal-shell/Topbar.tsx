@@ -55,7 +55,7 @@ export function Topbar({ nav, user, onOpenMenu }: TopbarProps) {
         <NotificationBell />
 
         <div className="ml-1 border-l border-slate-200 pl-2 dark:border-white/10 sm:pl-3">
-          <DropdownMenu.Root>
+          <DropdownMenu.Root modal={false}>
             <DropdownMenu.Trigger
               aria-label="Account menu"
               className="flex h-10 cursor-pointer items-center gap-2 rounded-xl px-1.5 text-slate-600 transition-colors hover:bg-slate-50 data-[state=open]:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 dark:data-[state=open]:bg-slate-800"

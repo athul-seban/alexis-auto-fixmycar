@@ -69,7 +69,7 @@ export function GreetingHeader({ garage, greeting, dueToday, createdToday, today
           )}
           <div className="min-w-0">
             <p className="text-sm text-slate-500 dark:text-slate-400">{greeting}</p>
-            <h2 className="truncate text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{garage?.name ?? "Welcome"}</h2>
+            <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{garage?.name ?? "Welcome"}</h1>
             {status ? (
               <span className={cn("mt-1.5 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold", status.cls)}>
                 <status.icon className="h-3.5 w-3.5" />

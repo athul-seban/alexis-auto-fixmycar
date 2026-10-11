@@ -152,7 +152,7 @@ export function DonutChart({ slices, centerLabel }: { slices: { label: string; v
             <span className={cn("h-2.5 w-2.5 flex-shrink-0 rounded-sm", SWATCH[i % SWATCH.length])} />
             <span className="flex-1 truncate text-slate-700 dark:text-slate-300">{s.label}</span>
             <span className="font-semibold text-slate-900 dark:text-white">{s.value}</span>
-            <span className="w-10 text-right text-xs text-slate-400">{Math.round((s.value / total) * 100)}%</span>
+            <span className="w-10 text-right text-xs text-slate-500 dark:text-slate-400">{Math.round((s.value / total) * 100)}%</span>
           </li>
         ))}
       </ul>
