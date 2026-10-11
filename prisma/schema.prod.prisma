@@ -592,3 +592,18 @@ model Article {
 
   @@index([status, publishedAt])
 }
+
+// Admin-editable site content (marketing copy, footer, notice, legal pages, email wording). The defaults live in code
+// (src/lib/i18n/messages); a row here overrides one key for one language. `draft` is saved but not live until published.
+model ContentEntry {
+  id          String   @id @default(cuid())
+  key         String
+  locale      String
+  value       String   @default("") // live override; empty = use the built-in default
+  draft       String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([key, locale])
+}

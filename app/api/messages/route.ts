@@ -6,6 +6,8 @@ import { notifyUser, notifyGarage } from "@/lib/notifications"
 import { absoluteUrl, garageLinks } from "@/lib/portal/links"
 import { emailGarage } from "@/lib/portal/garage-email"
 import { sendMail } from "@/lib/mail"
+import { getMessages } from "@/lib/i18n/server"
+import { makeTranslator } from "@/lib/i18n/messages"
 import { messageReceivedEmail } from "@/lib/email-templates"
 import { isFirstUnreadFromSender, markThreadRead } from "@/lib/messaging"
 import { getServiceLabel } from "@/lib/utils"
@@ -59,8 +61,9 @@ async function emailOtherParty(a: {
   const about = `${a.quoteId ? "quote" : "booking"} for ${getServiceLabel(subject?.serviceType ?? "")}`.trim()
 
   if (a.isOwnerParty) {
-    await emailGarage(a.thread.garageId, "emailMessage", (g) =>
+    await emailGarage(a.thread.garageId, "emailMessage", (g, t) =>
       messageReceivedEmail({
+        t,
         recipientName: g.name,
         fromName: a.sender.name ?? "A customer",
         about,
@@ -73,7 +76,7 @@ async function emailOtherParty(a: {
     if (owner?.emailNotifications) {
       await sendMail({
         to: owner.email,
-        ...messageReceivedEmail({ recipientName: owner.name, fromName: garage?.name ?? "Your garage", about, preview: a.body, href: absoluteUrl("/dashboard/messages") }),
+        ...messageReceivedEmail({ t: makeTranslator(await getMessages("en")), recipientName: owner.name, fromName: garage?.name ?? "Your garage", about, preview: a.body, href: absoluteUrl("/dashboard/messages") }),
       })
     }
   }

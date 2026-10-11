@@ -2,28 +2,32 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, MapPin, Car, ChevronDown, Check, CheckCircle, Star, Shield, TrendingDown, Zap } from "lucide-react"
+import { Search, MapPin, Car, ChevronDown, Check, Star, Shield, TrendingDown, Zap } from "lucide-react"
+import { useT } from "@/lib/i18n/client"
+import type { MessageKey } from "@/lib/i18n/messages/en"
 
+// Service codes (match /search?service=) with the emoji shown in the dropdown; the names come from the translations.
 const services = [
-  { value: "", label: "All Services" },
-  { value: "MOT", label: "🔍 MOT Test" },
-  { value: "FULL_SERVICE", label: "⚙️ Full Service" },
-  { value: "INTERIM_SERVICE", label: "🔧 Interim Service" },
-  { value: "BRAKES", label: "🛑 Brakes" },
-  { value: "TYRES", label: "⭕ Tyres" },
-  { value: "REPAIR", label: "🔩 Engine Repair" },
-  { value: "DIAGNOSTICS", label: "📊 Diagnostics" },
-  { value: "CLUTCH", label: "⚙️ Clutch" },
-  { value: "CAMBELT", label: "🔄 Cambelt" },
-  { value: "EXHAUST", label: "💨 Exhaust" },
-  { value: "BATTERY", label: "🔋 Battery" },
-  { value: "WINDSCREEN", label: "🪟 Windscreen" },
-  { value: "AIR_CON", label: "❄️ Air Con" },
-]
+  { value: "", icon: "" },
+  { value: "MOT", icon: "🔍" },
+  { value: "FULL_SERVICE", icon: "⚙️" },
+  { value: "INTERIM_SERVICE", icon: "🔧" },
+  { value: "BRAKES", icon: "🛑" },
+  { value: "TYRES", icon: "⭕" },
+  { value: "REPAIR", icon: "🔩" },
+  { value: "DIAGNOSTICS", icon: "📊" },
+  { value: "CLUTCH", icon: "⚙️" },
+  { value: "CAMBELT", icon: "🔄" },
+  { value: "EXHAUST", icon: "💨" },
+  { value: "BATTERY", icon: "🔋" },
+  { value: "WINDSCREEN", icon: "🪟" },
+  { value: "AIR_CON", icon: "❄️" },
+] as const
 
-const popularSearches = ["MOT Test", "Full Service", "Brakes", "Tyres", "Diagnostics"]
+const popularSearches = ["MOT", "FULL_SERVICE", "BRAKES", "TYRES", "DIAGNOSTICS"] as const
 
 export function HeroSearch() {
+  const t = useT()
   const router = useRouter()
   const [registration, setRegistration] = useState("")
   const [location, setLocation] = useState("")
@@ -69,11 +73,11 @@ export function HeroSearch() {
             {/* Rating pill */}
             <div className="inline-flex items-center gap-2.5 bg-white/8 backdrop-blur-md border border-white/12 rounded-full px-4 py-2 mb-7">
               <Check className="h-4 w-4 text-emerald-400" aria-hidden />
-              <span className="text-white/90 text-sm font-medium">Free to compare · No obligation</span>
+              <span className="text-white/90 text-sm font-medium">{t("hero.badge")}</span>
             </div>
 
             <h1 className="text-4xl md:text-5xl lg:text-[3.5rem] font-extrabold text-white leading-[1.1] mb-5 tracking-tight">
-              Find Trusted
+              {t("hero.title1")}
               <br />
               <span
                 className="text-transparent"
@@ -84,16 +88,14 @@ export function HeroSearch() {
                   backgroundClip: "text",
                 }}
               >
-                Car Mechanics
+                {t("hero.title2")}
               </span>
               <br />
-              Near You
+              {t("hero.title3")}
             </h1>
 
             <p className="text-blue-200/80 text-lg leading-relaxed mb-8 max-w-lg">
-              Compare quotes from{" "}
-              <span className="text-white font-semibold">local garages</span> and mobile
-              mechanics, read real customer reviews and book online — all in one place.
+              {t("hero.subtitle")}
             </p>
 
             {/* Search Form */}
@@ -112,7 +114,7 @@ export function HeroSearch() {
                     {/* Reg */}
                     <div className="flex-1">
                       <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5 px-1">
-                        Reg Number
+                        {t("hero.regLabel")}
                       </label>
                       <div className="relative">
                         <div className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10">
@@ -143,7 +145,7 @@ export function HeroSearch() {
                     {/* Location */}
                     <div className="flex-1">
                       <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5 px-1">
-                        Location
+                        {t("hero.locLabel")}
                       </label>
                       <div className="relative">
                         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -151,7 +153,7 @@ export function HeroSearch() {
                           type="text"
                           value={location}
                           onChange={(e) => setLocation(e.target.value)}
-                          placeholder="Postcode or town"
+                          placeholder={t("hero.locPlaceholder")}
                           required
                           className="w-full h-11 pl-9 pr-3 rounded-lg border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:border-[#1E3A5F] focus:bg-white dark:focus:bg-slate-900 focus:outline-none text-sm text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all"
                         />
@@ -161,19 +163,20 @@ export function HeroSearch() {
                     {/* Service */}
                     <div className="flex-1">
                       <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5 px-1">
-                        Service
+                        {t("hero.svcLabel")}
                       </label>
                       <div className="relative">
                         <Car className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                         <select
-                          aria-label="Service needed"
+                          aria-label={t("hero.svcAria")}
                           value={serviceType}
                           onChange={(e) => setServiceType(e.target.value)}
                           className="w-full h-11 pl-9 pr-8 rounded-lg border-2 border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:border-[#1E3A5F] focus:outline-none text-sm text-slate-800 dark:text-white appearance-none cursor-pointer transition-all"
                         >
                           {services.map((s) => (
                             <option key={s.value} value={s.value}>
-                              {s.label}
+                              {s.icon ? `${s.icon} ` : ""}
+                              {t(`svc.${s.value || "ALL"}` as MessageKey)}
                             </option>
                           ))}
                         </select>
@@ -194,7 +197,7 @@ export function HeroSearch() {
                     }}
                   >
                     <Search className="h-5 w-5" />
-                    {loading ? "Searching..." : "Find Garages Near Me"}
+                    {loading ? t("hero.searching") : t("hero.submit")}
                   </button>
                 </div>
               </div>
@@ -202,15 +205,15 @@ export function HeroSearch() {
 
             {/* Popular searches */}
             <div className="flex flex-wrap items-center gap-2 mt-4">
-              <span className="text-white/40 text-xs font-medium">Popular:</span>
+              <span className="text-white/40 text-xs font-medium">{t("hero.popular")}</span>
               {popularSearches.map((s) => (
                 <button
                   key={s}
                   type="button"
-                  onClick={() => router.push(`/search?service=${s.toUpperCase().replace(" ", "_")}`)}
+                  onClick={() => router.push(`/search?service=${s}`)}
                   className="text-xs text-white/70 hover:text-white bg-white/8 hover:bg-white/15 border border-white/10 hover:border-white/20 px-3 py-1 rounded-full transition-all duration-200 cursor-pointer"
                 >
-                  {s}
+                  {t(`svc.${s}` as MessageKey)}
                 </button>
               ))}
             </div>
@@ -221,10 +224,10 @@ export function HeroSearch() {
             {/* Trust pillars */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { icon: Shield, label: "Approved Garages", sub: "Reviewed before they're listed", color: "text-blue-400" },
-                { icon: Star, label: "Real Reviews", sub: "Only from completed bookings", color: "text-yellow-400" },
-                { icon: TrendingDown, label: "Compare Prices", sub: "See quotes side by side", color: "text-green-400" },
-                { icon: Zap, label: "Ask Once", sub: "Request a quote from several garages", color: "text-orange-400" },
+                { icon: Shield, label: t("hero.pillar1.title"), sub: t("hero.pillar1.text"), color: "text-blue-400" },
+                { icon: Star, label: t("hero.pillar2.title"), sub: t("hero.pillar2.text"), color: "text-yellow-400" },
+                { icon: TrendingDown, label: t("hero.pillar3.title"), sub: t("hero.pillar3.text"), color: "text-green-400" },
+                { icon: Zap, label: t("hero.pillar4.title"), sub: t("hero.pillar4.text"), color: "text-orange-400" },
               ].map((item) => (
                 <div
                   key={item.label}
@@ -241,23 +244,6 @@ export function HeroSearch() {
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Recent booking */}
-            <div
-              className="p-4 rounded-xl flex items-center gap-3"
-              style={{
-                background: "rgba(16, 185, 129, 0.08)",
-                border: "1px solid rgba(16, 185, 129, 0.2)",
-              }}
-            >
-              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="h-4 w-4 text-emerald-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-medium">Sarah M. just saved <span className="text-emerald-400 font-bold">£85</span></p>
-                <p className="text-white/45 text-xs">Full Service · London · 4 mins ago</p>
-              </div>
             </div>
           </div>
         </div>

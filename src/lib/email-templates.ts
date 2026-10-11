@@ -1,9 +1,19 @@
 import { escapeHtml as e, formatCurrency, formatDateShort, getServiceLabel } from "@/lib/utils"
 import type { Garage, JobRequest, JobResponse } from "@prisma/client"
+import { DEFAULT_MESSAGES, makeTranslator, type MessageKey, type Translate } from "@/lib/i18n/messages"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
 
 // Every user-supplied value interpolated below goes through e() (HTML-escape).
+
+// Garage-facing emails take their wording from the admin-editable copy (Admin > Site content > Garage emails). Callers
+// pass a translator built from the live copy; without one the built-in English text is used.
+const builtInCopy: Translate = makeTranslator(DEFAULT_MESSAGES.en)
+
+/** Editable wording -> safe HTML: placeholders filled, everything escaped, then **bold** allowed. */
+function rich(t: Translate, key: MessageKey, vars?: Record<string, string | number>): string {
+  return e(t(key, vars)).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+}
 export function wrapper(title: string, bodyHtml: string, ctaHref: string, ctaLabel: string): string {
   return `
   <div style="font-family: -apple-system, Arial, sans-serif; max-width: 560px; margin: 0 auto;">
@@ -89,19 +99,22 @@ export function bookingConfirmedGuestNotification({
 export function bookingConfirmedGarageNotification({
   jobRequest,
   price,
+  t = builtInCopy,
 }: {
   jobRequest: JobRequest
   price: number
+  t?: Translate
 }): { subject: string; html: string } {
-  const subject = `${jobRequest.guestName} accepted your quote (${formatCurrency(price)})`
+  const vars = { customer: jobRequest.guestName, price: formatCurrency(price), service: getServiceLabel(jobRequest.serviceType) }
+  const subject = t("email.accepted.subject", vars)
   const html = wrapper(
     subject,
-    `<p>Good news — <strong>${e(jobRequest.guestName)}</strong> accepted your quote of <strong>${formatCurrency(price)}</strong> for ${e(getServiceLabel(jobRequest.serviceType))}.</p>
+    `<p>${rich(t, "email.accepted.intro", vars)}</p>
      <p><strong>Vehicle:</strong> ${jobRequest.year} ${e(jobRequest.make)} ${e(jobRequest.model)} (${e(jobRequest.registration)})<br/>
      <strong>Customer contact:</strong> ${e(jobRequest.guestPhone)} · ${e(jobRequest.guestEmail)}</p>
-     <p>Please reach out to confirm the exact appointment time.</p>`,
+     <p>${rich(t, "email.accepted.outro")}</p>`,
     `${APP_URL}/garage-dashboard/bookings`,
-    "View Bookings"
+    t("email.accepted.cta")
   )
   return { subject, html }
 }
@@ -196,8 +209,9 @@ export function widgetBookingCustomerEmail({
 // ── Garage-facing emails (each respects the garage's notification toggles; see garage-email.ts) ──
 
 export function garageNewBookingEmail({
-  garageName, customerName, serviceType, whenLabel, vehicle, reference, source, ctaHref,
+  garageName, customerName, serviceType, whenLabel, vehicle, reference, source, ctaHref, t = builtInCopy,
 }: {
+  t?: Translate
   garageName: string
   customerName: string | null
   serviceType: string
@@ -207,44 +221,46 @@ export function garageNewBookingEmail({
   source: string
   ctaHref: string
 }): { subject: string; html: string } {
-  const subject = `New booking: ${getServiceLabel(serviceType)} for ${vehicle}`
+  const vars = { customer: customerName ?? "A customer", service: getServiceLabel(serviceType), vehicle, when: whenLabel, source, reference: reference ?? "" }
+  const subject = t("email.newBooking.subject", vars)
   const html = wrapper(
     subject,
-    `<p>Hi ${e(garageName)},</p>
-     <p>${e(customerName ?? "A customer")} has booked <strong>${e(getServiceLabel(serviceType))}</strong> (${e(source)}).</p>
+    `<p>${rich(t, "email.greeting", { name: garageName })}</p>
+     <p>${rich(t, "email.newBooking.intro", vars)}</p>
      <p><strong>When:</strong> ${e(whenLabel)}<br/><strong>Vehicle:</strong> ${e(vehicle)}${reference ? `<br/><strong>Reference:</strong> ${e(reference)}` : ""}</p>`,
     ctaHref,
-    "View Booking"
+    t("email.newBooking.cta")
   )
   return { subject, html }
 }
 
 export function garageBookingCancelledEmail({
-  garageName, customerName, serviceType, whenLabel, ctaHref,
-}: { garageName: string; customerName: string | null; serviceType: string; whenLabel: string; ctaHref: string }): { subject: string; html: string } {
-  const subject = `Booking cancelled: ${getServiceLabel(serviceType)} on ${whenLabel}`
+  garageName, customerName, serviceType, whenLabel, ctaHref, t = builtInCopy,
+}: { garageName: string; customerName: string | null; serviceType: string; whenLabel: string; ctaHref: string; t?: Translate }): { subject: string; html: string } {
+  const vars = { customer: customerName ?? "A customer", service: getServiceLabel(serviceType), when: whenLabel }
+  const subject = t("email.cancelled.subject", vars)
   const html = wrapper(
     subject,
-    `<p>Hi ${e(garageName)},</p>
-     <p>${e(customerName ?? "A customer")} cancelled their <strong>${e(getServiceLabel(serviceType))}</strong> booking for ${e(whenLabel)}. The slot is free again in your diary.</p>`,
+    `<p>${rich(t, "email.greeting", { name: garageName })}</p>
+     <p>${rich(t, "email.cancelled.intro", vars)}</p>`,
     ctaHref,
-    "View Booking"
+    t("email.cancelled.cta")
   )
   return { subject, html }
 }
 
 export function garageReviewEmail({
-  garageName, rating, comment, ctaHref,
-}: { garageName: string; rating: number; comment: string; ctaHref: string }): { subject: string; html: string } {
-  const subject = `New ${rating}-star review`
+  garageName, rating, comment, ctaHref, t = builtInCopy,
+}: { garageName: string; rating: number; comment: string; ctaHref: string; t?: Translate }): { subject: string; html: string } {
+  const subject = t("email.review.subject", { rating })
   const html = wrapper(
     subject,
-    `<p>Hi ${e(garageName)},</p>
-     <p>A customer left you a <strong>${rating}-star</strong> review:</p>
+    `<p>${rich(t, "email.greeting", { name: garageName })}</p>
+     <p>${rich(t, "email.review.intro", { rating })}</p>
      <p style="background:#f8fafc; border-radius:8px; padding:12px 16px;">"${e(comment.slice(0, 400))}"</p>
-     <p>You can reply to it from your portal.</p>`,
+     <p>${rich(t, "email.review.outro")}</p>`,
     ctaHref,
-    "Reply to Review"
+    t("email.review.cta")
   )
   return { subject, html }
 }
@@ -322,24 +338,26 @@ export function invoiceCustomerEmail({
 
 /** "You have a new message" — sent to whichever side of a quote/booking conversation didn't write it. */
 export function messageReceivedEmail({
-  recipientName, fromName, about, preview, href,
+  recipientName, fromName, about, preview, href, t = builtInCopy,
 }: {
   recipientName: string | null
   fromName: string
   about: string
   preview: string
   href: string
+  t?: Translate
 }): { subject: string; html: string } {
-  const subject = `New message from ${fromName}`
+  const vars = { from: fromName, about }
+  const subject = t("email.message.subject", vars)
   const clipped = preview.length > 300 ? `${preview.slice(0, 300)}…` : preview
   const html = wrapper(
     subject,
-    `<p>Hi ${e(recipientName ?? "there")},</p>
-     <p><strong>${e(fromName)}</strong> sent you a message about your ${e(about)}:</p>
+    `<p>${rich(t, "email.greeting", { name: recipientName ?? "there" })}</p>
+     <p>${rich(t, "email.message.intro", vars)}</p>
      <p style="background:#f8fafc; border-radius:8px; padding:12px 16px; white-space:pre-wrap;">${e(clipped)}</p>
-     <p style="color:#64748b; font-size:12px;">Reply from your account so the whole conversation stays in one place.</p>`,
+     <p style="color:#64748b; font-size:12px;">${rich(t, "email.message.outro")}</p>`,
     href,
-    "Read and reply"
+    t("email.message.cta")
   )
   return { subject, html }
 }

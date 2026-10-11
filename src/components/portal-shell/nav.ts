@@ -19,6 +19,7 @@ import {
   Wrench,
   ShieldCheck,
   ScrollText,
+  PencilLine,
   LifeBuoy,
   type LucideIcon,
 } from "lucide-react"
@@ -117,6 +118,7 @@ export const ADMIN_NAV: PortalNav = {
         { href: `${A}/reviews`, label: "Reviews", icon: Star, badge: "openDisputes" },
         { href: `${A}/documents`, label: "Documents", icon: FileCheck2, badge: "pendingDocuments" },
         { href: `${A}/articles`, label: "Guides & blog", icon: BookOpen },
+        { href: `${A}/content`, label: "Site content", icon: PencilLine },
       ],
     },
     {

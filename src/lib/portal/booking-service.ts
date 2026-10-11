@@ -221,8 +221,9 @@ export async function createBooking(input: CreateBookingInput, db?: Db): Promise
     await notifyBookingCreated(booking)
     // Guest job bookings are emailed by the accept route (it already sends its own garage email).
     if (input.source !== "DIRECT" && input.source !== "JOB_REQUEST") {
-      await emailGarage(booking.garageId, "emailNewBooking", (g) =>
+      await emailGarage(booking.garageId, "emailNewBooking", (g, t) =>
         garageNewBookingEmail({
+          t,
           garageName: g.name,
           customerName: booking.customerName,
           serviceType: booking.serviceType,
@@ -352,8 +353,9 @@ export async function transitionBooking(input: TransitionInput) {
       body: `A customer cancelled their ${updated.serviceType} booking`,
       link: garageLinks.booking(updated.id),
     })
-    await emailGarage(updated.garageId, "emailCancellation", (g) =>
+    await emailGarage(updated.garageId, "emailCancellation", (g, t) =>
       garageBookingCancelledEmail({
+        t,
         garageName: g.name,
         customerName: updated.customerName,
         serviceType: updated.serviceType,

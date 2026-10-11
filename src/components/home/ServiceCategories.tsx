@@ -1,4 +1,6 @@
 import Link from "next/link"
+import { getT } from "@/lib/i18n/server"
+import type { MessageKey } from "@/lib/i18n/messages/en"
 import {
   Gauge,
   Settings,
@@ -145,19 +147,20 @@ const categories = [
   },
 ]
 
-export function ServiceCategories() {
+export async function ServiceCategories() {
+  const t = await getT()
   return (
     <section className="py-24 bg-white dark:bg-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
-            What Do You Need?
+            {t("cat.badge")}
           </span>
           <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-4 tracking-tight">
-            Browse by Service
+            {t("cat.title")}
           </h2>
           <p className="text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
-            Find local specialists for every type of car repair and maintenance.
+            {t("cat.subtitle")}
           </p>
         </div>
 
@@ -173,7 +176,7 @@ export function ServiceCategories() {
                   className="absolute -top-2 -right-2 text-white text-[10px] font-bold px-2 py-0.5 rounded-full"
                   style={{ background: "#C2410C" }}
                 >
-                  Hot
+                  {t("cat.popular")}
                 </span>
               )}
               <div
@@ -183,7 +186,7 @@ export function ServiceCategories() {
                 <cat.icon className="h-5 w-5" style={{ color: cat.color }} />
               </div>
               <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-300 text-center leading-tight group-hover:text-slate-900 dark:group-hover:text-white">
-                {cat.label}
+                {t(`svc.${cat.href.split("=")[1]}` as MessageKey)}
               </span>
             </Link>
           ))}
@@ -194,7 +197,7 @@ export function ServiceCategories() {
             href="/search"
             className="inline-flex items-center gap-2 text-[#1E3A5F] dark:text-white font-semibold text-sm hover:text-[#F97316] transition-colors"
           >
-            Browse all services →
+            {t("cat.all")}
           </Link>
         </div>
       </div>

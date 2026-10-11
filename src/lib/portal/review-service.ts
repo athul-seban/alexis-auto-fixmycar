@@ -48,8 +48,8 @@ export async function submitReview(bookingId: string, input: ReviewInput, actor:
     body: input.comment.slice(0, 140),
     link: garageLinks.reviews,
   })
-  await emailGarage(booking.garageId, "emailReview", (g) =>
-    garageReviewEmail({ garageName: g.name, rating: input.rating, comment: input.comment, ctaHref: absoluteUrl(garageLinks.reviews) })
+  await emailGarage(booking.garageId, "emailReview", (g, t) =>
+    garageReviewEmail({ t, garageName: g.name, rating: input.rating, comment: input.comment, ctaHref: absoluteUrl(garageLinks.reviews) })
   )
   return review
 }

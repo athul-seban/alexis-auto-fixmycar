@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { getFeaturedGarages, type FeaturedGarage } from "@/lib/home-data"
+import { getT } from "@/lib/i18n/server"
 import { MapPin, Star, Shield, Clock, ChevronRight, Car, Award } from "lucide-react"
 
 function StarRow({ rating }: { rating: number }) {
@@ -22,7 +23,7 @@ const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2)
 const accentFor = (g: FeaturedGarage) => ACCENTS[[...g.slug].reduce((n, c) => n + c.charCodeAt(0), 0) % ACCENTS.length]
 
 export async function FeaturedGarages() {
-  const garages = await getFeaturedGarages(4)
+  const [garages, t] = await Promise.all([getFeaturedGarages(4), getT()])
   // Nothing real to show yet: leave the section out rather than fill it with placeholders.
   if (garages.length === 0) return null
   return (
@@ -31,20 +32,20 @@ export async function FeaturedGarages() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
           <div>
             <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
-              Top Rated
+              {t("feat.badge")}
             </span>
             <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Featured Garages
+              {t("feat.title")}
             </h2>
             <p className="text-slate-500 dark:text-slate-400 mt-2">
-              Garages on Quote My Garage, ranked by customer reviews.
+              {t("feat.subtitle")}
             </p>
           </div>
           <Link
             href="/search"
             className="inline-flex items-center gap-2 text-[#1E3A5F] dark:text-white font-semibold text-sm border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 hover:border-[#1E3A5F] dark:hover:border-white/30 px-4 py-2.5 rounded-xl transition-all hover:shadow-sm flex-shrink-0"
           >
-            View All Garages
+            {t("feat.viewAll")}
             <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
@@ -74,19 +75,19 @@ export async function FeaturedGarages() {
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       {garage.featured && (
                         <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-100 dark:border-amber-500/30">
-                          Featured
+                          {t("feat.featured")}
                         </span>
                       )}
                       {garage.isVerified && (
                         <span className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-100 dark:border-blue-500/30">
                           <Shield className="h-2.5 w-2.5" />
-                          Verified
+                          {t("feat.verified")}
                         </span>
                       )}
                       {garage.isMobile && (
                         <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-500/30">
                           <Car className="h-2.5 w-2.5" />
-                          Mobile
+                          {t("feat.mobile")}
                         </span>
                       )}
                     </div>
@@ -112,7 +113,7 @@ export async function FeaturedGarages() {
                         <span className="text-xs text-slate-500 dark:text-slate-400">({garage.reviews})</span>
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-500 dark:text-slate-400">New on Quote My Garage</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{t("feat.new")}</span>
                     )}
                     {garage.responseTime && (
                       <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
@@ -142,7 +143,7 @@ export async function FeaturedGarages() {
         {/* Bottom CTA */}
         <div className="text-center mt-8">
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">
-            Search by location and service to find the right garage near you.
+            {t("feat.cta")}
           </p>
           <Link
             href="/search"
@@ -153,7 +154,7 @@ export async function FeaturedGarages() {
             }}
           >
             <Award className="h-4 w-4" />
-            Find Top-Rated Garages Near Me
+            {t("feat.button")}
           </Link>
         </div>
       </div>

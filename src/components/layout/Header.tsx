@@ -11,20 +11,24 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle"
 import { getInitials } from "@/lib/utils"
 import { cn } from "@/lib/utils"
 import { roleHome } from "@/lib/auth-routes"
+import { useLocale, useT } from "@/lib/i18n/client"
+import { localePath } from "@/lib/i18n/config"
+import type { MessageKey } from "@/lib/i18n/messages/en"
+import { LanguageSwitcher } from "@/components/layout/LanguageSwitcher"
 
 const services = [
-  { label: "MOT Test", href: "/search?service=MOT" },
-  { label: "Full Service", href: "/search?service=FULL_SERVICE" },
-  { label: "Interim Service", href: "/search?service=INTERIM_SERVICE" },
-  { label: "Brakes", href: "/search?service=BRAKES" },
-  { label: "Tyres", href: "/search?service=TYRES" },
-  { label: "Engine Repair", href: "/search?service=REPAIR" },
-  { label: "Diagnostics", href: "/search?service=DIAGNOSTICS" },
-  { label: "Clutch", href: "/search?service=CLUTCH" },
-  { label: "Cambelt", href: "/search?service=CAMBELT" },
-  { label: "Exhaust", href: "/search?service=EXHAUST" },
-  { label: "Battery", href: "/search?service=BATTERY" },
-  { label: "Air Con", href: "/search?service=AIR_CON" },
+  { code: "MOT", href: "/search?service=MOT" },
+  { code: "FULL_SERVICE", href: "/search?service=FULL_SERVICE" },
+  { code: "INTERIM_SERVICE", href: "/search?service=INTERIM_SERVICE" },
+  { code: "BRAKES", href: "/search?service=BRAKES" },
+  { code: "TYRES", href: "/search?service=TYRES" },
+  { code: "REPAIR", href: "/search?service=REPAIR" },
+  { code: "DIAGNOSTICS", href: "/search?service=DIAGNOSTICS" },
+  { code: "CLUTCH", href: "/search?service=CLUTCH" },
+  { code: "CAMBELT", href: "/search?service=CAMBELT" },
+  { code: "EXHAUST", href: "/search?service=EXHAUST" },
+  { code: "BATTERY", href: "/search?service=BATTERY" },
+  { code: "AIR_CON", href: "/search?service=AIR_CON" },
 ]
 
 export function Header() {
@@ -33,15 +37,34 @@ export function Header() {
   const [servicesOpen, setServicesOpen] = useState(false)
 
   const user = session?.user as any
+  const t = useT()
+  const locale = useLocale()
+  const lp = (path: string) => localePath(locale, path)
+  const notice = t("site.notice").trim()
+  const noticeLink = t("site.noticeLink").trim()
 
   const getDashboardLink = () => roleHome(user?.role)
 
   return (
+    <>
+      {notice && (
+        <div role="status" className="bg-[#1E3A5F] px-4 py-2 text-center text-sm text-white">
+          {notice}
+          {noticeLink && (
+            <>
+              {" "}
+              <a href={noticeLink} className="font-semibold underline underline-offset-2">
+                {t("site.noticeLinkLabel").trim() || noticeLink}
+              </a>
+            </>
+          )}
+        </div>
+      )}
     <header className="sticky top-0 z-50 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-b border-black/[0.06] dark:border-white/10 shadow-[0_1px_20px_rgba(0,0,0,0.05)] dark:shadow-none">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0 group">
+          <Link href={lp("/")} className="flex items-center gap-2.5 flex-shrink-0 group">
             <div
               className="flex items-center justify-center w-9 h-9 rounded-xl transition-transform duration-200 group-hover:scale-105"
               style={{ background: "linear-gradient(135deg, #1E3A5F, #2D5A8E)" }}
@@ -59,7 +82,7 @@ export function Header() {
               href="/search"
               className="px-4 py-2 text-[13px] font-semibold text-slate-600 dark:text-slate-300 hover:text-[#1E3A5F] dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"
             >
-              Find a Garage
+              {t("nav.findGarage")}
             </Link>
 
             {/* Services Dropdown */}
@@ -69,7 +92,7 @@ export function Header() {
               onMouseLeave={() => setServicesOpen(false)}
             >
               <button className="flex items-center gap-1 px-4 py-2 text-[13px] font-semibold text-slate-600 dark:text-slate-300 hover:text-[#1E3A5F] dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors cursor-pointer">
-                Services
+                {t("nav.services")}
                 <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", servicesOpen && "rotate-180")} />
               </button>
 
@@ -79,7 +102,7 @@ export function Header() {
                   <div className="rounded-2xl py-2 bg-white dark:bg-slate-800 border border-black/[0.07] dark:border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
                     <div className="px-3 pb-2 mb-1 border-b border-slate-50 dark:border-white/5">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                        All Services
+                        {t("nav.allServices")}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-0.5 px-2">
@@ -89,7 +112,7 @@ export function Header() {
                           href={s.href}
                           className="px-2 py-1.5 text-[12px] font-medium text-slate-600 dark:text-slate-300 hover:text-[#1E3A5F] dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"
                         >
-                          {s.label}
+                          {t(`svc.${s.code}` as MessageKey)}
                         </Link>
                       ))}
                     </div>
@@ -102,34 +125,34 @@ export function Header() {
               href="/post-job"
               className="px-4 py-2 text-[13px] font-semibold text-slate-600 dark:text-slate-300 hover:text-[#1E3A5F] dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"
             >
-              Post a Job
+              {t("nav.postJob")}
             </Link>
 
             <Link
-              href="/how-it-works"
+              href={lp("/how-it-works")}
               className="px-4 py-2 text-[13px] font-semibold text-slate-600 dark:text-slate-300 hover:text-[#1E3A5F] dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"
             >
-              How It Works
+              {t("nav.howItWorks")}
             </Link>
 
             <Link
-              href="/for-garages"
+              href={lp("/for-garages")}
               className="px-4 py-2 text-[13px] font-semibold text-slate-600 dark:text-slate-300 hover:text-[#1E3A5F] dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors"
             >
-              For Garages
+              {t("nav.forGarages")}
             </Link>
           </nav>
 
           {/* Desktop Auth */}
           <div className="hidden lg:flex items-center gap-2.5">
-            <ThemeToggle />
+            <LanguageSwitcher className="hidden lg:flex" /><ThemeToggle />
             {session ? (
               <div className="flex items-center gap-2.5">
                 <NotificationBell />
                 <Link href={getDashboardLink()}>
                   <Button variant="outline" size="sm" className="gap-2">
                     <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
+                    {t("nav.dashboard")}
                   </Button>
                 </Link>
                 <div className="relative group">
@@ -150,14 +173,14 @@ export function Header() {
                       className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                     >
                       <User className="h-4 w-4" />
-                      My Account
+                      {t("nav.myAccount")}
                     </Link>
                     <button
                       onClick={() => signOut({ callbackUrl: "/" })}
                       className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
                     >
                       <LogOut className="h-4 w-4" />
-                      Sign Out
+                      {t("nav.signOut")}
                     </button>
                   </div>
                 </div>
@@ -166,7 +189,7 @@ export function Header() {
               <>
                 <Link href="/login">
                   <button className="px-4 py-2 text-[13px] font-semibold text-slate-600 dark:text-slate-300 hover:text-[#1E3A5F] dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg transition-colors cursor-pointer">
-                    Sign In
+                    {t("nav.signIn")}
                   </button>
                 </Link>
                 <Link href="/garage-register">
@@ -177,7 +200,7 @@ export function Header() {
                       boxShadow: "0 2px 10px rgba(249, 115, 22, 0.3)",
                     }}
                   >
-                    List Your Garage
+                    {t("nav.listGarage")}
                   </button>
                 </Link>
               </>
@@ -190,7 +213,7 @@ export function Header() {
             <button
               className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
               onClick={() => setMobileOpen(!mobileOpen)}
-              aria-label="Toggle menu"
+              aria-label={t("nav.toggleMenu")}
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -202,12 +225,13 @@ export function Header() {
       {mobileOpen && (
         <div className="lg:hidden border-t border-black/[0.06] dark:border-white/10 bg-white/98 dark:bg-slate-900/98 backdrop-blur-xl">
           <div className="px-4 py-3 space-y-0.5">
+            <LanguageSwitcher className="px-4 pb-2" />
             <Link
               href="/search"
               className="block px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl"
               onClick={() => setMobileOpen(false)}
             >
-              Find a Garage
+              {t("nav.findGarage")}
             </Link>
 
             {/* Mobile Services accordion */}
@@ -216,7 +240,7 @@ export function Header() {
                 className="flex items-center justify-between w-full px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl cursor-pointer"
                 onClick={() => setServicesOpen(!servicesOpen)}
               >
-                Services
+                {t("nav.services")}
                 <ChevronDown className={cn("h-4 w-4 text-slate-500 dark:text-slate-400 transition-transform", servicesOpen && "rotate-180")} />
               </button>
               {servicesOpen && (
@@ -228,7 +252,7 @@ export function Header() {
                       className="px-3 py-2 text-[13px] text-slate-600 dark:text-slate-300 hover:text-[#1E3A5F] dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg transition-colors"
                       onClick={() => setMobileOpen(false)}
                     >
-                      {s.label}
+                      {t(`svc.${s.code}` as MessageKey)}
                     </Link>
                   ))}
                 </div>
@@ -240,47 +264,47 @@ export function Header() {
               className="block px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl"
               onClick={() => setMobileOpen(false)}
             >
-              Post a Job
+              {t("nav.postJob")}
             </Link>
             <Link
-              href="/how-it-works"
+              href={lp("/how-it-works")}
               className="block px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl"
               onClick={() => setMobileOpen(false)}
             >
-              How It Works
+              {t("nav.howItWorks")}
             </Link>
             <Link
-              href="/for-garages"
+              href={lp("/for-garages")}
               className="block px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl"
               onClick={() => setMobileOpen(false)}
             >
-              For Garages
+              {t("nav.forGarages")}
             </Link>
             <div className="pt-2 border-t border-slate-100 dark:border-white/10 space-y-2">
               {session ? (
                 <>
                   <Link href={getDashboardLink()} onClick={() => setMobileOpen(false)}>
-                    <Button variant="primary" className="w-full">Dashboard</Button>
+                    <Button variant="primary" className="w-full">{t("nav.dashboard")}</Button>
                   </Link>
                   <Button
                     variant="ghost"
                     className="w-full text-red-700 dark:text-red-400"
                     onClick={() => { signOut({ callbackUrl: "/" }); setMobileOpen(false) }}
                   >
-                    Sign Out
+                    {t("nav.signOut")}
                   </Button>
                 </>
               ) : (
                 <>
                   <Link href="/login" onClick={() => setMobileOpen(false)}>
-                    <Button variant="outline" className="w-full">Sign In</Button>
+                    <Button variant="outline" className="w-full">{t("nav.signIn")}</Button>
                   </Link>
                   <Link href="/garage-register" onClick={() => setMobileOpen(false)}>
                     <button
                       className="w-full py-2.5 text-sm font-bold text-white rounded-xl"
                       style={{ background: "linear-gradient(135deg, #F97316, #EA580C)" }}
                     >
-                      List Your Garage
+                      {t("nav.listGarage")}
                     </button>
                   </Link>
                 </>
@@ -290,5 +314,6 @@ export function Header() {
         </div>
       )}
     </header>
+    </>
   )
 }

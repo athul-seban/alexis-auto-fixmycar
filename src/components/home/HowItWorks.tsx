@@ -1,12 +1,13 @@
 import { ClipboardList, GitCompare, CalendarCheck, ArrowRight } from "lucide-react"
+import { getT } from "@/lib/i18n/server"
+import type { MessageKey } from "@/lib/i18n/messages/en"
 
-const steps = [
+const steps: { icon: typeof ClipboardList; number: string; titleKey: MessageKey; textKey: MessageKey; gradient: string; lightBg: string; glowColor: string; iconColor: string }[] = [
   {
     icon: ClipboardList,
     number: "01",
-    title: "Describe Your Job",
-    description:
-      "Enter your vehicle registration and describe the issue. Our smart system helps garages quote accurately — no guesswork.",
+    titleKey: "howit.step1.title",
+    textKey: "howit.step1.text",
     gradient: "from-blue-500 to-blue-600",
     lightBg: "#EFF6FF",
     glowColor: "rgba(59, 130, 246, 0.15)",
@@ -15,9 +16,8 @@ const steps = [
   {
     icon: GitCompare,
     number: "02",
-    title: "Compare Quotes",
-    description:
-      "Receive quotes from vetted local garages within the hour. Compare prices, ratings, and genuine customer reviews side-by-side.",
+    titleKey: "howit.step2.title",
+    textKey: "howit.step2.text",
     gradient: "from-orange-500 to-orange-600",
     lightBg: "#FFF7ED",
     glowColor: "rgba(249, 115, 22, 0.15)",
@@ -26,9 +26,8 @@ const steps = [
   {
     icon: CalendarCheck,
     number: "03",
-    title: "Book & Save",
-    description:
-      "Book online in seconds. Pay the garage directly once the job is done.",
+    titleKey: "howit.step3.title",
+    textKey: "howit.step3.text",
     gradient: "from-emerald-500 to-emerald-600",
     lightBg: "#F0FDF4",
     glowColor: "rgba(16, 185, 129, 0.15)",
@@ -36,19 +35,20 @@ const steps = [
   },
 ]
 
-export function HowItWorks() {
+export async function HowItWorks() {
+  const t = await getT()
   return (
     <section className="py-24 bg-[#F8FAFC] dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
-            Simple Process
+            {t("howit.badge")}
           </span>
           <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-4 tracking-tight">
-            How Quote My Garage Works
+            {t("howit.title")}
           </h2>
           <p className="text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto leading-relaxed">
-            Getting your car fixed has never been easier. Three steps from problem to sorted.
+            {t("howit.subtitle")}
           </p>
         </div>
 
@@ -81,8 +81,8 @@ export function HowItWorks() {
                   />
                 </div>
 
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">{step.title}</h3>
-                <p className="text-slate-500 dark:text-slate-400 leading-relaxed text-[15px]">{step.description}</p>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">{t(step.titleKey)}</h3>
+                <p className="text-slate-500 dark:text-slate-400 leading-relaxed text-[15px]">{t(step.textKey)}</p>
               </div>
             </div>
           ))}
@@ -96,8 +96,8 @@ export function HowItWorks() {
           }}
         >
           {[
-            { value: "No fees", label: "Always free to get quotes" },
-            { value: "No obligation", label: "Choose the quote that suits you" },
+            { value: t("howit.trust1.value"), label: t("howit.trust1.label") },
+            { value: t("howit.trust2.value"), label: t("howit.trust2.label") },
           ].map((item, i) => (
             <div key={i} className="flex items-center gap-3">
               {i > 0 && <div className="hidden sm:block w-px h-8 bg-white/20" />}

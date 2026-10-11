@@ -37,8 +37,8 @@ export async function POST(req: Request, props: Params) {
         to: jobRequest.guestEmail,
         ...bookingConfirmedGuestNotification({ jobRequest, garage: jobResponse.garage, price: jobResponse.price }),
       }),
-      emailGarage(jobResponse.garageId, "emailNewBooking", () =>
-        bookingConfirmedGarageNotification({ jobRequest, price: jobResponse.price })
+      emailGarage(jobResponse.garageId, "emailNewBooking", (_g, t) =>
+        bookingConfirmedGarageNotification({ t, jobRequest, price: jobResponse.price })
       ),
       notifyGarage({
         garageId: jobResponse.garageId,

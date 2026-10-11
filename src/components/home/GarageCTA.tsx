@@ -1,22 +1,21 @@
 import Link from "next/link"
-import { CheckCircle, ArrowRight, Zap, TrendingUp, Users, Clock } from "lucide-react"
+import { CheckCircle, ArrowRight, Zap, CalendarDays, MessageSquare, Star } from "lucide-react"
+import { getLocale, getT } from "@/lib/i18n/server"
+import { localePath } from "@/lib/i18n/config"
+import type { MessageKey } from "@/lib/i18n/messages/en"
 
-const benefits = [
-  "Free to register — no monthly fees, ever",
-  "Access thousands of local job requests daily",
-  "Verified badge builds instant customer trust",
-  "Manage all quotes and bookings in one place",
-  "Get paid quickly and securely after each job",
-]
+const BENEFITS: MessageKey[] = ["cta.benefit1", "cta.benefit2", "cta.benefit3", "cta.benefit4", "cta.benefit5"]
 
-const stats = [
-  { value: "£2,500+", label: "Avg monthly revenue", icon: TrendingUp, color: "#10B981" },
-  { value: "48hrs", label: "Time to first booking", icon: Clock, color: "#3B82F6" },
-  { value: "15K+", label: "Garages on platform", icon: Users, color: "#F97316" },
-  { value: "Free", label: "To join and list", icon: Zap, color: "#8B5CF6" },
-]
+// Honest feature highlights (no invented revenue or sign-up figures).
+const CARDS = [
+  { value: "cta.card1.value", label: "cta.card1.label", icon: Zap, color: "#8B5CF6" },
+  { value: "cta.card2.value", label: "cta.card2.label", icon: CalendarDays, color: "#3B82F6" },
+  { value: "cta.card3.value", label: "cta.card3.label", icon: MessageSquare, color: "#F97316" },
+  { value: "cta.card4.value", label: "cta.card4.label", icon: Star, color: "#10B981" },
+] as const satisfies readonly { value: MessageKey; label: MessageKey; icon: unknown; color: string }[]
 
-export function GarageCTA() {
+export async function GarageCTA() {
+  const [t, locale] = await Promise.all([getT(), getLocale()])
   return (
     <section
       className="py-24 relative overflow-hidden"
@@ -49,10 +48,10 @@ export function GarageCTA() {
                 border: "1px solid rgba(249, 115, 22, 0.25)",
               }}
             >
-              For Garage Owners
+              {t("cta.badge")}
             </span>
             <h2 className="text-3xl md:text-4xl lg:text-[2.6rem] font-extrabold text-white mb-5 leading-[1.15] tracking-tight">
-              Grow Your Garage
+              {t("cta.title1")}
               <br />
               <span
                 style={{
@@ -62,21 +61,20 @@ export function GarageCTA() {
                   backgroundClip: "text",
                 }}
               >
-                Business with Quote My Garage
+                {t("cta.title2")}
               </span>
             </h2>
             <p className="text-blue-200/80 text-lg mb-8 leading-relaxed max-w-lg">
-              Get found by local customers on <strong className="text-white">Quote My Garage</strong>.
-              Reach thousands of local customers searching for exactly the services you offer.
+              {t("cta.subtitle")}
             </p>
 
             <ul className="space-y-3.5 mb-9">
-              {benefits.map((benefit) => (
+              {BENEFITS.map((benefit) => (
                 <li key={benefit} className="flex items-center gap-3">
                   <div className="w-5 h-5 rounded-full bg-[#F97316]/20 flex items-center justify-center flex-shrink-0">
                     <CheckCircle className="h-3.5 w-3.5 text-[#F97316]" />
                   </div>
-                  <span className="text-blue-100 text-[15px]">{benefit}</span>
+                  <span className="text-blue-100 text-[15px]">{t(benefit)}</span>
                 </li>
               ))}
             </ul>
@@ -90,11 +88,11 @@ export function GarageCTA() {
                   boxShadow: "0 4px 20px rgba(249, 115, 22, 0.4)",
                 }}
               >
-                Register Your Garage Free
+                {t("cta.register")}
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link
-                href="/for-garages"
+                href={localePath(locale, "/for-garages")}
                 className="inline-flex items-center gap-2 font-semibold px-6 py-3.5 rounded-xl text-base transition-all duration-200"
                 style={{
                   background: "rgba(255,255,255,0.06)",
@@ -102,14 +100,14 @@ export function GarageCTA() {
                   color: "rgba(255,255,255,0.85)",
                 }}
               >
-                Learn More
+                {t("cta.learnMore")}
               </Link>
             </div>
           </div>
 
           {/* RIGHT — Stat cards */}
           <div className="grid grid-cols-2 gap-4">
-            {stats.map((stat) => (
+            {CARDS.map((stat) => (
               <div
                 key={stat.label}
                 className="rounded-2xl p-6 transition-all duration-300 hover:-translate-y-0.5"
@@ -125,8 +123,8 @@ export function GarageCTA() {
                 >
                   <stat.icon className="h-5 w-5" style={{ color: stat.color }} />
                 </div>
-                <div className="text-3xl font-black text-white mb-1">{stat.value}</div>
-                <div className="text-sm text-blue-300">{stat.label}</div>
+                <div className="text-3xl font-black text-white mb-1">{t(stat.value)}</div>
+                <div className="text-sm text-blue-300">{t(stat.label)}</div>
               </div>
             ))}
           </div>
@@ -141,9 +139,7 @@ export function GarageCTA() {
           }}
         >
           <p className="text-blue-200/70 text-sm">
-            <strong className="text-white">300+ garages</strong> registered last month ·{" "}
-            <strong className="text-white">No setup cost</strong> · Start receiving jobs in{" "}
-            <strong className="text-white">48 hours</strong>
+            {t("cta.strip")}
           </p>
         </div>
       </div>

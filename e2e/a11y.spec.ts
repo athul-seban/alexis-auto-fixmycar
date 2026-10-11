@@ -19,7 +19,7 @@ async function expectNoViolations(page: Page, label: string) {
 }
 
 test.describe("accessibility", () => {
-  for (const path of ["/", "/search", "/login", "/how-it-works", "/garages", "/garages/london", "/garages/london/mot"]) {
+  for (const path of ["/", "/search", "/login", "/how-it-works", "/garages", "/garages/london", "/garages/london/mot", "/fr", "/de", "/fr/how-it-works", "/de/for-garages"]) {
     test(`public ${path}`, async ({ page }) => {
       await page.goto(path)
       await expect(page.locator("main, [role=main]").first()).toBeVisible()
@@ -94,4 +94,12 @@ test.describe("accessibility", () => {
       await expectNoViolations(page, `${role} user menu`)
     })
   }
+
+  test("admin site content editor", async ({ page }) => {
+    await login(page, "admin")
+    await page.goto("/admin/content")
+    await expect(page.getByRole("heading", { name: "Site content", level: 1 })).toBeVisible()
+    await expect(page.getByText("hero.title1").first()).toBeVisible()
+    await expectNoViolations(page, "admin content")
+  })
 })

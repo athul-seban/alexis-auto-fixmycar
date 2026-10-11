@@ -1,16 +1,17 @@
 import { Building2, CheckCircle2, Star, MessageSquareText } from "lucide-react"
 import { getHomeStats } from "@/lib/home-data"
+import { getT } from "@/lib/i18n/server"
 
 const MIN_STATS = 2
 
 /** Live marketplace numbers. A figure that is zero is left out, and the section hides if fewer than two remain. */
 export async function Stats() {
-  const h = await getHomeStats()
+  const [h, t] = await Promise.all([getHomeStats(), getT()])
   const stats = [
-    { icon: Building2, value: h.garages.toLocaleString("en-GB"), label: h.garages === 1 ? "Garage" : "Garages", sub: "Approved and listed", color: "#60A5FA", show: h.garages > 0 },
-    { icon: CheckCircle2, value: h.completedJobs.toLocaleString("en-GB"), label: h.completedJobs === 1 ? "Job completed" : "Jobs completed", sub: "Booked through the site", color: "#34D399", show: h.completedJobs > 0 },
-    { icon: MessageSquareText, value: h.reviews.toLocaleString("en-GB"), label: h.reviews === 1 ? "Customer review" : "Customer reviews", sub: "From completed bookings", color: "#F97316", show: h.reviews > 0 },
-    { icon: Star, value: h.averageRating !== null ? `${h.averageRating.toFixed(1)}/5` : "", label: "Average rating", sub: `Across ${h.reviews.toLocaleString("en-GB")} review${h.reviews === 1 ? "" : "s"}`, color: "#FBBF24", show: h.averageRating !== null },
+    { icon: Building2, value: h.garages.toLocaleString("en-GB"), label: t("stats.garages"), sub: t("stats.garagesSub"), color: "#60A5FA", show: h.garages > 0 },
+    { icon: CheckCircle2, value: h.completedJobs.toLocaleString("en-GB"), label: t("stats.jobs"), sub: t("stats.jobsSub"), color: "#34D399", show: h.completedJobs > 0 },
+    { icon: MessageSquareText, value: h.reviews.toLocaleString("en-GB"), label: t("stats.reviews"), sub: t("stats.reviewsSub"), color: "#F97316", show: h.reviews > 0 },
+    { icon: Star, value: h.averageRating !== null ? `${h.averageRating.toFixed(1)}/5` : "", label: t("stats.rating"), sub: t("stats.ratingSub", { n: h.reviews.toLocaleString("en-GB") }), color: "#FBBF24", show: h.averageRating !== null },
   ].filter((x) => x.show)
   if (stats.length < MIN_STATS) return null
   return (
@@ -38,10 +39,10 @@ export async function Stats() {
             className="text-xs font-bold uppercase tracking-[0.15em] mb-3 inline-block"
             style={{ color: "#F97316" }}
           >
-            Quote My Garage in numbers
+            {t("stats.badge")}
           </span>
           <h2 className="text-3xl md:text-4xl font-extrabold text-white">
-            Real garages. Real bookings. Real reviews.
+            {t("stats.title")}
           </h2>
         </div>
 

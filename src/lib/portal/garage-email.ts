@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma"
 import { sendMail } from "@/lib/mail"
 import { parsePortalSettings, type PortalSettings } from "@/lib/portal/portal-settings"
+import { getMessages } from "@/lib/i18n/server"
+import { makeTranslator, type Translate } from "@/lib/i18n/messages"
 
 export type GarageEmailKind = keyof PortalSettings["notifications"]
 
@@ -11,7 +13,7 @@ export type GarageEmailKind = keyof PortalSettings["notifications"]
 export async function emailGarage(
   garageId: string,
   kind: GarageEmailKind,
-  build: (garage: { name: string; email: string }) => { subject: string; html: string }
+  build: (garage: { name: string; email: string }, t: Translate) => { subject: string; html: string }
 ): Promise<boolean> {
   try {
     const garage = await prisma.garage.findUnique({
@@ -20,7 +22,9 @@ export async function emailGarage(
     })
     if (!garage) return false
     if (!parsePortalSettings(garage.portalSettings).notifications[kind]) return false
-    await sendMail({ to: garage.email, ...build(garage) })
+    // The wording is admin-editable (Admin > Site content > Garage emails); garages are emailed in English.
+    const t = makeTranslator(await getMessages("en"))
+    await sendMail({ to: garage.email, ...build(garage, t) })
     return true
   } catch (err) {
     console.error("[garage-email]", err)

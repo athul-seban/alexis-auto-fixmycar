@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma"
 import { absoluteUrl } from "@/lib/portal/links"
 import { LANDING_SERVICES, listCities, slugify } from "@/lib/locations"
 import { parseServiceList } from "@/lib/garage-mapper"
+import { LOCALES, LOCALE_META, localePath } from "@/lib/i18n/config"
+import { getLegalPage, LEGAL_PAGES } from "@/lib/legal"
 
 // Built on request, never at deploy time: a build must not depend on the database being reachable (CI has an empty
 // one, and a deploy shouldn't fail because the database is briefly down). Crawlers hit this rarely, and the CDN can
@@ -10,11 +12,19 @@ import { parseServiceList } from "@/lib/garage-mapper"
 export const dynamic = "force-dynamic"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const pages: MetadataRoute.Sitemap = ["/", "/search", "/how-it-works", "/for-garages", "/post-job", "/blog", "/garages"].map((path) => ({
-    url: absoluteUrl(path),
-    changeFrequency: path === "/" ? "daily" : "weekly",
-    priority: path === "/" ? 1 : 0.7,
-  }))
+  const untranslated = ["/search", "/post-job", "/blog"]
+  const pages: MetadataRoute.Sitemap = [
+    // Translated pages: one entry per language, each listing all the others (hreflang).
+    ...["/", "/how-it-works", "/for-garages", "/garages"].flatMap((path) =>
+      LOCALES.map((l) => ({
+        url: absoluteUrl(localePath(l, path)),
+        changeFrequency: path === "/" ? ("daily" as const) : ("weekly" as const),
+        priority: path === "/" ? 1 : 0.7,
+        alternates: { languages: Object.fromEntries(LOCALES.map((x) => [LOCALE_META[x].htmlLang, absoluteUrl(localePath(x, path))])) },
+      }))
+    ),
+    ...untranslated.map((path) => ({ url: absoluteUrl(path), changeFrequency: "weekly" as const, priority: 0.7 })),
+  ]
 
   try {
     const [garages, articles, cities] = await Promise.all([
@@ -31,8 +41,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         if (svc && city) offered.add(`${city}/${svc.slug}`)
       }
     }
+    // Legal pages exist only once the business has published them; a language without its own text is left out
+    // (it would just repeat the English page).
+    const legal: MetadataRoute.Sitemap = []
+    for (const def of LEGAL_PAGES) {
+      for (const l of LOCALES) {
+        const page = await getLegalPage(def.slug, l)
+        if (page && !page.fallback) legal.push({ url: absoluteUrl(localePath(l, `/${def.slug}`)), changeFrequency: "yearly", priority: 0.3 })
+      }
+    }
     return [
       ...pages,
+      ...legal,
       ...cities.map((c) => ({ url: absoluteUrl(`/garages/${c.slug}`), changeFrequency: "weekly" as const, priority: 0.7 })),
       ...[...offered].sort().map((path) => ({ url: absoluteUrl(`/garages/${path}`), changeFrequency: "weekly" as const, priority: 0.6 })),
       ...articles.map((a) => ({ url: absoluteUrl(`/blog/${a.slug}`), lastModified: a.updatedAt, changeFrequency: "monthly" as const, priority: 0.6 })),

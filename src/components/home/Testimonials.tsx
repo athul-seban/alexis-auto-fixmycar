@@ -1,15 +1,17 @@
 import Link from "next/link"
 import { Star } from "lucide-react"
 import { getHomeReviews, getHomeStats } from "@/lib/home-data"
+import { getLocale, getT } from "@/lib/i18n/server"
 
 const COLORS = ["#3B82F6", "#8B5CF6", "#10B981", "#F97316", "#F43F5E", "#14B8A6"]
 const MIN_REVIEWS = 3
 
-const dateLabel = (d: Date) => d.toLocaleDateString("en-GB", { month: "long", year: "numeric" })
+const dateLabel = (d: Date, lang: string) => d.toLocaleDateString(lang, { month: "long", year: "numeric" })
 
 /** Real, recent 4★+ customer reviews. Hidden until there are enough genuine ones to be representative. */
 export async function Testimonials() {
-  const [reviews, stats] = await Promise.all([getHomeReviews(6), getHomeStats()])
+  const [reviews, stats, t, locale] = await Promise.all([getHomeReviews(6), getHomeStats(), getT(), getLocale()])
+  const lang = locale === "en" ? "en-GB" : locale
   if (reviews.length < MIN_REVIEWS) return null
 
   return (
@@ -17,9 +19,9 @@ export async function Testimonials() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-14">
           <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
-            Customer Reviews
+            {t("rev.badge")}
           </span>
-          <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-5 tracking-tight">What Our Customers Say</h2>
+          <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-5 tracking-tight">{t("rev.title")}</h2>
           {stats.averageRating !== null && (
             <div className="inline-flex items-center gap-3 rounded-2xl px-6 py-3 bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] dark:from-amber-500/10 dark:to-amber-500/5 dark:border-amber-500/30">
               <div className="flex gap-0.5" aria-hidden>
@@ -29,7 +31,7 @@ export async function Testimonials() {
               </div>
               <div className="text-xl font-black text-slate-900 dark:text-white">{stats.averageRating.toFixed(1)}</div>
               <div className="text-slate-500 dark:text-slate-400 text-sm">
-                from {stats.reviews.toLocaleString("en-GB")} review{stats.reviews === 1 ? "" : "s"}
+                {t("rev.from", { n: stats.reviews.toLocaleString(lang) })}
               </div>
             </div>
           )}
@@ -64,11 +66,11 @@ export async function Testimonials() {
                   <div className="min-w-0">
                     <p className="font-bold text-slate-900 dark:text-white text-sm">{r.author}</p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      {r.service} at{" "}
+                      {t("rev.at", { service: r.service })}{" "}
                       <Link href={`/garage/${r.garageSlug}`} className="underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-200">
                         {r.garageName}
                       </Link>{" "}
-                      · {dateLabel(r.createdAt)}
+                      · {dateLabel(r.createdAt, lang)}
                     </p>
                   </div>
                 </figcaption>
@@ -77,7 +79,7 @@ export async function Testimonials() {
           })}
         </div>
 
-        <div className="text-center mt-10 text-slate-500 dark:text-slate-400 text-sm">Reviews are left by customers after a completed booking.</div>
+        <div className="text-center mt-10 text-slate-500 dark:text-slate-400 text-sm">{t("rev.footer")}</div>
       </div>
     </section>
   )
