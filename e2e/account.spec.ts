@@ -30,6 +30,8 @@ test.describe("user menu and account page", () => {
 test.describe("overview pages", () => {
   test("customer overview shows reminders and recent quotes", async ({ page }) => {
     await login(page, "owner")
+    await expect(page.getByRole("heading", { name: "Your next appointment" })).toBeVisible()
+    await expect(page.getByRole("link", { name: /unread messages/i })).toBeVisible()
     await expect(page.getByRole("heading", { name: "Vehicle reminders" })).toBeVisible()
     await expect(page.getByRole("heading", { name: "Recent quotes" })).toBeVisible()
     expect(await hasHorizontalScroll(page)).toBe(false)
@@ -39,6 +41,9 @@ test.describe("overview pages", () => {
     await login(page, "garage")
     await expect(page.getByRole("heading", { name: "Today's bookings" })).toBeVisible()
     await expect(page.getByRole("heading", { name: "Profile checklist" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Your plan" })).toBeVisible()
+    await expect(page.getByText("Booked, next 7 days")).toBeVisible()
+    await expect(page.getByRole("link", { name: /new booking/i })).toBeVisible()
     expect(await hasHorizontalScroll(page)).toBe(false)
   })
 
@@ -46,6 +51,8 @@ test.describe("overview pages", () => {
     await login(page, "admin")
     await expect(page.getByRole("heading", { name: /Completed revenue, last 30 days/ })).toBeVisible()
     await expect(page.getByRole("heading", { name: "Top cities" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Awaiting approval" })).toBeVisible()
+    await expect(page.getByText("New in the last 7 days")).toBeVisible()
     await expect(page.getByRole("region", { name: "Needs attention" })).toBeVisible()
     expect(await hasHorizontalScroll(page)).toBe(false)
   })

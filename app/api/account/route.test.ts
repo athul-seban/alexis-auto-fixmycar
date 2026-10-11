@@ -86,7 +86,9 @@ describe("/api/account preferences, photo and sessions", () => {
 
     expect((await PATCH(json("PATCH", { image: "javascript:alert(1)" }))).status).toBe(400)
     expect((await PATCH(json("PATCH", { image: "http://insecure.example/a.png" }))).status).toBe(400)
-    expect((await PATCH(json("PATCH", { image: "https://blob.example/a.png" }))).status).toBe(200)
+    expect((await PATCH(json("PATCH", { image: "https://evil.example/track.png" }))).status).toBe(400) // not our storage
+    expect((await PATCH(json("PATCH", { image: `https://abc123.public.blob.vercel-storage.com/users/${user.id}/avatar-x.png` }))).status).toBe(200)
+    expect((await PATCH(json("PATCH", { image: "https://abc123.public.blob.vercel-storage.com/users/someone-else/avatar.png" }))).status).toBe(400)
     expect((await PATCH(json("PATCH", { image: null }))).status).toBe(200)
     expect((await GET().then((r) => r.json())).image).toBeNull()
   })

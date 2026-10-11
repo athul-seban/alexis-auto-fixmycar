@@ -3,10 +3,11 @@ import { limitByIp } from "@/lib/rate-limit"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { newPasswordSchema } from "@/lib/password-policy"
 
 const schema = z.object({
   token: z.string().min(1),
-  password: z.string().min(8).max(100),
+  password: newPasswordSchema,
 })
 
 export async function POST(req: Request) {

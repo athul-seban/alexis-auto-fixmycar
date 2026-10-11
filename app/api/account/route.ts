@@ -4,13 +4,9 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { normalisePhone } from "@/lib/portal/phone"
+import { isOwnAvatarUrl } from "@/lib/image-sniff"
 
-// Avatars are uploaded to Vercel Blob by /api/account/avatar; only those URLs may be stored.
-const imageUrl = z
-  .string()
-  .url()
-  .max(500)
-  .refine((u) => u.startsWith("https://"), "Invalid image")
+const imageUrl = z.string().url().max(500)
 
 const patchSchema = z
   .object({
@@ -56,6 +52,8 @@ export async function PATCH(req: Request) {
 
   try {
     const { name, phone, smsOptIn, emailNotifications, marketingOptIn, image } = patchSchema.parse(await req.json())
+    // The photo is set by /api/account/avatar; here it can only be cleared (or re-pointed at the user's own upload).
+    if (image && !isOwnAvatarUrl(image, id)) return NextResponse.json({ error: "Invalid image" }, { status: 400 })
     const user = await prisma.user.update({
       where: { id },
       data: {

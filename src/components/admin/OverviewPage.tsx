@@ -6,7 +6,7 @@ import { StatTile } from "@/components/ui/stat-tile"
 import { useApi } from "@/hooks/use-api"
 import { cn, formatCurrency, timeAgo } from "@/lib/utils"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
-import { DonutChart, LineAreaChart } from "@/components/garage-portal/insights/charts"
+import { DonutChart, FunnelBars, LineAreaChart } from "@/components/garage-portal/insights/charts"
 
 interface Stats {
   totalUsers: number
@@ -22,6 +22,14 @@ interface Stats {
 }
 
 interface Overview {
+  pulse: {
+    newUsers7d: number
+    newGarages7d: number
+    bookedThisMonth: { count: number; value: number }
+    garagesByStatus: Record<string, number>
+  }
+  pendingGarageList: { id: string; name: string; city: string; createdAt: string }[]
+  enquiries: { total: number; counts: Record<string, number>; conversionRate: number }
   attention: { pendingGarages: number; pendingDocuments: number; openDisputes: number; openEnquiries: number }
   revenueTrend: { date: string; revenue: number }[]
   serviceBreakdown: { serviceType: string; label: string; count: number }[]
@@ -128,6 +136,37 @@ export function AdminOverviewPage() {
       </div>
 
       {o && (
+        <Panel className="mb-6 p-4 sm:p-5">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-4 lg:grid-cols-4">
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">New in the last 7 days</dt>
+              <dd className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                <strong className="text-lg text-slate-900 dark:text-white">{o.pulse.newUsers7d}</strong> sign-ups · <strong className="text-slate-900 dark:text-white">{o.pulse.newGarages7d}</strong> garages
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Booked this month</dt>
+              <dd className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                <strong className="text-lg text-slate-900 dark:text-white">{o.pulse.bookedThisMonth.count}</strong> bookings · <strong className="text-slate-900 dark:text-white">{money(o.pulse.bookedThisMonth.value)}</strong>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Garages</dt>
+              <dd className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                <strong className="text-lg text-slate-900 dark:text-white">{o.pulse.garagesByStatus.APPROVED ?? 0}</strong> live · {o.pulse.garagesByStatus.PENDING ?? 0} pending · {o.pulse.garagesByStatus.SUSPENDED ?? 0} suspended
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Guest enquiries</dt>
+              <dd className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                <strong className="text-lg text-slate-900 dark:text-white">{o.enquiries.total}</strong> total · {o.enquiries.conversionRate}% booked
+              </dd>
+            </div>
+          </dl>
+        </Panel>
+      )}
+
+      {o && (
         <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <Panel className="p-4 sm:p-6 lg:col-span-2">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -169,26 +208,69 @@ export function AdminOverviewPage() {
           )}
         </Panel>
 
-        <Panel className="p-4 sm:p-6">
-          <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">Top cities</h2>
-          {o?.topCities.length ? (
-            <ul className="divide-y divide-slate-100 dark:divide-white/10">
-              {o.topCities.map((c) => (
-                <li key={c.city} className="flex items-center justify-between gap-3 py-3 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-slate-900 dark:text-white">{c.city}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {c.garages} garage{c.garages === 1 ? "" : "s"} · {c.bookings} booking{c.bookings === 1 ? "" : "s"}
-                    </p>
-                  </div>
-                  <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{money(c.revenue)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-slate-500 dark:text-slate-400">{overview.loading ? "Loading…" : "No garages yet."}</p>
+        <div className="space-y-6">
+          <Panel className="p-4 sm:p-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Awaiting approval</h2>
+              <Link href="/admin/garages?status=PENDING" className="text-sm font-medium text-[#1E3A5F] hover:underline dark:text-blue-300">
+                View all →
+              </Link>
+            </div>
+            {o?.pendingGarageList.length ? (
+              <ul className="divide-y divide-slate-100 dark:divide-white/10">
+                {o.pendingGarageList.map((g) => (
+                  <li key={g.id} className="flex items-center justify-between gap-3 py-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-slate-900 dark:text-white">{g.name}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {g.city} · applied {timeAgo(g.createdAt)}
+                      </p>
+                    </div>
+                    <Link href={`/admin/garages?status=PENDING&q=${encodeURIComponent(g.name)}`} className="flex-shrink-0 font-semibold text-[#1E3A5F] hover:underline dark:text-blue-300">
+                      Review
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500 dark:text-slate-400">{overview.loading ? "Loading…" : "No garages waiting."}</p>
+            )}
+          </Panel>
+
+          <Panel className="p-4 sm:p-6">
+            <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">Top cities</h2>
+            {o?.topCities.length ? (
+              <ul className="divide-y divide-slate-100 dark:divide-white/10">
+                {o.topCities.map((c) => (
+                  <li key={c.city} className="flex items-center justify-between gap-3 py-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-slate-900 dark:text-white">{c.city}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {c.garages} garage{c.garages === 1 ? "" : "s"} · {c.bookings} booking{c.bookings === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                    <span className="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{money(c.revenue)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500 dark:text-slate-400">{overview.loading ? "Loading…" : "No garages yet."}</p>
+            )}
+          </Panel>
+
+          {o && o.enquiries.total > 0 && (
+            <Panel className="p-4 sm:p-6">
+              <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">Enquiry funnel</h2>
+              <FunnelBars
+                steps={[
+                  { label: "Posted", value: o.enquiries.total },
+                  { label: "Quoted", value: (o.enquiries.counts.QUOTED ?? 0) + (o.enquiries.counts.BOOKED ?? 0) },
+                  { label: "Booked", value: o.enquiries.counts.BOOKED ?? 0 },
+                ]}
+              />
+            </Panel>
           )}
-        </Panel>
+        </div>
       </div>
     </>
   )

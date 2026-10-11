@@ -149,6 +149,39 @@ describe("GET /api/garage/overview — today and listing", () => {
     expect(body.readiness).toEqual({ ready: expect.any(Boolean), missing: expect.any(Array) })
   })
 
+  it("reports the week ahead, rating, plan usage and a creation trend that covers the whole range", async () => {
+    const { user, garage } = await makeGarage(PREFIX)
+    await prisma.garage.update({ where: { id: garage.id }, data: { averageRating: 4.5, totalReviews: 12, avgResponseMins: 90 } })
+    const soon = new Date(Date.now() + 2 * 24 * 3_600_000)
+    await makeWalkInBooking(garage.id, { scheduledAt: soon, createdAt: new Date(), status: "CONFIRMED" })
+    await makeWalkInBooking(garage.id, { scheduledAt: new Date(Date.now() + 20 * 24 * 3_600_000), createdAt: new Date(), status: "CONFIRMED" }) // outside the week
+    await b(garage.id, {}) // created 2026-09-05
+    await b(garage.id, { createdAt: D("2026-09-05T15:00:00Z") })
+    await b(garage.id, { createdAt: D("2026-09-20T10:00:00Z") })
+    asUser(user.id)
+
+    const body = await (await get(RANGE)).json()
+    expect(body.weekAhead).toBe(1)
+    expect(body.rating).toEqual({ average: 4.5, reviews: 12 })
+    expect(body.avgResponseMins).toBe(90)
+    expect(body.plan).toMatchObject({ label: "Free", leadsUsed: 0, credits: 0 })
+
+    // 30 days → daily points from 1 Sep to 30 Sep; the counts add up to the bookings created in the range.
+    expect(body.trend.bucketDays).toBe(1)
+    expect(body.trend.points).toHaveLength(30)
+    expect(body.trend.points[0].date).toBe("2026-09-01")
+    expect(body.trend.points.find((p: any) => p.date === "2026-09-05").count).toBe(2)
+    expect(body.trend.points.reduce((n: number, p: any) => n + p.count, 0)).toBe(3)
+  })
+
+  it("buckets a long range into at most 31 points", async () => {
+    const { user } = await makeGarage(PREFIX)
+    asUser(user.id)
+    const body = await (await get("from=2026-01-01&to=2026-09-30")).json()
+    expect(body.trend.bucketDays).toBeGreaterThan(1)
+    expect(body.trend.points.length).toBeLessThanOrEqual(31)
+  })
+
   it("rejects non-garage callers", async () => {
     mockSession.mockResolvedValue(null)
     expect((await get()).status).toBe(401)

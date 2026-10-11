@@ -1,10 +1,13 @@
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
+import { sendMail } from "@/lib/mail"
+import { passwordChangedEmail } from "@/lib/email-templates"
+import { passwordProblem } from "@/lib/password-policy"
 
 export const changePasswordSchema = z.object({
   current: z.string().min(1, "Enter your current password").max(200),
-  next: z.string().min(8, "Your new password must be at least 8 characters").max(200),
+  next: z.string().max(200),
 })
 
 // Same policy as sign-in (src/lib/auth.ts): 5 wrong passwords lock the account for 15 minutes.
@@ -24,7 +27,7 @@ export async function changePassword(userId: string, input: z.infer<typeof chang
   const { current, next } = input
   const now = new Date()
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { password: true, failedLoginAttempts: true, lockedUntil: true } })
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { password: true, email: true, name: true, failedLoginAttempts: true, lockedUntil: true } })
   if (!user?.password) {
     return { status: 400, body: { error: "Your account signs in with Google, so there's no password to change." } }
   }
@@ -42,6 +45,8 @@ export async function changePassword(userId: string, input: z.infer<typeof chang
     })
     return { status: 400, body: { error: "Your current password is incorrect." } }
   }
+  const problem = passwordProblem(next, user)
+  if (problem) return { status: 400, body: { error: problem } }
   if (current === next) {
     return { status: 400, body: { error: "Choose a password you haven't used before." } }
   }
@@ -50,5 +55,11 @@ export async function changePassword(userId: string, input: z.infer<typeof chang
     where: { id: userId },
     data: { password: await bcrypt.hash(next, 12), failedLoginAttempts: 0, lockedUntil: null },
   })
+  // Security notice (always sent, not subject to notification preferences). Best effort: never fails the change.
+  try {
+    await sendMail({ to: user.email, ...passwordChangedEmail({ name: user.name }) })
+  } catch (err) {
+    console.error("[change-password] notice email failed:", err)
+  }
   return { status: 200, body: { success: true } }
 }

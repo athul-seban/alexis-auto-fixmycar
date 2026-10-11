@@ -8,6 +8,7 @@ import { prisma } from "./prisma"
 
 const MAX_FAILED_ATTEMPTS = 5
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000
+const SESSION_RECHECK_MS = 60 * 1000
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
@@ -94,21 +95,26 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id
       }
       if (token.id) {
-        // One light read per session check: lets "sign out everywhere" (User.sessionVersion) revoke old tokens,
-        // and lets name / photo edits show up without signing in again.
-        const fresh = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { sessionVersion: true, name: true, image: true },
-        })
-        if (!fresh) {
-          token.invalid = true
-        } else {
-          if (user || token.sv === undefined) token.sv = fresh.sessionVersion
-          token.invalid = token.sv !== fresh.sessionVersion
-          if (trigger === "update" || user) {
+        // Re-read the account at most once a minute (always on sign-in / profile update). The database is the source
+        // of truth for the role and suspension, so a demoted or suspended user loses access within a minute even
+        // though the JWT was minted earlier; it also lets "sign out everywhere" (User.sessionVersion) revoke old
+        // tokens and lets name / photo edits show up without signing in again.
+        const stale = typeof token.checkedAt !== "number" || Date.now() - token.checkedAt > SESSION_RECHECK_MS
+        if (user || trigger === "update" || stale) {
+          const fresh = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { role: true, suspendedAt: true, sessionVersion: true, name: true, image: true },
+          })
+          if (!fresh || fresh.suspendedAt) {
+            token.invalid = true
+          } else {
+            if (user || token.sv === undefined) token.sv = fresh.sessionVersion
+            token.invalid = token.sv !== fresh.sessionVersion
+            token.role = fresh.role
             token.name = fresh.name
             token.picture = fresh.image
           }
+          token.checkedAt = Date.now()
         }
       }
       return token

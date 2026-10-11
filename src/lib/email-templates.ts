@@ -343,3 +343,16 @@ export function messageReceivedEmail({
   )
   return { subject, html }
 }
+
+export function passwordChangedEmail({ name }: { name: string | null }): { subject: string; html: string } {
+  const subject = "Your Quote My Garage password was changed"
+  const html = wrapper(
+    subject,
+    `<p>Hi ${e(name ?? "there")},</p>
+     <p>The password on your account was just changed.</p>
+     <p>If that was you, there's nothing more to do. If it wasn't, reset your password now and sign out of all devices from your account page.</p>`,
+    `${APP_URL}/forgot-password`,
+    "Reset my password"
+  )
+  return { subject, html }
+}

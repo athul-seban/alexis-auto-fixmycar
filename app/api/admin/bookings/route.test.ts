@@ -76,4 +76,17 @@ describe("GET /api/admin/overview access and shape", () => {
     expect(body.topCities.length).toBeGreaterThan(0)
     expect(body.serviceBreakdown.every((x: any) => typeof x.count === "number")).toBe(true)
   })
+
+  it("returns the marketplace pulse, the pending-approval list and the enquiry funnel counts", async () => {
+    const { garage } = await makeGarage(PREFIX, { status: "PENDING" })
+    await makeWalkInBooking(garage.id, { customerName: "Pulse Pat", totalPrice: 80 })
+    const body = await (await overviewGET()).json()
+    expect(body.pulse).toEqual(
+      expect.objectContaining({ newUsers7d: expect.any(Number), newGarages7d: expect.any(Number), bookedThisMonth: { count: expect.any(Number), value: expect.any(Number) } }),
+    )
+    expect(body.pulse.garagesByStatus.PENDING).toBeGreaterThanOrEqual(1)
+    expect(body.pulse.bookedThisMonth.value).toBeGreaterThanOrEqual(80)
+    expect(body.pendingGarageList.length).toBeLessThanOrEqual(5)
+    expect(body.enquiries).toEqual(expect.objectContaining({ total: expect.any(Number), counts: expect.any(Object), conversionRate: expect.any(Number) }))
+  })
 })

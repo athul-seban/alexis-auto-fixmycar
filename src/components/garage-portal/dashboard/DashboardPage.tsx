@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { AlertTriangle, ArrowRight, CheckCircle2, Circle, Inbox, MessageSquare, Star } from "lucide-react"
+import { AlertTriangle, ArrowRight, CalendarDays, CheckCircle2, Circle, Globe, Inbox, MessageSquare, Plus, Star, Timer } from "lucide-react"
 import { useApi } from "@/hooks/use-api"
 import { useUrlParams } from "@/hooks/use-url-params"
 import { parseCivilRange, presetRange } from "@/lib/portal/date-range"
@@ -11,6 +11,9 @@ import { todayLondon } from "@/lib/portal/tz"
 import { Panel } from "@/components/garage-portal/shared/PageHeader"
 import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
 import { getServiceLabel } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { StatTile } from "@/components/ui/stat-tile"
+import { LineAreaChart } from "@/components/garage-portal/insights/charts"
 import { GreetingHeader, greetingFor, type OverviewGarage } from "@/components/garage-portal/dashboard/GreetingHeader"
 import { KpiGrid } from "@/components/garage-portal/dashboard/KpiGrid"
 import { RangePicker } from "@/components/garage-portal/dashboard/RangePicker"
@@ -25,11 +28,25 @@ interface Overview {
   noShowRate: number | null
   previous: { marketplace: ChannelKpis; widget: ChannelKpis; noShowRate: number | null }
   pendingEnquiries: number
+  weekAhead: number
+  rating: { average: number; reviews: number }
+  avgResponseMins: number | null
+  plan: { label: string; enforced: boolean; leadsPerMonth: number | null; leadsUsed: number; credits: number }
+  trend: { bucketDays: number; points: { date: string; count: number }[] }
   unrepliedReviews: number
   unreadMessages: number
   todayBookings: { id: string; time: string | null; status: string; serviceType: string; customer: string | null; vehicle: string | null }[]
   readiness: { ready: boolean; missing: { label: string; required: boolean }[] }
 }
+
+function responseLabel(mins: number | null) {
+  if (mins === null) return "–"
+  if (mins < 60) return `${Math.max(1, Math.round(mins))} min`
+  const h = mins / 60
+  return h < 24 ? `${h.toFixed(h < 10 ? 1 : 0)} h` : `${Math.round(h / 24)} d`
+}
+
+const shortDate = (iso: string) => new Date(iso + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })
 
 const ALERT_TONES = {
   amber: "border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/20",
@@ -103,6 +120,47 @@ export function DashboardPage() {
       )}
 
       {data && (
+        <>
+          <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatTile icon={CalendarDays} tone="blue" label="Booked, next 7 days" value={data.weekAhead} href={`${garageLinks.dashboard}/diary`} />
+            <StatTile
+              icon={Star}
+              tone="yellow"
+              label={data.rating.reviews ? `Rating · ${data.rating.reviews} review${data.rating.reviews === 1 ? "" : "s"}` : "Rating"}
+              value={data.rating.reviews ? data.rating.average.toFixed(1) : "–"}
+              href={`${garageLinks.dashboard}/reviews`}
+            />
+            <StatTile
+              icon={Timer}
+              tone="purple"
+              label="Avg. time to quote"
+              value={responseLabel(data.avgResponseMins)}
+              hint="How long garages like yours take, on average, to answer a customer's request. Quick replies rank higher in search."
+              href={garageLinks.enquiries}
+            />
+            <StatTile icon={Inbox} tone="orange" label="New enquiries" value={data.pendingEnquiries} href={garageLinks.enquiries} />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button asChild variant="default" size="sm">
+              <Link href={`${garageLinks.bookings}?new=1`}>
+                <Plus className="mr-1.5 h-4 w-4" /> New booking
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href={`${garageLinks.dashboard}/diary`}>
+                <CalendarDays className="mr-1.5 h-4 w-4" /> Diary
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href={`${garageLinks.dashboard}/website`}>
+                <Globe className="mr-1.5 h-4 w-4" /> Booking widget
+              </Link>
+            </Button>
+          </div>
+        </>
+      )}
+
+      {data && (
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Panel className="p-4 sm:p-6">
             <div className="mb-3 flex items-center justify-between gap-3">
@@ -131,6 +189,7 @@ export function DashboardPage() {
             )}
           </Panel>
 
+          <div className="space-y-6">
           <Panel className="p-4 sm:p-6">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">Profile checklist</h2>
@@ -156,6 +215,28 @@ export function DashboardPage() {
               </>
             )}
           </Panel>
+          <Panel className="p-4 sm:p-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Your plan</h2>
+              <Link href={`${garageLinks.dashboard}/billing`} className="inline-flex items-center gap-1 text-sm font-medium text-[#1E3A5F] hover:underline dark:text-blue-300">
+                Plan &amp; billing <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+            <p className="text-sm text-slate-700 dark:text-slate-200">
+              <strong>{data.plan.label}</strong>
+              {data.plan.leadsPerMonth === null ? " · unlimited leads" : ` · ${data.plan.leadsUsed} of ${data.plan.leadsPerMonth} leads used this month`}
+            </p>
+            {data.plan.leadsPerMonth !== null && (
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10" role="img" aria-label={`${data.plan.leadsUsed} of ${data.plan.leadsPerMonth} leads used`}>
+                <div className="h-full rounded-full bg-[#1E3A5F] dark:bg-blue-400" style={{ width: `${Math.min(100, (data.plan.leadsUsed / Math.max(1, data.plan.leadsPerMonth)) * 100)}%` }} />
+              </div>
+            )}
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              {data.plan.credits > 0 ? `${data.plan.credits} lead credit${data.plan.credits === 1 ? "" : "s"} available. ` : ""}
+              {data.plan.enforced ? "Extra leads cost a credit once you reach your monthly allowance." : "Plan limits aren't being applied yet."}
+            </p>
+          </Panel>
+          </div>
         </div>
       )}
 
@@ -174,6 +255,15 @@ export function DashboardPage() {
           <Panel className="p-6 text-center text-sm text-red-700 dark:text-red-400" role="alert">{error}</Panel>
         ) : (
           <KpiGrid loading={loading && !data} marketplace={data?.marketplace ?? null} widget={data?.widget ?? null} noShowRate={data?.noShowRate ?? null} previous={data?.previous ?? null} />
+        )}
+
+        {data && data.trend.points.length > 1 && (
+          <Panel className="mt-6 p-4 sm:p-6">
+            <h3 className="mb-3 text-lg font-bold text-slate-900 dark:text-white">
+              Bookings created{data.trend.bucketDays > 1 ? ` (per ${data.trend.bucketDays} days)` : " per day"}
+            </h3>
+            <LineAreaChart name="Bookings created" format={(n) => String(Math.round(n))} data={data.trend.points.map((p) => ({ label: shortDate(p.date), value: p.count }))} />
+          </Panel>
         )}
 
         {data && data.direct.created + data.direct.attended > 0 && (

@@ -17,7 +17,7 @@ export async function GET() {
   const trendStart = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)
   trendStart.setUTCHours(0, 0, 0, 0) // buckets below are keyed by UTC date
 
-  const [completedBookings, serviceGroups, cityGarageGroups, garageBookingGroups, garageCities, attention, recentBookings, recentGarages, recentReviews, enquiryStatusCounts, recentEnquiries, sourceGroups] = await Promise.all([
+  const [completedBookings, serviceGroups, cityGarageGroups, garageBookingGroups, garageCities, attention, pulse, recentBookings, recentGarages, recentReviews, enquiryStatusCounts, recentEnquiries, sourceGroups] = await Promise.all([
     prisma.booking.findMany({
       where: { status: "COMPLETED", completedAt: { gte: trendStart } },
       select: { completedAt: true, totalPrice: true },
@@ -32,6 +32,18 @@ export async function GET() {
       prisma.garageDocument.count({ where: { status: "PENDING" } }),
       prisma.review.count({ where: { disputeStatus: "OPEN" } }),
       prisma.jobRequest.count({ where: { status: "OPEN" } }),
+    ]),
+    Promise.all([
+      prisma.garage.groupBy({ by: ["status"], _count: { _all: true } }),
+      prisma.garage.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "asc" }, take: 5, select: { id: true, name: true, city: true, createdAt: true } }),
+      prisma.user.count({ where: { createdAt: { gte: new Date(now.getTime() - 7 * 24 * 3_600_000) } } }),
+      prisma.garage.count({ where: { createdAt: { gte: new Date(now.getTime() - 7 * 24 * 3_600_000) } } }),
+      // Value of work booked this (UTC) month, excluding cancellations.
+      prisma.booking.aggregate({
+        where: { createdAt: { gte: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)) }, status: { not: "CANCELLED" } },
+        _sum: { totalPrice: true },
+        _count: { _all: true },
+      }),
     ]),
     prisma.booking.findMany({
       select: { id: true, serviceType: true, createdAt: true, customerName: true, owner: { select: { name: true, email: true } }, garage: { select: { name: true } } },
@@ -56,6 +68,7 @@ export async function GET() {
     }),
     prisma.booking.groupBy({ by: ["source"], _count: { _all: true }, _sum: { totalPrice: true } }),
   ])
+  const [garageStatusGroups, pendingGarageList, newUsers, newGarages, monthBookings] = pulse
 
   // Revenue trend: last 30 days, bucketed by day
   const dayBuckets: Record<string, number> = {}
@@ -126,6 +139,13 @@ export async function GET() {
   const [pendingGarages, pendingDocuments, openDisputes, openEnquiries] = attention
 
   return NextResponse.json({
+    pulse: {
+      newUsers7d: newUsers,
+      newGarages7d: newGarages,
+      bookedThisMonth: { count: monthBookings._count._all, value: monthBookings._sum.totalPrice ?? 0 },
+      garagesByStatus: Object.fromEntries(garageStatusGroups.map((g) => [g.status, g._count._all])),
+    },
+    pendingGarageList: pendingGarageList.map((g) => ({ id: g.id, name: g.name, city: g.city, createdAt: g.createdAt })),
     attention: { pendingGarages, pendingDocuments, openDisputes, openEnquiries },
     revenueTrend,
     serviceBreakdown,

@@ -4,7 +4,8 @@ import { withGarage } from "@/lib/garage-auth"
 import { parseCivilRange, rangeToUtc } from "@/lib/portal/date-range"
 import { countNewEnquiries } from "@/lib/portal/enquiries"
 import { computeKpis, computeToday, type KpiRow } from "@/lib/portal/kpi"
-import { londonDayRange, londonTimeString, todayLondon } from "@/lib/portal/tz"
+import { addDays, diffDays, londonDateString, londonDayRange, londonTimeString, todayLondon } from "@/lib/portal/tz"
+import { effectivePlan, monthStart, plansEnforced } from "@/lib/portal/plans"
 import { garageReadiness } from "@/lib/portal/readiness"
 import { garageUnreadCount } from "@/lib/messaging"
 
@@ -17,6 +18,18 @@ const KPI_SELECT = {
   totalPrice: true,
   finalInvoiceValue: true,
 } as const
+
+/** Bookings created per bucket across the range: daily up to ~a month, otherwise N-day buckets (at most 31 points). */
+function creationTrend(rows: { createdAt: Date }[], range: { from: string; to: string }) {
+  const days = Math.max(1, diffDays(range.from, range.to) + 1)
+  const size = Math.ceil(days / 31)
+  const buckets = Array.from({ length: Math.ceil(days / size) }, (_, i) => ({ date: addDays(range.from, i * size), count: 0 }))
+  for (const r of rows) {
+    const i = Math.floor(diffDays(range.from, londonDateString(r.createdAt)) / size)
+    if (i >= 0 && i < buckets.length) buckets[i].count += 1
+  }
+  return { bucketDays: size, points: buckets }
+}
 
 export const GET = withGarage("Garage overview GET", async (req, { garage }) => {
   const sp = new URL(req.url).searchParams
@@ -32,7 +45,7 @@ export const GET = withGarage("Garage overview GET", async (req, { garage }) => 
   const span = range.lt.getTime() - range.gte.getTime()
   const prevRange = { gte: new Date(range.gte.getTime() - span), lt: range.gte }
 
-  const [rangeRows, prevRows, todayRows, enquiries, todayList, unrepliedReviews, unreadMessages, priceCount] = await Promise.all([
+  const [rangeRows, prevRows, todayRows, enquiries, todayList, unrepliedReviews, unreadMessages, priceCount, weekAhead, leadsUsed] = await Promise.all([
     // Anything created or scheduled inside the range; KPIs apply their own per-metric date rule.
     prisma.booking.findMany({
       where: {
@@ -70,7 +83,12 @@ export const GET = withGarage("Garage overview GET", async (req, { garage }) => 
     prisma.review.count({ where: { garageId: garage.id, reply: null } }),
     garageUnreadCount(garage),
     prisma.servicePrice.count({ where: { garageId: garage.id, isActive: true } }),
+    prisma.booking.count({
+      where: { garageId: garage.id, status: { in: ["PENDING", "CONFIRMED"] }, scheduledAt: { gte: now, lt: new Date(now.getTime() + 7 * 24 * 3_600_000) } },
+    }),
+    prisma.jobResponse.count({ where: { garageId: garage.id, createdAt: { gte: monthStart(now) } } }),
   ])
+  const plan = effectivePlan(garage)
 
   const kpis = computeKpis(rangeRows as KpiRow[], range)
   const prev = computeKpis(prevRows as KpiRow[], prevRange)
@@ -85,6 +103,11 @@ export const GET = withGarage("Garage overview GET", async (req, { garage }) => 
     noShowRate: kpis.noShowRate,
     previous: { marketplace: prev.marketplace, widget: prev.widget, noShowRate: prev.noShowRate },
     pendingEnquiries: enquiries,
+    weekAhead,
+    rating: { average: garage.averageRating, reviews: garage.totalReviews },
+    avgResponseMins: garage.avgResponseMins,
+    plan: { label: plan.label, enforced: plansEnforced(), leadsPerMonth: plan.leadsPerMonth, leadsUsed, credits: garage.leadCredits },
+    trend: creationTrend(rangeRows, parsed.range),
     unrepliedReviews,
     unreadMessages,
     todayBookings: todayList.map((b) => ({

@@ -39,7 +39,8 @@ const API_KEYS = ["tab", "sort", "dir", "page", "pageSize", ...FILTER_KEYS] as c
 
 export function BookingsPage() {
   const { searchParams, setParams } = useUrlParams()
-  const [newOpen, setNewOpen] = useState(false)
+  // `?new=1` (from the dashboard's "New booking" shortcut) opens the dialog straight away.
+  const [newOpen, setNewOpen] = useState(() => searchParams.get("new") === "1")
   const { toast } = useToast()
   // Selection belongs to one filtered page: it is dropped when the query (filters, page, sort) changes.
   const [selection, setSelection] = useState<{ query: string; ids: Set<string> }>({ query: "", ids: new Set() })
