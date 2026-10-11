@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     template: "%s | Quote My Garage",
   },
   description:
-    "Compare quotes from 15,000+ local garages, mobile mechanics and dealerships. Book online, save money, and get your car fixed fast.",
+    "Compare quotes from local garages and mobile mechanics, read real customer reviews and book online.",
   keywords: [
     "car repair",
     "mechanic",
@@ -35,13 +35,13 @@ export const metadata: Metadata = {
     siteName: "Quote My Garage",
     title: "Quote My Garage – Find Trusted Local Garages & Mechanics",
     description:
-      "Compare quotes from 15,000+ local garages, mobile mechanics and dealerships.",
+      "Compare quotes from local garages and mobile mechanics, read real reviews and book online.",
   },
   twitter: {
     card: "summary_large_image",
     title: "Quote My Garage – Find Trusted Local Garages & Mechanics",
     description:
-      "Compare quotes from 15,000+ local garages and mechanics. Book online and save.",
+      "Compare quotes from local garages and mechanics. Book online.",
   },
   robots: {
     index: true,

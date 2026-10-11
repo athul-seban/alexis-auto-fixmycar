@@ -6,7 +6,7 @@ import { Footer } from "@/components/layout/Footer"
 import { ArticleBody } from "@/components/shared/ArticleBody"
 import { prisma } from "@/lib/prisma"
 import { excerptOf, readingMinutes } from "@/lib/articles"
-import { articleJsonLd, jsonLdString, snippet } from "@/lib/seo"
+import { articleJsonLd, breadcrumbJsonLd, jsonLdString, snippet } from "@/lib/seo"
 import { formatDate } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
@@ -43,6 +43,10 @@ export default async function ArticlePage(props: Props) {
           dangerouslySetInnerHTML={{
             __html: jsonLdString(articleJsonLd({ slug: article.slug, title: article.title, excerpt: excerptOf(article), publishedAt: article.publishedAt, updatedAt: article.updatedAt })),
           }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdString(breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: "Guides", path: "/blog" }, { name: article.title, path: `/blog/${article.slug}` }])) }}
         />
         <Link href="/blog" className="text-sm font-medium text-[#1E3A5F] hover:underline dark:text-orange-400">← All guides</Link>
         <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-900 dark:text-white">{article.title}</h1>

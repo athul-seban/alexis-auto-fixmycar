@@ -1,179 +1,83 @@
+import Link from "next/link"
 import { Star } from "lucide-react"
+import { getHomeReviews, getHomeStats } from "@/lib/home-data"
 
-const testimonials = [
-  {
-    name: "Sarah Mitchell",
-    location: "London",
-    vehicle: "2019 Ford Focus",
-    service: "Full Service + MOT",
-    rating: 5,
-    saved: 85,
-    review:
-      "Absolutely fantastic! Saved £85 vs my dealer. The garage was professional and kept me updated throughout. The quote process took less than 30 minutes.",
-    avatar: "SM",
-    color: "#3B82F6",
-    date: "2 weeks ago",
-  },
-  {
-    name: "James Patel",
-    location: "Birmingham",
-    vehicle: "2021 Audi A3",
-    service: "Cambelt Replacement",
-    rating: 5,
-    saved: 150,
-    review:
-      "Found a brilliant local garage and saved over £150 vs the dealership. Dead easy process and the garage did a perfect job. Highly recommend to anyone.",
-    avatar: "JP",
-    color: "#8B5CF6",
-    date: "1 month ago",
-  },
-  {
-    name: "Emma Thompson",
-    location: "Manchester",
-    vehicle: "2018 VW Golf",
-    service: "Brake Replacement",
-    rating: 5,
-    saved: 65,
-    review:
-      "So easy! Got 3 quotes within an hour. The mechanic came to my home and sorted the brakes in no time. Saved £65 and didn't take a day off work.",
-    avatar: "ET",
-    color: "#10B981",
-    date: "3 weeks ago",
-  },
-  {
-    name: "David Chen",
-    location: "Leeds",
-    vehicle: "2020 BMW 3 Series",
-    service: "Annual Service",
-    rating: 5,
-    saved: 120,
-    review:
-      "Was nervous finding a trusted garage for my BMW. Quote My Garage's verified garages gave me confidence. Saved £120 and quality was just as good as the BMW dealer.",
-    avatar: "DC",
-    color: "#F97316",
-    date: "1 month ago",
-  },
-  {
-    name: "Sophie Williams",
-    location: "Bristol",
-    vehicle: "2017 Toyota Yaris",
-    service: "Clutch Replacement",
-    rating: 4,
-    saved: 95,
-    review:
-      "Great platform for comparing prices! The quote process was transparent and the garage communicated brilliantly. Saved nearly £100 and the car drives perfectly.",
-    avatar: "SW",
-    color: "#F43F5E",
-    date: "2 months ago",
-  },
-  {
-    name: "Michael Brown",
-    location: "Edinburgh",
-    vehicle: "2022 Tesla Model 3",
-    service: "EV Specialist Service",
-    rating: 5,
-    saved: 200,
-    review:
-      "Fantastic for finding EV specialists! Found an excellent certified garage at a fraction of the Tesla service centre price. Will always use Quote My Garage first.",
-    avatar: "MB",
-    color: "#14B8A6",
-    date: "3 weeks ago",
-  },
-]
+const COLORS = ["#3B82F6", "#8B5CF6", "#10B981", "#F97316", "#F43F5E", "#14B8A6"]
+const MIN_REVIEWS = 3
 
-export function Testimonials() {
+const dateLabel = (d: Date) => d.toLocaleDateString("en-GB", { month: "long", year: "numeric" })
+
+/** Real, recent 4★+ customer reviews. Hidden until there are enough genuine ones to be representative. */
+export async function Testimonials() {
+  const [reviews, stats] = await Promise.all([getHomeReviews(6), getHomeStats()])
+  if (reviews.length < MIN_REVIEWS) return null
+
   return (
     <section className="py-24 bg-white dark:bg-slate-900 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="text-center mb-14">
           <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
             Customer Reviews
           </span>
-          <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-5 tracking-tight">
-            What Our Customers Say
-          </h2>
-          {/* Aggregate rating */}
-          <div className="inline-flex items-center gap-3 rounded-2xl px-6 py-3 bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] dark:from-amber-500/10 dark:to-amber-500/5 dark:border-amber-500/30">
-            <div className="flex gap-0.5">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-              ))}
+          <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-5 tracking-tight">What Our Customers Say</h2>
+          {stats.averageRating !== null && (
+            <div className="inline-flex items-center gap-3 rounded-2xl px-6 py-3 bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] dark:from-amber-500/10 dark:to-amber-500/5 dark:border-amber-500/30">
+              <div className="flex gap-0.5" aria-hidden>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                ))}
+              </div>
+              <div className="text-xl font-black text-slate-900 dark:text-white">{stats.averageRating.toFixed(1)}</div>
+              <div className="text-slate-500 dark:text-slate-400 text-sm">
+                from {stats.reviews.toLocaleString("en-GB")} review{stats.reviews === 1 ? "" : "s"}
+              </div>
             </div>
-            <div className="text-xl font-black text-slate-900 dark:text-white">4.8</div>
-            <div className="text-slate-500 dark:text-slate-400 text-sm">
-              <span className="font-semibold text-slate-700 dark:text-slate-300">Excellent</span> · 50,000+ verified reviews
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* Review grid — a swipeable snap row on phones, a grid from md up */}
         <div
           role="region"
           aria-label="Customer reviews"
           tabIndex={0}
           className="flex gap-4 overflow-x-auto snap-x snap-mandatory -mx-4 px-4 pt-1 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-5 md:mx-0 md:px-0 md:pt-0 md:pb-0 md:overflow-visible"
         >
-          {testimonials.map((t, index) => (
-            <div
-              key={index}
-              className="relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg bg-white dark:bg-slate-800 border border-[#E8EDF5] dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex-none w-[85%] snap-center md:w-auto"
-            >
-              {/* Large quote mark */}
-              <div
-                className="absolute top-4 right-5 text-6xl font-black leading-none select-none opacity-[0.07]"
-                style={{ color: t.color, fontFamily: "Georgia, serif" }}
-                aria-hidden="true"
+          {reviews.map((r, index) => {
+            const color = COLORS[index % COLORS.length]
+            return (
+              <figure
+                key={r.id}
+                className="relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg bg-white dark:bg-slate-800 border border-[#E8EDF5] dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex-none w-[85%] snap-center md:w-auto"
               >
-                &ldquo;
-              </div>
-
-              {/* Stars */}
-              <div className="flex gap-0.5 mb-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Star
-                    key={i}
-                    className={`h-4 w-4 ${
-                      i <= t.rating ? "fill-yellow-400 text-yellow-400" : "fill-gray-100 text-gray-100 dark:fill-slate-700 dark:text-slate-700"
-                    }`}
-                  />
-                ))}
-              </div>
-
-              {/* Review text */}
-              <p className="text-slate-600 dark:text-slate-300 text-[14px] leading-relaxed mb-5 line-clamp-4">
-                {t.review}
-              </p>
-
-              {/* Author */}
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-4 border-t border-slate-50 dark:border-white/10">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${t.color}cc, ${t.color})` }}
-                  >
-                    {t.avatar}
+                <div className="absolute top-4 right-5 text-6xl font-black leading-none select-none opacity-[0.07]" style={{ color, fontFamily: "Georgia, serif" }} aria-hidden="true">
+                  &ldquo;
+                </div>
+                <div className="flex gap-0.5 mb-4" role="img" aria-label={`${r.rating} out of 5 stars`}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Star key={i} className={`h-4 w-4 ${i <= r.rating ? "fill-yellow-400 text-yellow-400" : "fill-gray-100 text-gray-100 dark:fill-slate-700 dark:text-slate-700"}`} />
+                  ))}
+                </div>
+                <blockquote className="text-slate-600 dark:text-slate-300 text-[14px] leading-relaxed mb-5 line-clamp-4">{r.comment}</blockquote>
+                <figcaption className="flex items-center gap-3 pt-4 border-t border-slate-50 dark:border-white/10">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ background: `linear-gradient(135deg, ${color}cc, ${color})` }} aria-hidden>
+                    {r.author[0]}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-slate-900 dark:text-white text-sm">{t.name}</p>
+                    <p className="font-bold text-slate-900 dark:text-white text-sm">{r.author}</p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                      {t.location} · {t.vehicle}
+                      {r.service} at{" "}
+                      <Link href={`/garage/${r.garageSlug}`} className="underline underline-offset-2 hover:text-slate-700 dark:hover:text-slate-200">
+                        {r.garageName}
+                      </Link>{" "}
+                      · {dateLabel(r.createdAt)}
                     </p>
                   </div>
-                </div>
-                <div className="flex items-baseline gap-2 flex-shrink-0 sm:block sm:text-right">
-                  <div className="text-sm font-black text-emerald-700 dark:text-emerald-400">Saved £{t.saved}</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">{t.service}</div>
-                </div>
-              </div>
-            </div>
-          ))}
+                </figcaption>
+              </figure>
+            )
+          })}
         </div>
 
-        {/* Trustpilot-style footer */}
-        <div className="text-center mt-10 text-slate-500 dark:text-slate-400 text-sm">
-          All reviews are verified purchases collected after service completion.
-        </div>
+        <div className="text-center mt-10 text-slate-500 dark:text-slate-400 text-sm">Reviews are left by customers after a completed booking.</div>
       </div>
     </section>
   )

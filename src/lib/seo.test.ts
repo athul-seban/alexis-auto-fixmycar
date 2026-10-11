@@ -54,3 +54,16 @@ describe("jsonLdString", () => {
     expect(jsonLdString({ a: "</script><script>alert(1)" })).not.toContain("</script>")
   })
 })
+
+describe("site-level JSON-LD", () => {
+  it("builds Organization, WebSite and BreadcrumbList without inventing facts", async () => {
+    const { organizationJsonLd, websiteJsonLd, breadcrumbJsonLd, garageListJsonLd } = await import("./seo")
+    expect(organizationJsonLd()).toMatchObject({ "@type": "Organization", name: "Quote My Garage" })
+    expect(Object.keys(organizationJsonLd())).not.toContain("aggregateRating")
+    expect(websiteJsonLd().potentialAction.target.urlTemplate).toContain("/search?location={search_term_string}")
+    const crumbs = breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: "Leeds", path: "/garages/leeds" }])
+    expect(crumbs.itemListElement.map((c) => c.position)).toEqual([1, 2])
+    expect(crumbs.itemListElement[1].item).toMatch(/\/garages\/leeds$/)
+    expect(garageListJsonLd([{ name: "A", slug: "a" }]).itemListElement[0].url).toMatch(/\/garage\/a$/)
+  })
+})

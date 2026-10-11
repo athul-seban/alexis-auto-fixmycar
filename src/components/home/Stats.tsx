@@ -1,37 +1,18 @@
-import { Building2, Users, PoundSterling, Star, TrendingUp } from "lucide-react"
+import { Building2, CheckCircle2, Star, MessageSquareText } from "lucide-react"
+import { getHomeStats } from "@/lib/home-data"
 
-const stats = [
-  {
-    icon: Building2,
-    value: "15,000+",
-    label: "Verified Garages",
-    sub: "Nationwide network",
-    color: "#60A5FA",
-  },
-  {
-    icon: Users,
-    value: "500K+",
-    label: "Happy Customers",
-    sub: "And growing every day",
-    color: "#34D399",
-  },
-  {
-    icon: PoundSterling,
-    value: "£110",
-    label: "Average Saving",
-    sub: "Per booking vs dealership",
-    color: "#F97316",
-  },
-  {
-    icon: Star,
-    value: "4.8/5",
-    label: "Customer Rating",
-    sub: "Based on 50,000+ reviews",
-    color: "#FBBF24",
-  },
-]
+const MIN_STATS = 2
 
-export function Stats() {
+/** Live marketplace numbers. A figure that is zero is left out, and the section hides if fewer than two remain. */
+export async function Stats() {
+  const h = await getHomeStats()
+  const stats = [
+    { icon: Building2, value: h.garages.toLocaleString("en-GB"), label: h.garages === 1 ? "Garage" : "Garages", sub: "Approved and listed", color: "#60A5FA", show: h.garages > 0 },
+    { icon: CheckCircle2, value: h.completedJobs.toLocaleString("en-GB"), label: h.completedJobs === 1 ? "Job completed" : "Jobs completed", sub: "Booked through the site", color: "#34D399", show: h.completedJobs > 0 },
+    { icon: MessageSquareText, value: h.reviews.toLocaleString("en-GB"), label: h.reviews === 1 ? "Customer review" : "Customer reviews", sub: "From completed bookings", color: "#F97316", show: h.reviews > 0 },
+    { icon: Star, value: h.averageRating !== null ? `${h.averageRating.toFixed(1)}/5` : "", label: "Average rating", sub: `Across ${h.reviews.toLocaleString("en-GB")} review${h.reviews === 1 ? "" : "s"}`, color: "#FBBF24", show: h.averageRating !== null },
+  ].filter((x) => x.show)
+  if (stats.length < MIN_STATS) return null
   return (
     <section
       className="py-20 relative overflow-hidden"
@@ -57,14 +38,14 @@ export function Stats() {
             className="text-xs font-bold uppercase tracking-[0.15em] mb-3 inline-block"
             style={{ color: "#F97316" }}
           >
-            By the Numbers
+            Quote My Garage in numbers
           </span>
           <h2 className="text-3xl md:text-4xl font-extrabold text-white">
-            The UK&apos;s Largest Car Repair Marketplace
+            Real garages. Real bookings. Real reviews.
           </h2>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
           {stats.map((stat, index) => (
             <div
               key={index}
@@ -91,14 +72,6 @@ export function Stats() {
               <div className="text-xs text-blue-400">{stat.sub}</div>
             </div>
           ))}
-        </div>
-
-        {/* Trending indicator */}
-        <div className="flex items-center justify-center gap-2 mt-8 text-emerald-400">
-          <TrendingUp className="h-4 w-4" />
-          <span className="text-sm font-medium text-emerald-400/80">
-            500 new garages joined this month
-          </span>
         </div>
       </div>
     </section>

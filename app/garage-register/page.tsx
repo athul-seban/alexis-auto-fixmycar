@@ -105,7 +105,7 @@ export default function GarageRegisterPage() {
             <span className="text-xl font-bold text-white">Fix<span className="text-[#F97316]">MyCar</span></span>
           </Link>
           <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Register Your Garage</h1>
-          <p className="text-blue-200 text-sm">Join 15,000+ garages. Free to register. No monthly fees.</p>
+          <p className="text-blue-200 text-sm">Free to register. Get found by local customers.</p>
         </div>
       </div>
 

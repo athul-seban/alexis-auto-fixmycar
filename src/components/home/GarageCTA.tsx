@@ -66,7 +66,7 @@ export function GarageCTA() {
               </span>
             </h2>
             <p className="text-blue-200/80 text-lg mb-8 leading-relaxed max-w-lg">
-              Join <strong className="text-white">15,000+ garages</strong> already on Quote My Garage.
+              Get found by local customers on <strong className="text-white">Quote My Garage</strong>.
               Reach thousands of local customers searching for exactly the services you offer.
             </p>
 

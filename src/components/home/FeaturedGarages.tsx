@@ -1,76 +1,6 @@
 import Link from "next/link"
+import { getFeaturedGarages, type FeaturedGarage } from "@/lib/home-data"
 import { MapPin, Star, Shield, Clock, ChevronRight, Car, Award } from "lucide-react"
-
-const garages = [
-  {
-    id: "1",
-    name: "Premier Auto Services",
-    slug: "premier-auto-services",
-    city: "London",
-    postcode: "SW1A 1AA",
-    rating: 4.9,
-    reviews: 342,
-    isVerified: true,
-    isMobile: false,
-    services: ["MOT", "Full Service", "Brakes"],
-    priceRange: "££",
-    responseTime: "< 1 hour",
-    description: "Family-run garage with 20+ years of experience. Specialists in all makes and models.",
-    initials: "PA",
-    accentColor: "#3B82F6",
-  },
-  {
-    id: "2",
-    name: "QuickFix Mobile Mechanics",
-    slug: "quickfix-mobile",
-    city: "Manchester",
-    postcode: "M1 1AA",
-    rating: 4.8,
-    reviews: 218,
-    isVerified: true,
-    isMobile: true,
-    services: ["Diagnostics", "Battery", "Tyres"],
-    priceRange: "£",
-    responseTime: "Same day",
-    description: "Mobile mechanics who come to you. Available 7 days a week across Manchester.",
-    initials: "QF",
-    accentColor: "#10B981",
-  },
-  {
-    id: "3",
-    name: "Elite Car Care Centre",
-    slug: "elite-car-care",
-    city: "Birmingham",
-    postcode: "B1 1AA",
-    rating: 4.7,
-    reviews: 185,
-    isVerified: true,
-    isMobile: false,
-    services: ["MOT", "Cambelt", "Clutch"],
-    priceRange: "£££",
-    responseTime: "< 2 hours",
-    description: "Award-winning garage specialising in premium and performance vehicles.",
-    initials: "EC",
-    accentColor: "#8B5CF6",
-  },
-  {
-    id: "4",
-    name: "Citygate Garage",
-    slug: "citygate-garage",
-    city: "Leeds",
-    postcode: "LS1 1AA",
-    rating: 4.6,
-    reviews: 156,
-    isVerified: false,
-    isMobile: false,
-    services: ["Full Service", "Exhaust", "Air Con"],
-    priceRange: "££",
-    responseTime: "< 3 hours",
-    description: "Trusted local garage serving Leeds for over 15 years. Free collection available.",
-    initials: "CG",
-    accentColor: "#F97316",
-  },
-]
 
 function StarRow({ rating }: { rating: number }) {
   return (
@@ -87,7 +17,14 @@ function StarRow({ rating }: { rating: number }) {
   )
 }
 
-export function FeaturedGarages() {
+const ACCENTS = ["#3B82F6", "#10B981", "#8B5CF6", "#F97316", "#14B8A6", "#F43F5E"]
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("")
+const accentFor = (g: FeaturedGarage) => ACCENTS[[...g.slug].reduce((n, c) => n + c.charCodeAt(0), 0) % ACCENTS.length]
+
+export async function FeaturedGarages() {
+  const garages = await getFeaturedGarages(4)
+  // Nothing real to show yet: leave the section out rather than fill it with placeholders.
+  if (garages.length === 0) return null
   return (
     <section className="py-24 bg-[#F8FAFC] dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -100,7 +37,7 @@ export function FeaturedGarages() {
               Featured Garages
             </h2>
             <p className="text-slate-500 dark:text-slate-400 mt-2">
-              Hand-picked, vetted garages with outstanding customer reviews.
+              Garages on Quote My Garage, ranked by customer reviews.
             </p>
           </div>
           <Link
@@ -123,9 +60,9 @@ export function FeaturedGarages() {
                 {/* Avatar */}
                 <div
                   className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-black text-lg flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
-                  style={{ background: `linear-gradient(135deg, ${garage.accentColor}dd, ${garage.accentColor})` }}
+                  style={{ background: `linear-gradient(135deg, ${accentFor(garage)}dd, ${accentFor(garage)})` }}
                 >
-                  {garage.initials}
+                  {initials(garage.name)}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -135,6 +72,11 @@ export function FeaturedGarages() {
                       {garage.name}
                     </h3>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {garage.featured && (
+                        <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-100 dark:border-amber-500/30">
+                          Featured
+                        </span>
+                      )}
                       {garage.isVerified && (
                         <span className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-100 dark:border-blue-500/30">
                           <Shield className="h-2.5 w-2.5" />
@@ -154,30 +96,34 @@ export function FeaturedGarages() {
                   <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 mb-2">
                     <MapPin className="h-3 w-3 flex-shrink-0" />
                     <span>{garage.city}, {garage.postcode}</span>
-                    <span className="mx-1">·</span>
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">{garage.priceRange}</span>
                   </div>
 
                   {/* Description */}
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3 line-clamp-2">
-                    {garage.description}
+                    {garage.description ?? `${garage.name} in ${garage.city}.`}
                   </p>
 
                   {/* Bottom row */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <StarRow rating={garage.rating} />
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{garage.rating}</span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">({garage.reviews})</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
-                      <Clock className="h-3 w-3" />
-                      {garage.responseTime}
-                    </div>
+                    {garage.reviews > 0 ? (
+                      <div className="flex items-center gap-1.5">
+                        <StarRow rating={garage.rating} />
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{garage.rating}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400">({garage.reviews})</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-500 dark:text-slate-400">New on Quote My Garage</span>
+                    )}
+                    {garage.responseTime && (
+                      <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                        <Clock className="h-3 w-3" />
+                        {garage.responseTime}
+                      </div>
+                    )}
                   </div>
 
                   {/* Service tags */}
-                  <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-50 dark:border-white/10">
+                  <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-50 dark:border-white/10" hidden={garage.services.length === 0}>
                     {garage.services.map((s) => (
                       <span
                         key={s}
@@ -196,7 +142,7 @@ export function FeaturedGarages() {
         {/* Bottom CTA */}
         <div className="text-center mt-8">
           <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">
-            Over <strong className="text-slate-800 dark:text-slate-100">15,000 verified garages</strong> across the UK — find the right one near you.
+            Search by location and service to find the right garage near you.
           </p>
           <Link
             href="/search"

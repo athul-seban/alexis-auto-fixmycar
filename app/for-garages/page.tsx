@@ -84,7 +84,7 @@ export default function ForGaragesPage() {
               </span>
             </h1>
             <p className="text-blue-200/80 text-lg mb-8 leading-relaxed max-w-2xl mx-auto">
-              Join <strong className="text-white">15,000+ garages</strong> already on Quote My Garage.
+              Get found by local customers on <strong className="text-white">Quote My Garage</strong>.
               Reach thousands of local customers searching for exactly the services you offer.
             </p>
             <div className="flex flex-wrap justify-center gap-3">

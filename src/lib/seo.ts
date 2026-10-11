@@ -95,3 +95,47 @@ export function articleJsonLd(a: SeoArticle) {
     publisher: { "@type": "Organization", name: "Quote My Garage" },
   }
 }
+
+/** schema.org Organization for the whole site (home page). Only facts we actually hold. */
+export function organizationJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Quote My Garage",
+    url: absoluteUrl("/"),
+    logo: absoluteUrl("/icons/512"),
+  }
+}
+
+/** schema.org WebSite, with a sitelinks search box that points at the real search page. */
+export function websiteJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Quote My Garage",
+    url: absoluteUrl("/"),
+    potentialAction: {
+      "@type": "SearchAction",
+      target: { "@type": "EntryPoint", urlTemplate: absoluteUrl("/search?location={search_term_string}") },
+      "query-input": "required name=search_term_string",
+    },
+  }
+}
+
+/** schema.org BreadcrumbList; `path` is site-relative. The last crumb is the current page. */
+export function breadcrumbJsonLd(crumbs: { name: string; path: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: crumbs.map((c, i) => ({ "@type": "ListItem", position: i + 1, name: c.name, item: absoluteUrl(c.path) })),
+  }
+}
+
+/** schema.org ItemList of garage pages, for a location landing page. */
+export function garageListJsonLd(garages: { name: string; slug: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: garages.map((g, i) => ({ "@type": "ListItem", position: i + 1, name: g.name, url: absoluteUrl(`/garage/${g.slug}`) })),
+  }
+}

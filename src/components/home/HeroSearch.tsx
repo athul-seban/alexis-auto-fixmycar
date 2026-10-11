@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, MapPin, Car, ChevronDown, Star, Shield, CheckCircle, TrendingDown, Zap } from "lucide-react"
+import { Search, MapPin, Car, ChevronDown, Check, CheckCircle, Star, Shield, TrendingDown, Zap } from "lucide-react"
 
 const services = [
   { value: "", label: "All Services" },
@@ -22,12 +22,6 @@ const services = [
 ]
 
 const popularSearches = ["MOT Test", "Full Service", "Brakes", "Tyres", "Diagnostics"]
-
-const floatingStats = [
-  { label: "Saved today", value: "£8,420", icon: TrendingDown, color: "text-green-400" },
-  { label: "Quotes sent", value: "1,247", icon: Zap, color: "text-yellow-400" },
-  { label: "Garages online", value: "342", icon: CheckCircle, color: "text-blue-400" },
-]
 
 export function HeroSearch() {
   const router = useRouter()
@@ -74,12 +68,8 @@ export function HeroSearch() {
           <div>
             {/* Rating pill */}
             <div className="inline-flex items-center gap-2.5 bg-white/8 backdrop-blur-md border border-white/12 rounded-full px-4 py-2 mb-7">
-              <div className="flex gap-0.5">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Star key={i} className="h-3.5 w-3.5 fill-emerald-400 text-emerald-400" />
-                ))}
-              </div>
-              <span className="text-white/90 text-sm font-medium">Excellent · 4.8 · 50,000+ reviews</span>
+              <Check className="h-4 w-4 text-emerald-400" aria-hidden />
+              <span className="text-white/90 text-sm font-medium">Free to compare · No obligation</span>
             </div>
 
             <h1 className="text-4xl md:text-5xl lg:text-[3.5rem] font-extrabold text-white leading-[1.1] mb-5 tracking-tight">
@@ -101,10 +91,9 @@ export function HeroSearch() {
             </h1>
 
             <p className="text-blue-200/80 text-lg leading-relaxed mb-8 max-w-lg">
-              Compare instant quotes from{" "}
-              <span className="text-white font-semibold">15,000+ vetted garages</span> and mobile
-              mechanics. Save an average of{" "}
-              <span className="text-[#F97316] font-bold">£110</span> on every job.
+              Compare quotes from{" "}
+              <span className="text-white font-semibold">local garages</span> and mobile
+              mechanics, read real customer reviews and book online — all in one place.
             </p>
 
             {/* Search Form */}
@@ -229,40 +218,13 @@ export function HeroSearch() {
 
           {/* RIGHT — Stats & Social Proof */}
           <div className="hidden lg:flex flex-col gap-4">
-            {/* Live stats card */}
-            <div
-              className="rounded-2xl p-5"
-              style={{
-                background: "rgba(255,255,255,0.06)",
-                backdropFilter: "blur(20px)",
-                border: "1px solid rgba(255,255,255,0.1)",
-              }}
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-400" />
-                </span>
-                <span className="text-white/60 text-xs font-medium uppercase tracking-wider">Live Activity</span>
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                {floatingStats.map((stat) => (
-                  <div key={stat.label} className="text-center">
-                    <stat.icon className={`h-5 w-5 ${stat.color} mx-auto mb-1.5`} />
-                    <div className="text-xl font-bold text-white">{stat.value}</div>
-                    <div className="text-white/50 text-xs">{stat.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Trust pillars */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { icon: Shield, label: "All Vetted", sub: "Every garage verified", color: "text-blue-400" },
-                { icon: Star, label: "Real Reviews", sub: "100% genuine ratings", color: "text-yellow-400" },
-                { icon: TrendingDown, label: "Save Money", sub: "Avg. saving of £110", color: "text-green-400" },
-                { icon: Zap, label: "Fast Quotes", sub: "Response in 1 hr", color: "text-orange-400" },
+                { icon: Shield, label: "Approved Garages", sub: "Reviewed before they're listed", color: "text-blue-400" },
+                { icon: Star, label: "Real Reviews", sub: "Only from completed bookings", color: "text-yellow-400" },
+                { icon: TrendingDown, label: "Compare Prices", sub: "See quotes side by side", color: "text-green-400" },
+                { icon: Zap, label: "Ask Once", sub: "Request a quote from several garages", color: "text-orange-400" },
               ].map((item) => (
                 <div
                   key={item.label}

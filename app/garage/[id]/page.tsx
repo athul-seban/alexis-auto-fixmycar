@@ -6,7 +6,8 @@ import { GarageProfilePage } from "@/components/garage/GarageProfilePage"
 import { prisma } from "@/lib/prisma"
 import { parseImageList } from "@/lib/garage-mapper"
 import { absoluteUrl } from "@/lib/portal/links"
-import { garageJsonLd, jsonLdString, snippet } from "@/lib/seo"
+import { breadcrumbJsonLd, garageJsonLd, jsonLdString, snippet } from "@/lib/seo"
+import { slugify } from "@/lib/locations"
 
 interface Props {
   params: Promise<{ id: string }>
@@ -46,10 +47,25 @@ export default async function GaragePage(props: Props) {
   return (
     <>
       {garage && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: jsonLdString(garageJsonLd(garage, parseImageList(garage.images))) }}
-        />
+        <>
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: jsonLdString(garageJsonLd(garage, parseImageList(garage.images))) }}
+          />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: jsonLdString(
+                breadcrumbJsonLd([
+                  { name: "Home", path: "/" },
+                  { name: "Garages", path: "/garages" },
+                  ...(slugify(garage.city) ? [{ name: garage.city, path: `/garages/${slugify(garage.city)}` }] : []),
+                  { name: garage.name, path: `/garage/${garage.slug}` },
+                ]),
+              ),
+            }}
+          />
+        </>
       )}
       <Header />
       <main className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950">

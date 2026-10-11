@@ -28,7 +28,7 @@ const steps = [
     number: "03",
     title: "Book & Save",
     description:
-      "Book online in seconds. Pay securely after the job is done. Customers save an average of £110 per booking.",
+      "Book online in seconds. Pay the garage directly once the job is done.",
     gradient: "from-emerald-500 to-emerald-600",
     lightBg: "#F0FDF4",
     glowColor: "rgba(16, 185, 129, 0.15)",
@@ -97,8 +97,7 @@ export function HowItWorks() {
         >
           {[
             { value: "No fees", label: "Always free to get quotes" },
-            { value: "< 1 hour", label: "Average first response" },
-            { value: "£110", label: "Average customer saving" },
+            { value: "No obligation", label: "Choose the quote that suits you" },
           ].map((item, i) => (
             <div key={i} className="flex items-center gap-3">
               {i > 0 && <div className="hidden sm:block w-px h-8 bg-white/20" />}

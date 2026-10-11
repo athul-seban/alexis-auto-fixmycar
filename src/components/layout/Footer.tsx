@@ -1,38 +1,30 @@
 import { DevelopedBy } from "@/components/layout/DevelopedBy"
 import Link from "next/link"
-import { Wrench, Phone, Mail, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react"
+import { Wrench } from "lucide-react"
 
+// Only links to pages that exist. Legal pages, contact details and social profiles are added once the business
+// supplies them; until then they are left out rather than linking to 404s or placeholders.
 const footerLinks = {
   services: [
-    { label: "MOT Test", href: "/services/mot" },
-    { label: "Full Service", href: "/services/full-service" },
-    { label: "Brakes", href: "/services/brakes" },
-    { label: "Tyres", href: "/services/tyres" },
-    { label: "Diagnostics", href: "/services/diagnostics" },
-    { label: "Engine Repair", href: "/services/engine-repair" },
-    { label: "Clutch", href: "/services/clutch" },
-    { label: "Cambelt", href: "/services/cambelt" },
+    { label: "MOT Test", href: "/search?service=MOT" },
+    { label: "Full Service", href: "/search?service=FULL_SERVICE" },
+    { label: "Brakes", href: "/search?service=BRAKES" },
+    { label: "Tyres", href: "/search?service=TYRES" },
+    { label: "Diagnostics", href: "/search?service=DIAGNOSTICS" },
+    { label: "Repairs", href: "/search?service=REPAIR" },
+    { label: "Clutch", href: "/search?service=CLUTCH" },
+    { label: "Cambelt", href: "/search?service=CAMBELT" },
   ],
   company: [
-    { label: "About Us", href: "/about" },
     { label: "How It Works", href: "/how-it-works" },
-    { label: "Blog", href: "/blog" },
-    { label: "Press", href: "/press" },
-    { label: "Careers", href: "/careers" },
-    { label: "Contact", href: "/contact" },
+    { label: "Guides & Blog", href: "/blog" },
+    { label: "Find Garages by Location", href: "/garages" },
+    { label: "Post a Job", href: "/post-job" },
   ],
   forGarages: [
     { label: "List Your Garage", href: "/garage-register" },
     { label: "Garage Login", href: "/login?type=garage" },
-    { label: "Become Verified", href: "/for-garages/verified" },
-    { label: "Pricing", href: "/for-garages/pricing" },
-    { label: "Resources", href: "/for-garages/resources" },
-  ],
-  legal: [
-    { label: "Privacy Policy", href: "/privacy" },
-    { label: "Terms of Service", href: "/terms" },
-    { label: "Cookie Policy", href: "/cookies" },
-    { label: "Sitemap", href: "/sitemap" },
+    { label: "Why Join", href: "/for-garages" },
   ],
 }
 
@@ -53,41 +45,8 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-slate-400 text-sm leading-relaxed max-w-xs mb-6">
-              Compare quotes from 15,000+ local garages, mobile mechanics and dealerships.
-              Book online and save on every job.
+              Compare quotes from local garages and mobile mechanics, read real reviews and book online.
             </p>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-slate-400 text-sm">
-                <Phone className="h-4 w-4 text-[#F97316]" />
-                <span>0800 123 4567</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-400 text-sm">
-                <Mail className="h-4 w-4 text-[#F97316]" />
-                <span>support@quotemygarage.com</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-400 text-sm">
-                <MapPin className="h-4 w-4 text-[#F97316]" />
-                <span>London, United Kingdom</span>
-              </div>
-            </div>
-            {/* Social */}
-            <div className="flex items-center gap-3 mt-6">
-              {[
-                { Icon: Facebook, label: "Facebook" },
-                { Icon: Twitter, label: "Twitter" },
-                { Icon: Instagram, label: "Instagram" },
-                { Icon: Linkedin, label: "LinkedIn" },
-              ].map(({ Icon, label }) => (
-                <a
-                  key={label}
-                  href="#"
-                  className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 hover:bg-[#F97316] transition-colors cursor-pointer"
-                  aria-label={label}
-                >
-                  <Icon className="h-4 w-4" />
-                </a>
-              ))}
-            </div>
           </div>
 
           {/* Services */}
@@ -152,17 +111,6 @@ export function Footer() {
                 © {new Date().getFullYear()} Quote My Garage Ltd. All rights reserved. Registered in England & Wales.
               </p>
               <DevelopedBy className="text-xs text-slate-400" linkClassName="text-slate-200 hover:text-white" />
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 md:gap-x-6">
-              {footerLinks.legal.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="text-xs text-slate-400 hover:text-white transition-colors whitespace-nowrap"
-                >
-                  {link.label}
-                </Link>
-              ))}
             </div>
           </div>
         </div>

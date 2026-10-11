@@ -137,7 +137,8 @@ describe("GET /api/garage/overview — today and listing", () => {
     await b(garage.id, { scheduledAt: D("2026-08-20T10:00:00Z"), createdAt: D("2026-08-18T10:00:00Z") })
     await b(garage.id, { scheduledAt: D("2026-08-21T10:00:00Z"), createdAt: D("2026-08-19T10:00:00Z") })
     await b(garage.id, {})
-    await makeWalkInBooking(garage.id, { scheduledAt: new Date(), createdAt: new Date(), status: "CONFIRMED", customerName: "Today Tim" })
+    await // A minute in the past: still "today", but never inside another test file's "starts in the next 24h" reminder window.
+    await makeWalkInBooking(garage.id, { scheduledAt: new Date(Date.now() - 60_000), createdAt: new Date(), status: "CONFIRMED", customerName: "Today Tim" })
     asUser(user.id)
 
     const body = await (await get(RANGE)).json()
