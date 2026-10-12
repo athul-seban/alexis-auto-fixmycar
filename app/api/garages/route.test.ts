@@ -75,6 +75,15 @@ describe("GET /api/garages — best match", () => {
     expect(page2.total).toBe(2)
   })
 
+  it("clamps absurd limit and page values instead of trusting them", async () => {
+    await makeGarage(PREFIX, { key: "only" })
+    const res = await GET(new Request(`http://x/api/garages?city=${PREFIX}city&limit=100000&page=-5`))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.limit).toBe(50)
+    expect(body.page).toBe(1)
+  })
+
   it("never lists garages that aren't approved", async () => {
     await makeGarage(PREFIX, { key: "pending", status: "PENDING" })
     expect((await search()).total).toBe(0)

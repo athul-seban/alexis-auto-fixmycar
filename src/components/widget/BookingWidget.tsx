@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useTheme } from "next-themes"
 import { ArrowLeft, CalendarCheck, CheckCircle2, Clock, Loader2, Phone, Wrench } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ConsentNotice } from "@/components/shared/ConsentNotice"
 import { addDays, formatCivilDate, formatLondonLongDate, formatLondonTime, todayLondon } from "@/lib/portal/tz"
 import { useApi } from "@/hooks/use-api"
 
@@ -72,7 +74,9 @@ export function BookingWidget({ slug }: { slug: string }) {
 
   const accentParam = search.get("accent")
   const accent = accentParam && HEX6.test(accentParam) ? accentParam : config.settings.accent
-  return <Flow slug={slug} config={config} accent={accent} />
+  // When a visitor arrives from a garage profile or search, carry their service and registration over.
+  const preset = { service: search.get("service") ?? "", vrm: (search.get("vrm") ?? "").slice(0, 12).toUpperCase(), fromProfile: search.get("from") === "profile" }
+  return <Flow slug={slug} config={config} accent={accent} preset={preset} />
 }
 
 function Shell({ accent, children, garage }: { accent: string; children: React.ReactNode; garage?: WidgetConfig["garage"] }) {
@@ -104,8 +108,13 @@ function Shell({ accent, children, garage }: { accent: string; children: React.R
   )
 }
 
-function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; accent: string }) {
-  const { garage, settings, services } = config
+function Flow({ slug, config, accent, preset }: { slug: string; config: WidgetConfig; accent: string; preset: { service: string; vrm: string; fromProfile: boolean } }) {
+  const { garage, settings } = config
+  // The service the visitor already chose goes first, so it is one tap away.
+  const services = useMemo(
+    () => [...config.services].sort((a, b) => Number(b.serviceType === preset.service) - Number(a.serviceType === preset.service)),
+    [config.services, preset.service]
+  )
   const [step, setStep] = useState<Step>("service")
   const [service, setService] = useState<WidgetService | null>(null)
   const [date, setDate] = useState<string | null>(null)
@@ -114,8 +123,9 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
   const [slot, setSlot] = useState<Slot | null>(null)
   const [notice, setNotice] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const [form, setForm] = useState({ name: "", email: "", phone: "", vrm: "", make: "", model: "", notes: "", website: "" })
+  const [form, setForm] = useState({ name: "", email: "", phone: "", vrm: preset.vrm, make: "", model: "", notes: "", website: "" })
   const [smsOptIn, setSmsOptIn] = useState(false)
+  const [marketingOptIn, setMarketingOptIn] = useState(false)
   const [error, setError] = useState("")
   const [result, setResult] = useState<{ reference: string; scheduledAt: string; status: string; message: string; checkoutUrl?: string | null } | null>(null)
 
@@ -160,7 +170,7 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
       const res = await fetch(`/api/widget/${encodeURIComponent(slug)}/bookings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ service: service.serviceType, start: slot.start, ...form, smsOptIn: config.settings.smsAvailable && smsOptIn }),
+        body: JSON.stringify({ service: service.serviceType, start: slot.start, ...form, smsOptIn: config.settings.smsAvailable && smsOptIn, marketingOptIn }),
       })
       const data = await res.json().catch(() => ({}))
       if (res.status === 409 && data.code === "slot_taken") {
@@ -218,6 +228,11 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
       {/* 1 — service */}
       {step === "service" && (
         <div className="p-5">
+          {preset.fromProfile && (
+            <Link href={`/garage/${slug}`} className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
+              <ArrowLeft className="h-4 w-4" /> Back to {garage.name}
+            </Link>
+          )}
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">What do you need?</h2>
           {services.length === 0 ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">No services are available to book online right now. Please call {garage.phone}.</p>
@@ -227,7 +242,10 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
                 <li key={s.serviceType}>
                   <button type="button" onClick={() => chooseService(s)} className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition-colors hover:border-slate-400 dark:border-slate-700 dark:hover:border-slate-500">
                     <span className="min-w-0">
-                      <span className="block font-semibold text-slate-900 dark:text-white">{s.label}</span>
+                      <span className="block font-semibold text-slate-900 dark:text-white">
+                        {s.label}
+                        {s.serviceType === preset.service && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-300">Your search</span>}
+                      </span>
                       <span className="block text-xs text-slate-500 dark:text-slate-400">
                         About {s.durationMins >= 60 ? `${Math.round((s.durationMins / 60) * 10) / 10}h` : `${s.durationMins} min`}{s.notes ? ` · ${s.notes}` : ""}
                       </span>
@@ -325,6 +343,10 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
               Text me a reminder and any changes to this booking (UK mobiles only)
             </label>
           )}
+          <label className="flex cursor-pointer items-start gap-2 text-xs text-slate-600 dark:text-slate-300">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer" checked={marketingOptIn} onChange={(e) => setMarketingOptIn(e.target.checked)} />
+            Email me service reminders and offers from {garage.name}. You can unsubscribe at any time.
+          </label>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="sm:col-span-1">
               <label htmlFor="w-vrm" className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">Registration *</label>
@@ -350,6 +372,7 @@ function Flow({ slug, config, accent }: { slug: string; config: WidgetConfig; ac
           </div>
 
           {error && <p role="alert" className="text-sm text-red-700 dark:text-red-400">{error}</p>}
+          <ConsentNotice action="booking" className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400" />
           <button type="submit" disabled={submitting} className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl text-sm font-bold transition-opacity disabled:opacity-60" style={btn}>
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             {settings.autoConfirm ? "Confirm booking" : "Request booking"}

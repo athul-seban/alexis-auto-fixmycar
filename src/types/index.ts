@@ -55,6 +55,8 @@ export interface GarageListItem {
   /** Search-only: paid placement, the ranking's pick, and the garage's average time to answer a request. */
   featured?: boolean
   recommended?: boolean
+  /** The garage takes bookings through its online widget. */
+  bookOnline?: boolean
   avgResponseMins?: number | null
 }
 
@@ -127,11 +129,12 @@ export interface Review {
   rating: number
   title: string | null
   comment: string
-  createdAt: Date
+  createdAt: string
   // The garage's public reply, if it has written one.
   reply?: string | null
   repliedAt?: string | null
-  owner: { name: string | null; image: string | null }
+  /** "Sarah M." — first name and last initial only. */
+  author: string
 }
 
 /** A garage's published price for one service (from its Pricing page). */

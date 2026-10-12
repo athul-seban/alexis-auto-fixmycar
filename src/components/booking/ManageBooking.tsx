@@ -236,7 +236,15 @@ export function ManageBooking({ token }: { token: string }) {
       </section>
 
       {b.canReview && (
-        <form onSubmit={review} className={card}>
+        <form
+          onSubmit={review}
+          className={card}
+          id="review"
+          // Arriving from the review-request email (?review=1): bring the form into view.
+          ref={(el) => {
+            if (el && new URLSearchParams(window.location.search).get("review") === "1") el.scrollIntoView({ block: "center" })
+          }}
+        >
           <h2 className="mb-3 text-lg font-bold text-slate-900 dark:text-white">How did {b.garage.name} do?</h2>
           <div role="radiogroup" aria-label="Rating" className="mb-3 flex gap-1">
             {[1, 2, 3, 4, 5].map((i) => (

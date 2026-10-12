@@ -8,7 +8,7 @@ import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { formatLondonDateTime, londonParts } from "@/lib/portal/tz"
 import { getServiceLabel } from "@/lib/utils"
 
-export type SmsKind = "REMINDER" | "CONFIRMED" | "CANCELLED" | "RESCHEDULED"
+export type SmsKind = "REMINDER" | "CONFIRMED" | "CANCELLED" | "RESCHEDULED" | "REVIEW_REQUEST"
 
 /** Texts per booking, however many times it is changed — a runaway loop or a very busy booking can't run up a bill. */
 export const MAX_SMS_PER_BOOKING = 6
@@ -38,6 +38,8 @@ export function smsText(kind: SmsKind, c: TextContext): string {
       return `${c.garage} has confirmed your ${c.service} for ${c.when}.${manage}`
     case "RESCHEDULED":
       return `${c.garage} has moved your ${c.service} to ${c.when}.${manage}`
+    case "REVIEW_REQUEST":
+      return `How was your ${c.service} at ${c.garage}? Leave a quick review: ${c.link ?? ""}`.trim()
     case "CANCELLED":
       return `${c.garage}: your ${c.service} booking for ${c.when} was cancelled. Not expecting this? Call ${c.garagePhone}.`
   }
@@ -61,7 +63,7 @@ export async function notifyCustomerSms(bookingId: string, kind: SmsKind, now: D
     if (!hasFeature(booking.garage, "sms")) return "skipped:garage-off" // texting isn't part of the garage's plan
     const to = toE164Mobile(booking.customerPhone) ?? toE164Mobile(booking.owner?.phone)
     if (!to) return "skipped:no-mobile"
-    if (kind === "REMINDER" && inQuietHours(now)) return "skipped:quiet-hours"
+    if ((kind === "REMINDER" || kind === "REVIEW_REQUEST") && inQuietHours(now)) return "skipped:quiet-hours"
     if ((await prisma.bookingEvent.count({ where: { bookingId, type: "SMS" } })) >= MAX_SMS_PER_BOOKING) return "skipped:cap"
 
     const result = await sendSms({
@@ -71,7 +73,7 @@ export async function notifyCustomerSms(bookingId: string, kind: SmsKind, now: D
         garagePhone: booking.garage.phone,
         service: getServiceLabel(booking.serviceType),
         when: formatLondonDateTime(booking.scheduledAt),
-        link: manageUrl(booking.manageToken),
+        link: manageUrl(booking.manageToken) ? `${manageUrl(booking.manageToken)}${kind === "REVIEW_REQUEST" ? "?review=1" : ""}` : null,
       }),
     })
     // No provider configured (dev/CI): nothing was sent, so nothing is recorded or counted.

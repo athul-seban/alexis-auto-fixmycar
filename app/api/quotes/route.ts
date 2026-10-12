@@ -3,13 +3,17 @@ import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { notifyGarage, notifyUser } from "@/lib/notifications"
-import { garageLinks } from "@/lib/portal/links"
+import { absoluteUrl, garageLinks } from "@/lib/portal/links"
+import { emailGarage } from "@/lib/portal/garage-email"
+import { sendMail } from "@/lib/mail"
+import { garageQuoteRequestEmail, quoteReceivedEmail } from "@/lib/email-templates"
 import { z } from "zod"
+import { SERVICE_TYPES } from "@/lib/constants"
 
 const createSchema = z.object({
   vehicleId: z.string(),
   garageId: z.string(),
-  serviceType: z.string(),
+  serviceType: z.enum(SERVICE_TYPES),
   description: z.string().min(10),
 })
 
@@ -75,6 +79,13 @@ export async function POST(req: Request) {
   try {
     if (user.role === "OWNER" && body.action === "request") {
       const data = createSchema.parse(body)
+      // The vehicle must be the caller's own (the garage gets to see its registration), and the garage must be live.
+      const [vehicle, garage] = await Promise.all([
+        prisma.vehicle.findFirst({ where: { id: data.vehicleId, ownerId: user.id }, select: { id: true } }),
+        prisma.garage.findFirst({ where: { id: data.garageId, status: "APPROVED" }, select: { id: true } }),
+      ])
+      if (!vehicle) return NextResponse.json({ error: "Vehicle not found" }, { status: 404 })
+      if (!garage) return NextResponse.json({ error: "Garage not found" }, { status: 404 })
       const quote = await prisma.quote.create({
         data: {
           ownerId: user.id,
@@ -93,6 +104,18 @@ export async function POST(req: Request) {
         body: `${data.serviceType} request for ${quote.vehicle.year} ${quote.vehicle.make} ${quote.vehicle.model}`,
         link: garageLinks.enquiry(quote.id),
       })
+      const owner = await prisma.user.findUnique({ where: { id: user.id }, select: { name: true } })
+      await emailGarage(data.garageId, "emailEnquiry", (g, t) =>
+        garageQuoteRequestEmail({
+          t,
+          garageName: g.name,
+          customerName: owner?.name ?? null,
+          serviceType: data.serviceType,
+          vehicle: `${quote.vehicle.year} ${quote.vehicle.make} ${quote.vehicle.model} (${quote.vehicle.registration})`,
+          description: data.description,
+          ctaHref: absoluteUrl(garageLinks.enquiry(quote.id)),
+        })
+      )
       return NextResponse.json({ quote }, { status: 201 })
     }
 
@@ -131,6 +154,21 @@ export async function POST(req: Request) {
         body: data.price ? `Quoted £${data.price.toFixed(2)} for your ${quote.serviceType} request` : "New quote received",
         link: `/dashboard?quote=${quote.id}`,
       })
+      const quoteOwner = await prisma.user.findUnique({ where: { id: quote.ownerId }, select: { name: true, email: true, emailNotifications: true } })
+      if (quoteOwner?.emailNotifications) {
+        await sendMail({
+          to: quoteOwner.email,
+          ...quoteReceivedEmail({
+            customerName: quoteOwner.name,
+            garageName: garage.name,
+            serviceType: quote.serviceType,
+            price: data.price,
+            validUntil,
+            notes: data.notes ?? null,
+            ctaHref: absoluteUrl("/dashboard/quotes"),
+          }),
+        })
+      }
       return NextResponse.json({ quote: updated })
     }
 

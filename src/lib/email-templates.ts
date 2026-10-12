@@ -14,7 +14,8 @@ const builtInCopy: Translate = makeTranslator(DEFAULT_MESSAGES.en)
 function rich(t: Translate, key: MessageKey, vars?: Record<string, string | number>): string {
   return e(t(key, vars)).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
 }
-export function wrapper(title: string, bodyHtml: string, ctaHref: string, ctaLabel: string): string {
+/** `footerHtml` goes under the card: unsubscribe links and the sender's identity for mail a customer didn't just ask for. */
+export function wrapper(title: string, bodyHtml: string, ctaHref: string, ctaLabel: string, footerHtml?: string): string {
   return `
   <div style="font-family: -apple-system, Arial, sans-serif; max-width: 560px; margin: 0 auto;">
     <div style="background: #1E3A5F; padding: 24px 32px; border-radius: 12px 12px 0 0;">
@@ -25,6 +26,7 @@ export function wrapper(title: string, bodyHtml: string, ctaHref: string, ctaLab
       <div style="color: #334155; font-size: 14px; line-height: 1.6;">${bodyHtml}</div>
       <a href="${ctaHref}" style="display: inline-block; margin-top: 24px; background: #F97316; color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 24px; border-radius: 8px;">${e(ctaLabel)}</a>
     </div>
+    ${footerHtml ? `<p style="color:#64748b; font-size:12px; line-height:1.5; margin:16px 8px 0;">${footerHtml}</p>` : ""}
   </div>`
 }
 
@@ -208,6 +210,81 @@ export function widgetBookingCustomerEmail({
 
 // ── Garage-facing emails (each respects the garage's notification toggles; see garage-email.ts) ──
 
+/** A guest job request that matches the garage, or that names it directly (`targeted`). */
+export function garageEnquiryEmail({
+  garageName, jobRequest, targeted, t = builtInCopy,
+}: {
+  t?: Translate
+  garageName: string
+  jobRequest: JobRequest
+  targeted: boolean
+}): { subject: string; html: string } {
+  const vars = { service: getServiceLabel(jobRequest.serviceType), city: jobRequest.city, customer: jobRequest.guestName }
+  const subject = t("email.enquiry.subject", vars)
+  const html = wrapper(
+    subject,
+    `<p>${rich(t, "email.greeting", { name: garageName })}</p>
+     <p>${rich(t, targeted ? "email.enquiry.introTargeted" : "email.enquiry.intro", vars)}</p>
+     <p style="background:#f8fafc; border-radius:8px; padding:12px 16px;">${e(jobRequest.description)}</p>
+     <p><strong>Vehicle:</strong> ${jobRequest.year} ${e(jobRequest.make)} ${e(jobRequest.model)} (${e(jobRequest.registration)})<br/>
+     <strong>Location:</strong> ${e(jobRequest.city)}, ${e(jobRequest.postcode)}</p>
+     <p style="color:#64748b; font-size:12px;">${e(t("email.enquiry.outro"))}</p>`,
+    `${APP_URL}/garage-dashboard/enquiries`,
+    t("email.enquiry.cta")
+  )
+  return { subject, html }
+}
+
+/** A signed-in owner asked this garage for a quote. */
+export function garageQuoteRequestEmail({
+  garageName, customerName, serviceType, vehicle, description, ctaHref, t = builtInCopy,
+}: {
+  t?: Translate
+  garageName: string
+  customerName: string | null
+  serviceType: string
+  vehicle: string
+  description: string
+  ctaHref: string
+}): { subject: string; html: string } {
+  const vars = { customer: customerName ?? "A customer", service: getServiceLabel(serviceType), vehicle }
+  const subject = t("email.quoteRequest.subject", vars)
+  const html = wrapper(
+    subject,
+    `<p>${rich(t, "email.greeting", { name: garageName })}</p>
+     <p>${rich(t, "email.quoteRequest.intro", vars)}</p>
+     <p style="background:#f8fafc; border-radius:8px; padding:12px 16px;">${e(description)}</p>
+     <p><strong>Vehicle:</strong> ${e(vehicle)}</p>`,
+    ctaHref,
+    t("email.quoteRequest.cta")
+  )
+  return { subject, html }
+}
+
+/** The garage replied to an owner's quote request with a price. */
+export function quoteReceivedEmail({
+  customerName, garageName, serviceType, price, validUntil, notes, ctaHref,
+}: {
+  customerName: string | null
+  garageName: string
+  serviceType: string
+  price: number
+  validUntil: Date
+  notes: string | null
+  ctaHref: string
+}): { subject: string; html: string } {
+  const subject = `${garageName} sent you a quote: £${price.toFixed(2)}`
+  const html = wrapper(
+    subject,
+    `<p>Hi ${e(customerName ?? "there")},</p>
+     <p><strong>${e(garageName)}</strong> quoted <strong>£${price.toFixed(2)}</strong> for your ${e(getServiceLabel(serviceType))} request. The quote is valid until ${formatDateShort(validUntil)}.</p>
+     ${notes ? `<p style="background:#f8fafc; border-radius:8px; padding:12px 16px;">${e(notes)}</p>` : ""}`,
+    ctaHref,
+    "View your quote"
+  )
+  return { subject, html }
+}
+
 export function garageNewBookingEmail({
   garageName, customerName, serviceType, whenLabel, vehicle, reference, source, ctaHref, t = builtInCopy,
 }: {
@@ -286,8 +363,9 @@ export function vehicleReminderNotification({
     subject,
     `<p>Hi ${e(ownerName ?? "there")},</p>
      <p>Your <strong>${e(make)} ${e(model)}</strong> (${e(registration)}) has a <strong>${label}</strong> due on <strong>${formatDateShort(dueDate)}</strong>.</p>
-     <p>Book ahead to avoid last-minute availability issues.</p>`,
-    `${APP_URL}/search?service=${reminderType === "MOT" ? "MOT" : "FULL_SERVICE"}`,
+     <p>Book ahead to avoid last-minute availability issues.</p>
+     <p style="font-size:12px;color:#64748b">Don't want these? Switch them off in your <a href="${APP_URL}/dashboard/settings">account settings</a>.</p>`,
+    `${APP_URL}/search?service=${reminderType === "MOT" ? "MOT" : "FULL_SERVICE"}&reg=${encodeURIComponent(registration)}`,
     "Find a Garage"
   )
   return { subject, html }
@@ -371,6 +449,73 @@ export function passwordChangedEmail({ name }: { name: string | null }): { subje
      <p>If that was you, there's nothing more to do. If it wasn't, reset your password now and sign out of all devices from your account page.</p>`,
     `${APP_URL}/forgot-password`,
     "Reset my password"
+  )
+  return { subject, html }
+}
+
+type GarageContact = { name: string; phone: string; address: string; city: string; postcode: string }
+
+/** Tells a customer their booking was confirmed, cancelled or moved. `kind` CANCELLED_BY_YOU confirms their own cancel. */
+export function bookingStatusCustomerEmail({
+  kind, garage, customerName, serviceType, whenLabel, previousWhenLabel, vehicle, reason, refundNote, timeConfirmed, manageHref,
+}: {
+  kind: "CONFIRMED" | "CANCELLED" | "RESCHEDULED" | "CANCELLED_BY_YOU"
+  garage: GarageContact
+  customerName: string | null
+  serviceType: string
+  whenLabel: string
+  previousWhenLabel: string | null
+  vehicle: string
+  reason: string | null
+  refundNote: string | null
+  timeConfirmed: boolean
+  manageHref?: string | null
+}): { subject: string; html: string } {
+  const service = getServiceLabel(serviceType)
+  const headline = {
+    CONFIRMED: `Booking confirmed: ${service} at ${garage.name}`,
+    CANCELLED: `Booking cancelled: ${service} at ${garage.name}`,
+    RESCHEDULED: `Your booking has moved: ${service} at ${garage.name}`,
+    CANCELLED_BY_YOU: `You cancelled: ${service} at ${garage.name}`,
+  }[kind]
+  const lead = {
+    CONFIRMED: `<strong>${e(garage.name)}</strong> has confirmed your booking.`,
+    CANCELLED: `Sorry, <strong>${e(garage.name)}</strong> has had to cancel your booking.${reason ? ` Reason given: ${e(reason)}.` : ""} Please call them or book another time.`,
+    RESCHEDULED: `<strong>${e(garage.name)}</strong> has moved your booking${previousWhenLabel ? ` from ${e(previousWhenLabel)}` : ""}. If the new time doesn't suit you, please call them or cancel online.`,
+    CANCELLED_BY_YOU: `Your booking with <strong>${e(garage.name)}</strong> is cancelled.`,
+  }[kind]
+  const when = kind === "CANCELLED" || kind === "CANCELLED_BY_YOU" ? "" : `<strong>When:</strong> ${e(whenLabel)}${timeConfirmed ? "" : " (the garage will confirm the exact time)"}<br/>`
+  const html = wrapper(
+    headline,
+    `<p>Hi ${e(customerName ?? "there")},</p>
+     <p>${lead}</p>
+     <p>${when}<strong>Service:</strong> ${e(service)}${vehicle ? `<br/><strong>Vehicle:</strong> ${e(vehicle)}` : ""}</p>
+     ${refundNote ? `<p>${e(refundNote)}</p>` : ""}
+     <p><strong>${e(garage.name)}:</strong> ${e(garage.address)}, ${e(garage.city)} ${e(garage.postcode)} · ${e(garage.phone)}</p>`,
+    manageHref ?? APP_URL,
+    manageHref ? "View your booking" : "Visit Quote My Garage"
+  )
+  return { subject: headline, html }
+}
+
+/** A day after a completed job: ask for a review. Carries the sender's identity and an unsubscribe link. */
+export function reviewRequestEmail({
+  garage, customerName, serviceType, reviewHref, unsubscribeHref,
+}: {
+  garage: GarageContact
+  customerName: string | null
+  serviceType: string
+  reviewHref: string
+  unsubscribeHref: string
+}): { subject: string; html: string } {
+  const subject = `How was your ${getServiceLabel(serviceType)} at ${garage.name}?`
+  const html = wrapper(
+    subject,
+    `<p>Hi ${e(customerName ?? "there")},</p>
+     <p>Thanks for choosing <strong>${e(garage.name)}</strong>. Whatever you thought, an honest review takes a minute and helps other drivers choose a garage they can trust.</p>`,
+    reviewHref,
+    "Leave a review",
+    `You're getting this because you booked with ${e(garage.name)}, ${e(garage.address)}, ${e(garage.city)} ${e(garage.postcode)} through Quote My Garage. <a href="${unsubscribeHref}" style="color:#64748b;">Unsubscribe</a> from emails like this.`
   )
   return { subject, html }
 }

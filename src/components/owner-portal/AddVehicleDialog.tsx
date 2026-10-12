@@ -12,10 +12,24 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   onAdded: (vehicle: OwnerVehicle) => void
+  /** When set the dialog edits this vehicle instead of adding one. Remount (change `key`) to switch vehicle. */
+  vehicle?: OwnerVehicle | null
 }
 
-export function AddVehicleDialog({ open, onOpenChange, onAdded }: Props) {
-  const [f, setF] = useState({ registration: "", make: "", model: "", year: String(new Date().getFullYear()), fuel: "", mileage: "", motDueDate: "", serviceDueDate: "" })
+const dateInput = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : "")
+
+export function AddVehicleDialog({ open, onOpenChange, onAdded, vehicle }: Props) {
+  const editing = !!vehicle
+  const [f, setF] = useState({
+    registration: vehicle?.registration ?? "",
+    make: vehicle?.make ?? "",
+    model: vehicle?.model ?? "",
+    year: String(vehicle?.year ?? new Date().getFullYear()),
+    fuel: vehicle?.fuel ?? "",
+    mileage: vehicle?.mileage ? String(vehicle.mileage) : "",
+    motDueDate: dateInput(vehicle?.motDueDate),
+    serviceDueDate: dateInput(vehicle?.serviceDueDate),
+  })
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const set = (key: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF((cur) => ({ ...cur, [key]: e.target.value }))
@@ -25,7 +39,7 @@ export function AddVehicleDialog({ open, onOpenChange, onAdded }: Props) {
     if (!f.registration.trim() || !f.make.trim() || !f.model.trim()) return setError("Registration, make and model are required")
     setBusy(true)
     setError("")
-    const res = await sendJson<{ vehicle: OwnerVehicle }>("/api/vehicles", "POST", {
+    const body = {
       registration: f.registration.trim(),
       make: f.make.trim(),
       model: f.model.trim(),
@@ -34,19 +48,29 @@ export function AddVehicleDialog({ open, onOpenChange, onAdded }: Props) {
       mileage: f.mileage ? parseInt(f.mileage, 10) : undefined,
       motDueDate: f.motDueDate ? new Date(f.motDueDate).toISOString() : undefined,
       serviceDueDate: f.serviceDueDate ? new Date(f.serviceDueDate).toISOString() : undefined,
-    })
+    }
+    // When editing, a cleared field must be sent as null or the old value would stay.
+    const res = editing
+      ? await sendJson<{ vehicle: OwnerVehicle }>(`/api/vehicles/${vehicle!.id}`, "PATCH", {
+          ...body,
+          fuel: f.fuel || null,
+          mileage: f.mileage ? parseInt(f.mileage, 10) : null,
+          motDueDate: body.motDueDate ?? null,
+          serviceDueDate: body.serviceDueDate ?? null,
+        })
+      : await sendJson<{ vehicle: OwnerVehicle }>("/api/vehicles", "POST", body)
     setBusy(false)
-    if (!res.ok || !res.data) return setError(res.error ?? "Failed to add vehicle")
+    if (!res.ok || !res.data) return setError(res.error ?? (editing ? "Failed to save vehicle" : "Failed to add vehicle"))
     onAdded(res.data.vehicle)
-    setF((cur) => ({ ...cur, registration: "", make: "", model: "", fuel: "", mileage: "", motDueDate: "", serviceDueDate: "" }))
+    if (!editing) setF((cur) => ({ ...cur, registration: "", make: "", model: "", fuel: "", mileage: "", motDueDate: "", serviceDueDate: "" }))
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add a vehicle</DialogTitle>
-          <DialogDescription>We&apos;ll remind you when its MOT or service is due.</DialogDescription>
+          <DialogTitle>{editing ? "Edit vehicle" : "Add a vehicle"}</DialogTitle>
+          <DialogDescription>{editing ? "Keep the MOT and service dates right so your reminders are too." : "We'll remind you when its MOT or service is due."}</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
           <div>
@@ -100,7 +124,7 @@ export function AddVehicleDialog({ open, onOpenChange, onAdded }: Props) {
           </div>
           <FieldError>{error}</FieldError>
           <Button type="submit" variant="primary" className="w-full" loading={busy}>
-            Add vehicle
+            {editing ? "Save changes" : "Add vehicle"}
           </Button>
         </form>
       </DialogContent>

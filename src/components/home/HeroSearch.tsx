@@ -22,6 +22,8 @@ const services = [
   { value: "BATTERY", icon: "🔋" },
   { value: "WINDSCREEN", icon: "🪟" },
   { value: "AIR_CON", icon: "❄️" },
+  { value: "MINOR_SERVICE", icon: "🛠️" },
+  { value: "ELECTRIC_SERVICE", icon: "⚡" },
 ] as const
 
 const popularSearches = ["MOT", "FULL_SERVICE", "BRAKES", "TYRES", "DIAGNOSTICS"] as const

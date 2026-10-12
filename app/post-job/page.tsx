@@ -1,28 +1,17 @@
 "use client"
 
 import { VehicleLookup } from "@/components/shared/VehicleLookup"
-import { useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Wrench, CheckCircle, AlertCircle, Car, User, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ConsentNotice } from "@/components/shared/ConsentNotice"
 import { getServiceLabel } from "@/lib/utils"
+import { SERVICE_OPTIONS } from "@/lib/service-options"
 
-const serviceOptions = [
-  { value: "MOT", label: "MOT Test" },
-  { value: "FULL_SERVICE", label: "Full Service" },
-  { value: "INTERIM_SERVICE", label: "Interim Service" },
-  { value: "BRAKES", label: "Brakes" },
-  { value: "TYRES", label: "Tyres" },
-  { value: "REPAIR", label: "Engine Repair" },
-  { value: "DIAGNOSTICS", label: "Diagnostics" },
-  { value: "CLUTCH", label: "Clutch" },
-  { value: "CAMBELT", label: "Cambelt" },
-  { value: "EXHAUST", label: "Exhaust" },
-  { value: "BATTERY", label: "Battery" },
-  { value: "WINDSCREEN", label: "Windscreen" },
-  { value: "AIR_CON", label: "Air Con" },
-]
+const serviceOptions = SERVICE_OPTIONS
 
 const fuelOptions = ["Petrol", "Diesel", "Hybrid", "Electric"]
 
@@ -34,14 +23,44 @@ interface JobRequestResult {
 }
 
 export default function PostJobPage() {
+  // useSearchParams needs a Suspense boundary.
+  return (
+    <Suspense>
+      <PostJobForm />
+    </Suspense>
+  )
+}
+
+function PostJobForm() {
+  const search = useSearchParams()
+  const presetService = search.get("service") ?? ""
+  // Set when the visitor came from one garage's profile: the request then goes to that garage only.
+  const [garageSlug, setGarageSlug] = useState<string | null>(search.get("garage"))
+  const [garageName, setGarageName] = useState("")
+  useEffect(() => {
+    if (!garageSlug) return
+    let cancelled = false
+    fetch(`/api/garages/${encodeURIComponent(garageSlug)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled) return
+        if (d?.garage) setGarageName(d.garage.name)
+        else setGarageSlug(null) // unknown or unlisted garage: fall back to the normal flow
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [garageSlug])
+
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [result, setResult] = useState<JobRequestResult | null>(null)
 
   const [form, setForm] = useState({
-    registration: "", make: "", model: "", year: "", fuel: "", mileage: "",
-    serviceType: "", description: "", city: "", postcode: "",
+    registration: (search.get("reg") ?? "").slice(0, 12).toUpperCase(), make: "", model: "", year: "", fuel: "", mileage: "",
+    serviceType: SERVICE_OPTIONS.some((o) => o.value === presetService) ? presetService : "", description: "", city: "", postcode: "",
     isMobilePreferred: false, preferredDate: "",
     guestName: "", guestEmail: "", guestPhone: "",
   })
@@ -63,6 +82,7 @@ export default function PostJobPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          garageSlug: garageSlug ?? undefined,
           year: parseInt(form.year, 10),
           mileage: form.mileage ? parseInt(form.mileage, 10) : undefined,
           fuel: form.fuel || undefined,
@@ -89,7 +109,9 @@ export default function PostJobPage() {
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Your request is live!</h2>
           <p className="text-slate-600 dark:text-slate-400 mb-2">
             {result.matchedGarageCount > 0
-              ? `We've notified ${result.matchedGarageCount} garage${result.matchedGarageCount === 1 ? "" : "s"} near you.`
+              ? garageSlug && garageName
+                ? `We've sent your request to ${garageName}.`
+                : `We've notified ${result.matchedGarageCount} garage${result.matchedGarageCount === 1 ? "" : "s"} near you.`
               : "We're still finding garages near you — check back soon."}
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
@@ -117,6 +139,14 @@ export default function PostJobPage() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6">
+        {garageSlug && garageName && (
+          <p className="mb-4 rounded-lg bg-blue-50 px-4 py-3 text-sm text-slate-700 dark:bg-white/5 dark:text-slate-300">
+            Your request goes to <strong>{garageName}</strong> only.{" "}
+            <button type="button" onClick={() => setGarageSlug(null)} className="cursor-pointer font-semibold text-[#1E3A5F] underline dark:text-orange-300">
+              Send it to nearby garages instead
+            </button>
+          </p>
+        )}
         <div className="flex items-center gap-2 mb-3 sm:mb-8">
           {[1, 2, 3].map((s) => (
             <div key={s} aria-current={step === s ? "step" : undefined} className={`flex items-center gap-2 flex-1 ${s < 3 ? "after:flex-1 after:h-0.5 after:bg-gray-200 dark:after:bg-slate-700 after:ml-2" : ""}`}>
@@ -267,6 +297,7 @@ export default function PostJobPage() {
               </div>
             )}
 
+            {step === 3 && <ConsentNotice action="posting this job" className="mt-6 text-xs leading-relaxed text-slate-500 dark:text-slate-400" />}
             <div className="flex justify-between mt-8 pt-5 border-t border-gray-100 dark:border-white/10">
               {step > 1 && (
                 <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)}>

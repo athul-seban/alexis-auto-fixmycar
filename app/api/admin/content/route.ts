@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth"
 import { audit } from "@/lib/audit"
 import { LOCALES, isLocale } from "@/lib/i18n/config"
 import { MESSAGE_KEYS, defaultFor, isEnglishOnlyKey, isMessageKey } from "@/lib/i18n/messages"
-import { isBodyKey, sectionLabel, validateContent } from "@/lib/i18n/content-rules"
+import { isBodyKey, sectionLabel, validateContent, validateForPublish } from "@/lib/i18n/content-rules"
 
 async function admin() {
   const session = await getServerSession(authOptions)
@@ -46,6 +46,8 @@ const bodySchema = z.object({
   locale: z.string(),
   action: z.enum(["saveDraft", "publish", "discardDraft", "reset"]),
   text: z.string().optional(),
+  /** Legal pages: the admin confirms a solicitor has reviewed the text being published. */
+  confirmedReviewed: z.boolean().optional(),
 })
 
 /**
@@ -60,7 +62,7 @@ export async function PUT(req: Request) {
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 })
-  const { key, locale, action, text } = parsed.data
+  const { key, locale, action, text, confirmedReviewed } = parsed.data
   if (!isLocale(locale)) return NextResponse.json({ error: "Unknown language" }, { status: 400 })
   if (!isMessageKey(key)) return NextResponse.json({ error: "Unknown content key" }, { status: 400 })
   if (locale !== "en" && isEnglishOnlyKey(key)) return NextResponse.json({ error: "Emails are sent in English only" }, { status: 400 })
@@ -74,12 +76,16 @@ export async function PUT(req: Request) {
     const next = action === "publish" ? (text ?? existing?.draft ?? "") : (text ?? "")
     const problem = validateContent(key, next)
     if (problem) return NextResponse.json({ error: problem }, { status: 400 })
+    if (action === "publish") {
+      const publishProblem = validateForPublish(key, next, { confirmedReviewed: confirmedReviewed === true })
+      if (publishProblem) return NextResponse.json({ error: publishProblem }, { status: 400 })
+    }
     if (action === "saveDraft") {
       await prisma.contentEntry.upsert({ where, update: { ...base, draft: next }, create: { key, locale, value: "", draft: next, ...base } })
       detail = "Saved a draft"
     } else {
       await prisma.contentEntry.upsert({ where, update: { ...base, value: next, draft: null }, create: { key, locale, value: next, draft: null, ...base } })
-      detail = next.trim() === "" ? "Published (cleared)" : "Published"
+      detail = next.trim() === "" ? "Published (cleared)" : isBodyKey(key) ? "Published (confirmed reviewed by a solicitor)" : "Published"
     }
   } else if (action === "discardDraft") {
     if (existing) await prisma.contentEntry.update({ where, data: { ...base, draft: null } })

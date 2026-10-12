@@ -64,6 +64,7 @@ function NewBookingForm({
   const [notes, setNotes] = useState("")
   const [notifyCustomer, setNotifyCustomer] = useState(true)
   const [smsOptIn, setSmsOptIn] = useState(false)
+  const [marketingOptIn, setMarketingOptIn] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [overlap, setOverlap] = useState<OverlapDetails | null>(null)
@@ -92,6 +93,7 @@ function NewBookingForm({
       allowOverlap,
       notifyCustomer: notifyCustomer && !!email.trim(),
       smsOptIn: smsOptIn && !!toE164Mobile(phone),
+      marketingOptIn: marketingOptIn && !!email.trim(),
     })
     setSaving(false)
 
@@ -225,6 +227,10 @@ function NewBookingForm({
           <label className={`flex items-center gap-2 text-sm ${toE164Mobile(phone) ? "text-slate-700 dark:text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
             <input type="checkbox" className="h-4 w-4 rounded border-slate-300" checked={smsOptIn && !!toE164Mobile(phone)} disabled={!toE164Mobile(phone)} onChange={(e) => setSmsOptIn(e.target.checked)} />
             The customer agreed to texts about this booking{!toE164Mobile(phone) && " (needs a UK mobile number)"}
+          </label>
+          <label className={`flex items-center gap-2 text-sm ${email.trim() ? "text-slate-700 dark:text-slate-300" : "text-slate-500 dark:text-slate-400"}`}>
+            <input type="checkbox" className="h-4 w-4 rounded border-slate-300" checked={marketingOptIn && !!email.trim()} disabled={!email.trim()} onChange={(e) => setMarketingOptIn(e.target.checked)} />
+            The customer agreed to emails about reminders and offers{!email.trim() && " (add an email address)"}
           </label>
         </fieldset>
 

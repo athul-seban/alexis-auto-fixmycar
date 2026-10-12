@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/Header"
 import { Footer } from "@/components/layout/Footer"
 import { GarageProfilePage } from "@/components/garage/GarageProfilePage"
 import { prisma } from "@/lib/prisma"
+import { getPublicGarage } from "@/lib/public-garage"
 import { parseImageList } from "@/lib/garage-mapper"
 import { absoluteUrl } from "@/lib/portal/links"
 import { breadcrumbJsonLd, garageJsonLd, jsonLdString, snippet } from "@/lib/seo"
@@ -11,6 +12,7 @@ import { slugify } from "@/lib/locations"
 
 interface Props {
   params: Promise<{ id: string }>
+  searchParams?: Promise<{ service?: string; reg?: string }>
 }
 
 // One query per request, shared by generateMetadata and the page.
@@ -42,7 +44,10 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 export default async function GaragePage(props: Props) {
   const { id } = await props.params
+  const query = (await props.searchParams) ?? {}
   const garage = await loadGarage(id)
+  // Plain data for the client component (dates become strings, exactly as the JSON API returns them).
+  const profile = garage ? JSON.parse(JSON.stringify(await getPublicGarage(id))) : null
 
   return (
     <>
@@ -69,7 +74,11 @@ export default async function GaragePage(props: Props) {
       )}
       <Header />
       <main className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
-        <GarageProfilePage slug={id} />
+        <GarageProfilePage
+          garage={profile}
+          initialService={typeof query.service === "string" ? query.service : undefined}
+          initialReg={typeof query.reg === "string" ? query.reg.slice(0, 12) : undefined}
+        />
       </main>
       <Footer />
     </>

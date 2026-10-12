@@ -8,6 +8,8 @@ import { I18nProvider } from "@/lib/i18n/client"
 import { LOCALES, LOCALE_META, isTranslatedPath, localePath } from "@/lib/i18n/config"
 import { clientMessages, makeTranslator } from "@/lib/i18n/messages"
 import { getLocale, getMessages } from "@/lib/i18n/server"
+import { liveLegalPages } from "@/lib/legal"
+import { LegalLinksProvider } from "@/components/shared/ConsentNotice"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -54,12 +56,15 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale()
   const messages = await getMessages(locale)
+  const legalLinks = (await liveLegalPages(locale)).map((p) => ({ slug: p.slug, title: p.title }))
 
   return (
     <html lang={LOCALE_META[locale].htmlLang} suppressHydrationWarning>
       <body className={inter.className}>
         <I18nProvider locale={locale} messages={clientMessages(messages)}>
-          <Providers>{children}</Providers>
+          <LegalLinksProvider links={legalLinks}>
+            <Providers>{children}</Providers>
+          </LegalLinksProvider>
         </I18nProvider>
         <RegisterServiceWorker />
       </body>

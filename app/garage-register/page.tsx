@@ -6,23 +6,10 @@ import { useRouter } from "next/navigation"
 import { Wrench, CheckCircle, AlertCircle, Building2, MapPin, Phone, Mail, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ConsentNotice } from "@/components/shared/ConsentNotice"
+import { SEARCH_SERVICE_OPTIONS } from "@/lib/service-options"
 
-const serviceOptions = [
-  { value: "MOT", label: "MOT Test" },
-  { value: "FULL_SERVICE", label: "Full Service" },
-  { value: "INTERIM_SERVICE", label: "Interim Service" },
-  { value: "BRAKES", label: "Brakes" },
-  { value: "TYRES", label: "Tyres" },
-  { value: "REPAIR", label: "Engine Repair" },
-  { value: "DIAGNOSTICS", label: "Diagnostics" },
-  { value: "CLUTCH", label: "Clutch" },
-  { value: "CAMBELT", label: "Cambelt" },
-  { value: "EXHAUST", label: "Exhaust" },
-  { value: "BATTERY", label: "Battery" },
-  { value: "WINDSCREEN", label: "Windscreen" },
-  { value: "AIR_CON", label: "Air Con" },
-  { value: "ELECTRIC_SERVICE", label: "EV Service" },
-]
+const serviceOptions = SEARCH_SERVICE_OPTIONS
 
 export default function GarageRegisterPage() {
   const router = useRouter()
@@ -214,6 +201,7 @@ export default function GarageRegisterPage() {
               </div>
             )}
 
+            {step === 3 && <ConsentNotice action="submitting your application" className="mt-6 text-xs leading-relaxed text-slate-500 dark:text-slate-400" />}
             <div className="flex justify-between mt-8 pt-5 border-t border-gray-100 dark:border-white/10">
               {step > 1 && (
                 <Button type="button" variant="outline" onClick={() => setStep(s => s - 1)}>

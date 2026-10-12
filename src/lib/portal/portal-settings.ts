@@ -22,6 +22,12 @@ export const notificationSettingsSchema = z.object({
   emailCancellation: z.boolean().default(true),
   emailReview: z.boolean().default(true),
   emailMessage: z.boolean().default(true),
+  // A customer asked for a quote that matches (or names) this garage.
+  emailEnquiry: z.boolean().default(true),
+  // Email customers when their booking is confirmed, cancelled or moved by the garage.
+  customerEmails: z.boolean().default(true),
+  // Ask customers for a review a day or so after a job is completed.
+  reviewRequests: z.boolean().default(true),
   // Text opted-in customers about their booking (reminder, confirmed, cancelled, moved). Off by default: SMS is billed.
   smsCustomer: z.boolean().default(false),
 })

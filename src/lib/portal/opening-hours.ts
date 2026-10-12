@@ -1,5 +1,6 @@
 import { z } from "zod"
 import type { OpeningHours } from "@/types"
+import { londonDateString, londonTimeString, weekdayOf } from "@/lib/portal/tz"
 
 export const DAY_ORDER = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const
 export type DayKey = (typeof DAY_ORDER)[number]
@@ -53,4 +54,22 @@ export function openingHoursError(hours: OpeningHours): string | null {
   const issue = parsed.error.issues[0]
   const day = DAY_LABELS[issue.path[0] as DayKey] ?? "A day"
   return `${day}: ${issue.message}`
+}
+
+/** The weekday key (monday…sunday) for a Date, in London. */
+function londonDayKey(d: Date): DayKey {
+  // weekdayOf: 0 = Sunday … 6 = Saturday, so shift to the Monday-first DAY_ORDER.
+  return DAY_ORDER[(weekdayOf(londonDateString(d)) + 6) % 7]
+}
+
+/**
+ * Whether a garage with these hours is open at `at`, by London wall-clock time. Hours with no valid times for the day
+ * count as closed. This ignores one-off closures (diary blocks), which only the garage's own diary knows about.
+ */
+export function isOpenAt(hours: OpeningHours | null | undefined, at: Date = new Date()): boolean {
+  if (!hours) return false
+  const day = hours[londonDayKey(at)]
+  if (!day?.open || !HHMM.test(day.from) || !HHMM.test(day.to)) return false
+  const now = londonTimeString(at)
+  return now >= day.from && now < day.to
 }

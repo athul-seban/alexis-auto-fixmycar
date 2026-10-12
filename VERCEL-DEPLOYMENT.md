@@ -46,6 +46,21 @@ becomes optional; new `Booking` columns (portal fields, `manageToken`, `reminder
 `ServicePrice`, `DiaryBlock`, `GarageLead`, `BookingEvent`, `RateLimitHit`, `AuditLog`, `StripeEvent`,
 `CustomerNote`.
 
+### Round 1 feature batch (bug fixes, "Book online", customer emails)
+
+Additive schema changes: `Vehicle.motReminderFor`, `motReminderStage`, `serviceReminderFor`, `serviceReminderStage`;
+`JobRequest.targetGarageId` (+ index); `Booking.reviewRequestedAt`, `Booking.marketingOptIn`; new table `EmailSuppression`.
+
+**Order matters.** Prisma selects every column of a model, so new code running against an old database breaks every
+query on that model. Always: (1) back up the database, (2) rehearse on a Neon branch of production
+(`npx prisma migrate diff --from-url <prod> --to-schema-datamodel prisma/schema.prod.prisma --script` must show only
+`ADD COLUMN`, `CREATE TABLE`, `CREATE INDEX`), (3) `npx prisma db push --schema=prisma/schema.prod.prisma`, (4) only then merge
+to main. Old code against the new schema is fine, so a revert needs no database change.
+
+After deploy: the first vehicle-reminder run sends one catch-up email to owners whose MOT/service is already inside the
+30-day window (it used to send one every day). Legal pages (Admin > Content) stay unpublished until a solicitor-reviewed
+text is published; the register, garage-register, post-job and booking forms link to them once they exist.
+
 ## Scheduled jobs (Vercel Cron, defined in `vercel.json`)
 
 | Path | Schedule | What |
@@ -54,7 +69,7 @@ becomes optional; new `Booking` columns (portal fields, `manageToken`, `reminder
 | `/api/cron/reminders` | daily 07:00 UTC | MOT / service-due reminders |
 
 **Hobby plans only allow daily cron jobs** (a more frequent schedule makes the deploy fail), so these run daily. A daily run
-reminds everyone whose appointment is in the next 24 hours. On a **Pro** plan change `booking-reminders` to hourly
+reminds everyone whose appointment is before the end of tomorrow (London time), and sends review requests a day after completion. On a **Pro** plan change `booking-reminders` to hourly
 (`0 * * * *`) so appointments booked later in the day are reminded closer to the time; it is safe to run more often.
 Make sure `CRON_SECRET` is set, otherwise the routes answer 401.
 

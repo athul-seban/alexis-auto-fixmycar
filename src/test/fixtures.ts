@@ -111,6 +111,7 @@ export async function cleanupPrefix(prefix: string) {
 
   await prisma.message.deleteMany({ where: { OR: [{ garageId: { in: gIds } }, { senderId: { in: uIds } }] } })
   await prisma.review.deleteMany({ where: { OR: [{ garageId: { in: gIds } }, { ownerId: { in: uIds } }] } })
+  await prisma.emailSuppression.deleteMany({ where: { email: { startsWith: prefix } } })
   await prisma.booking.deleteMany({ where: { OR: [{ garageId: { in: gIds } }, { ownerId: { in: uIds } }] } })
   await prisma.quote.deleteMany({ where: { OR: [{ garageId: { in: gIds } }, { ownerId: { in: uIds } }] } })
   await prisma.jobResponse.deleteMany({ where: { garageId: { in: gIds } } })

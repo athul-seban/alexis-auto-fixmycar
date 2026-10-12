@@ -28,6 +28,8 @@ export const fr: TranslatedMessages = {
   "svc.EXHAUST": "Échappement",
   "svc.BATTERY": "Batterie",
   "svc.AIR_CON": "Climatisation",
+  "svc.MINOR_SERVICE": "Petit entretien",
+  "svc.ELECTRIC_SERVICE": "Entretien véhicule électrique",
   "svc.WINDSCREEN": "Pare-brise",
   "svc.ALL": "Tous les services",
 
@@ -182,7 +184,7 @@ export const fr: TranslatedMessages = {
   "footer.link.listGarage": "Inscrire votre garage",
   "footer.link.garageLogin": "Connexion garage",
   "footer.link.whyJoin": "Pourquoi nous rejoindre",
-  "footer.copyright": "© {year} Quote My Garage Ltd. Tous droits réservés. Société enregistrée en Angleterre et au pays de Galles.",
+  "footer.copyright": "© {year} Quote My Garage",
   "footer.email": "",
   "footer.phone": "",
   "footer.address": "",

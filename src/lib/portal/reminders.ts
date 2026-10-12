@@ -6,9 +6,18 @@ import { vehicleLabel } from "@/lib/portal/booking-service"
 import { manageUrl } from "@/lib/portal/links"
 import { notifyBookingOwner } from "@/lib/portal/booking-service"
 import { notifyCustomerSms } from "@/lib/portal/sms-notify"
-import { formatLondonDateTime } from "@/lib/portal/tz"
+import { addDays, formatLondonDateTime, startOfLondonDay, todayLondon } from "@/lib/portal/tz"
 
-const HOUR_MS = 3_600_000
+
+/**
+ * How far ahead a reminder run looks. The cron runs once a day (Vercel Hobby), so a rolling 24 hours would remind a
+ * 09:00 appointment only an hour before it. Instead each run covers everything up to the end of tomorrow (London), so
+ * every appointment gets its reminder the morning of the day before, or the same morning if booked later than that.
+ * Each booking is still reminded once (claim columns), so running this more often only moves reminders earlier.
+ */
+export function reminderHorizon(now: Date): Date {
+  return startOfLondonDay(addDays(todayLondon(now), 2))
+}
 
 /**
  * Email every customer whose confirmed appointment starts within the next 24 hours, once. The `reminderSentAt`
@@ -21,7 +30,7 @@ export async function sendDueBookingReminders(now = new Date()): Promise<{ sent:
       timeConfirmed: true,
       reminderSentAt: null,
       customerEmail: { not: null },
-      scheduledAt: { gt: now, lte: new Date(now.getTime() + 24 * HOUR_MS) },
+      scheduledAt: { gt: now, lt: reminderHorizon(now) },
     },
     include: { garage: { select: { name: true, phone: true, address: true, city: true, postcode: true } } },
     take: 200,
@@ -71,7 +80,7 @@ export async function sendDueSmsReminders(now = new Date()): Promise<{ sent: num
       status: { in: ["PENDING", "CONFIRMED"] },
       timeConfirmed: true,
       smsReminderSentAt: null,
-      scheduledAt: { gt: now, lte: new Date(now.getTime() + 24 * HOUR_MS) },
+      scheduledAt: { gt: now, lt: reminderHorizon(now) },
       OR: [{ smsOptIn: true }, { owner: { smsOptIn: true } }],
     },
     select: { id: true },

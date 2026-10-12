@@ -37,9 +37,11 @@ interface SendMailInput {
   subject: string
   html: string
   attachments?: MailAttachment[]
+  /** Extra headers, e.g. List-Unsubscribe for marketing-type mail. */
+  headers?: Record<string, string>
 }
 
-export async function sendMail({ to, subject, html, attachments }: SendMailInput): Promise<{ success: boolean; skipped?: boolean }> {
+export async function sendMail({ to, subject, html, attachments, headers }: SendMailInput): Promise<{ success: boolean; skipped?: boolean }> {
   const transporter = getTransporter()
 
   if (!transporter) {
@@ -54,6 +56,7 @@ export async function sendMail({ to, subject, html, attachments }: SendMailInput
       subject,
       html,
       attachments,
+      headers,
     })
     return { success: true }
   } catch (err) {

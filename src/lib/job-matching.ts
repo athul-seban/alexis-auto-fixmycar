@@ -8,6 +8,8 @@ interface MatchGaragesParams {
   postcode: string
   serviceType: string
   mobileOnly?: boolean
+  /** The customer asked one specific garage: only that garage is matched, wherever it is. */
+  targetGarageId?: string | null
 }
 
 export async function findMatchingGaragesForJob({
@@ -15,7 +17,12 @@ export async function findMatchingGaragesForJob({
   postcode,
   serviceType,
   mobileOnly,
+  targetGarageId,
 }: MatchGaragesParams): Promise<Garage[]> {
+  if (targetGarageId) {
+    const target = await prisma.garage.findFirst({ where: { id: targetGarageId, status: "APPROVED" } })
+    return target && (parseServiceList(target.services) as string[]).includes(serviceType) ? [target] : []
+  }
   const candidates = await prisma.garage.findMany({
     where: {
       status: "APPROVED",
@@ -43,12 +50,15 @@ type JobRequestWithResponses = JobRequest & {
  * mobile preference? Used to authorise a garage responding to a job it was never matched with.
  */
 export function jobMatchesGarage(
-  job: { city: string; postcode: string; serviceType: string; isMobilePreferred: boolean },
-  garage: { city: string; postcode: string; services: string; isMobile: boolean }
+  job: { city: string; postcode: string; serviceType: string; isMobilePreferred: boolean; targetGarageId?: string | null },
+  garage: { id?: string; city: string; postcode: string; services: string; isMobile: boolean }
 ): boolean {
+  const servicesOffered = (parseServiceList(garage.services) as string[]).includes(job.serviceType)
+  // A job aimed at one garage belongs to that garage alone, and other garages never see it.
+  if (job.targetGarageId) return garage.id === job.targetGarageId && servicesOffered
   const cityMatch = job.city.toLowerCase().includes(garage.city.toLowerCase())
   const postcodeMatch = job.postcode.toUpperCase().startsWith(garage.postcode.slice(0, 3).toUpperCase())
-  const servicesMatch = (parseServiceList(garage.services) as string[]).includes(job.serviceType)
+  const servicesMatch = servicesOffered
   const mobileMatch = job.isMobilePreferred ? garage.isMobile : true
   return (cityMatch || postcodeMatch) && servicesMatch && mobileMatch
 }
@@ -71,8 +81,16 @@ export async function findMatchingJobRequestsForGarage(
     where: {
       status: { in: ["OPEN", "QUOTED"] },
       OR: [
-        { city: { contains: garage.city } },
-        { postcode: { startsWith: garage.postcode.slice(0, 3).toUpperCase() } },
+        // Asked of this garage by name…
+        { targetGarageId: garage.id },
+        // …or sent to everyone in the area (a job aimed at another garage is not ours).
+        {
+          targetGarageId: null,
+          OR: [
+            { city: { contains: garage.city } },
+            { postcode: { startsWith: garage.postcode.slice(0, 3).toUpperCase() } },
+          ],
+        },
       ],
     },
     include: {
@@ -83,7 +101,8 @@ export async function findMatchingJobRequestsForGarage(
 
   return jobs.filter((job) => {
     const servicesMatch = (parseServiceList(garage.services) as string[]).includes(job.serviceType)
-    const mobileMatch = job.isMobilePreferred ? garage.isMobile : true
+    // The customer chose this garage, so their mobile preference doesn't exclude it.
+    const mobileMatch = job.targetGarageId || !job.isMobilePreferred ? true : garage.isMobile
     return servicesMatch && mobileMatch
   })
 }

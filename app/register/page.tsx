@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Wrench, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ConsentNotice } from "@/components/shared/ConsentNotice"
 import { Input } from "@/components/ui/input"
 
 export default function RegisterPage() {
@@ -164,12 +165,7 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          <p className="text-xs text-slate-500 dark:text-slate-400 text-center mt-4 leading-relaxed">
-            By creating an account you agree to our{" "}
-            <Link href="/terms" className="underline">Terms of Service</Link>
-            {" "}and{" "}
-            <Link href="/privacy" className="underline">Privacy Policy</Link>
-          </p>
+          <ConsentNotice action="creating an account" className="mt-4 text-center text-xs leading-relaxed text-slate-500 dark:text-slate-400" />
 
           <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-5">
             Already have an account?{" "}

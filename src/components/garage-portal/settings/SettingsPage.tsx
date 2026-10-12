@@ -44,6 +44,9 @@ export function SettingsPage() {
 const NOTIFICATION_ROWS: { key: keyof PortalSettings["notifications"]; title: string; description: string }[] = [
   { key: "emailNewBooking", title: "New bookings", description: "Email me when a customer books through the marketplace or my website widget." },
   { key: "emailCancellation", title: "Cancellations", description: "Email me when a customer cancels a booking." },
+  { key: "emailEnquiry", title: "New quote requests", description: "Email me when a customer asks for a quote that matches my garage." },
+  { key: "customerEmails", title: "Emails to customers", description: "Email customers when you confirm, cancel or move their booking." },
+  { key: "reviewRequests", title: "Ask for reviews", description: "Email customers a review request a day after a job is marked completed." },
   { key: "emailReview", title: "New reviews", description: "Email me when a customer leaves a review." },
   { key: "emailMessage", title: "Customer messages", description: "Email me when a customer sends a message about a quote or booking." },
   { key: "smsCustomer", title: "Text my customers", description: "Send a 24-hour reminder and booking updates by SMS to customers who agreed to texts. SMS is billed per message." },

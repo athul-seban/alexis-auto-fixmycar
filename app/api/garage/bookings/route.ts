@@ -116,6 +116,7 @@ const createSchema = z
     allowOverlap: z.boolean().default(false),
     notifyCustomer: z.boolean().default(true),
     smsOptIn: z.boolean().default(false),
+    marketingOptIn: z.boolean().default(false),
     fromQuoteId: z.string().max(40).optional(),
     fromJobResponseId: z.string().max(40).optional(),
   })
@@ -237,6 +238,7 @@ export const POST = withGarage(
       customerEmail: data.customer!.email || null,
       customerPhone: data.customer!.phone || null,
       smsOptIn: data.smsOptIn,
+      marketingOptIn: data.marketingOptIn,
       vrm: data.vehicle!.vrm,
       vehicleMake: data.vehicle!.make || null,
       vehicleModel: data.vehicle!.model || null,

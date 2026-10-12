@@ -5,6 +5,7 @@ import type { BookingSource, BookingStatus } from "@/types"
 import { randomBytes } from "crypto"
 import { refundOnCancel } from "@/lib/portal/payment-service"
 import { notifyCustomerSms } from "@/lib/portal/sms-notify"
+import { emailCustomerAboutBooking } from "@/lib/portal/customer-email"
 import { creationActor, recordBookingEvent, type EventActor } from "@/lib/portal/booking-events"
 import { BookingError } from "@/lib/portal/booking-error"
 import { generateReference } from "@/lib/portal/booking-ref"
@@ -66,6 +67,8 @@ export interface CreateBookingInput {
   customerPhone?: string | null
   /** The customer agreed to be texted about this booking. */
   smsOptIn?: boolean
+  /** The customer ticked "email me reminders and offers from this garage". */
+  marketingOptIn?: boolean
   vrm?: string | null
   vehicleMake?: string | null
   vehicleModel?: string | null
@@ -186,6 +189,7 @@ async function createInTx(db: Db, input: CreateBookingInput) {
       customerEmail: customerEmail ?? null,
       customerPhone: customerPhone ?? null,
       smsOptIn: input.smsOptIn ?? false,
+      marketingOptIn: input.marketingOptIn ?? false,
       vrm: normalisedVrm,
       vehicleMake: vehicleMake ?? null,
       vehicleModel: vehicleModel ?? null,
@@ -340,12 +344,14 @@ export async function transitionBooking(input: TransitionInput) {
     // Customers who opted in to texts hear about a confirmation or cancellation straight away.
     if (input.to === "CONFIRMED") await notifyCustomerSms(updated.id, "CONFIRMED", now)
     if (input.to === "CANCELLED") await notifyCustomerSms(updated.id, "CANCELLED", now)
+    if (input.to === "CONFIRMED" || input.to === "CANCELLED") await emailCustomerAboutBooking(updated.id, input.to)
     await notifyBookingOwner(updated, {
       type: "BOOKING_STATUS_CHANGED",
       title: `Booking ${label}`,
       body: `Your ${updated.serviceType} booking is now ${label}`,
     })
   } else {
+    if (input.to === "CANCELLED") await emailCustomerAboutBooking(updated.id, "CANCELLED_BY_YOU")
     await notifyGarage({
       garageId: updated.garageId,
       type: "BOOKING_STATUS_CHANGED",
@@ -501,6 +507,7 @@ export async function rescheduleBooking(input: RescheduleInput) {
   }
   if (timeChanged && (input.actor ?? "GARAGE") === "GARAGE") {
     await notifyCustomerSms(updated.id, "RESCHEDULED", now)
+    await emailCustomerAboutBooking(updated.id, "RESCHEDULED", { previousScheduledAt: booking.scheduledAt })
     await notifyBookingOwner(updated, {
       type: "BOOKING_STATUS_CHANGED",
       title: "Booking rescheduled",

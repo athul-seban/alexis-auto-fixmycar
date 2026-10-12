@@ -88,6 +88,11 @@ model Vehicle {
   serviceDueDate DateTime?
   motHistory   String?   // JSON from the DVSA MOT history API (cached)
   motHistoryAt DateTime?
+  // Reminder bookkeeping: the due date and stage (days-before threshold) last reminded, so each stage sends once.
+  motReminderFor DateTime?
+  motReminderStage Int?
+  serviceReminderFor DateTime?
+  serviceReminderStage Int?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -240,6 +245,8 @@ model Booking {
   invoiceNumber     String?   // assigned the first time an invoice is generated, then fixed
   invoicedAt        DateTime?
   reminderSentAt    DateTime? // set once the 24h-before reminder email has gone out
+  reviewRequestedAt DateTime? // set once the "how did we do?" email has gone out
+  marketingOptIn    Boolean   @default(false) // ticked "email me reminders and offers from this garage"
 
   owner       User?       @relation("OwnerBookings", fields: [ownerId], references: [id], onDelete: Restrict)
   vehicle     Vehicle?    @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
@@ -325,11 +332,16 @@ model JobRequest {
   isMobilePreferred Boolean   @default(false)
   preferredDate     DateTime?
 
+  // Set when the customer asked one specific garage for a quote (from its profile); null = sent to every matching garage.
+  targetGarageId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   responses JobResponse[]
   leads     GarageLead[]
+
+  @@index([targetGarageId])
 }
 
 model JobResponse {
@@ -606,4 +618,16 @@ model ContentEntry {
   updatedAt   DateTime @updatedAt
 
   @@unique([key, locale])
+}
+
+// Addresses that must not get marketing-type email (review requests, reminders, offers). scope = "ALL" or a garage id.
+model EmailSuppression {
+  id        String   @id @default(cuid())
+  email     String
+  scope     String   @default("ALL")
+  reason    String   @default("UNSUBSCRIBED")
+  createdAt DateTime @default(now())
+
+  @@unique([email, scope])
+  @@index([email])
 }

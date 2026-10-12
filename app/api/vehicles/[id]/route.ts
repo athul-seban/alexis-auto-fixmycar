@@ -5,13 +5,13 @@ import { authOptions } from "@/lib/auth"
 import { z } from "zod"
 
 const updateSchema = z.object({
-  registration: z.string().min(2).optional(),
+  registration: z.string().trim().min(2).transform((r) => r.toUpperCase()).optional(),
   make: z.string().min(1).optional(),
   model: z.string().min(1).optional(),
   year: z.number().int().min(1970).max(new Date().getFullYear() + 1).optional(),
-  fuel: z.string().optional(),
-  color: z.string().optional(),
-  mileage: z.number().int().positive().optional(),
+  fuel: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
+  mileage: z.number().int().positive().nullable().optional(),
   motDueDate: z.string().datetime().nullable().optional(),
   serviceDueDate: z.string().datetime().nullable().optional(),
 })

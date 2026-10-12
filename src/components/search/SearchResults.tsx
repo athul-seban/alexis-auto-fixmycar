@@ -1,46 +1,48 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import Link from "next/link"
 import { Search, MapPin, Car, Shield, AlertCircle, SlidersHorizontal, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { GarageCard } from "@/components/search/GarageCard"
 import { PriceGuidanceNote } from "@/components/search/PriceGuidanceNote"
+import { Pagination } from "@/components/ui/pagination"
+import { useUrlParams } from "@/hooks/use-url-params"
+import { SEARCH_SERVICE_OPTIONS } from "@/lib/service-options"
 import type { GarageListItem } from "@/types"
 
-const serviceOptions = [
-  { value: "", label: "All Services" },
-  { value: "MOT", label: "MOT Test" },
-  { value: "FULL_SERVICE", label: "Full Service" },
-  { value: "INTERIM_SERVICE", label: "Interim Service" },
-  { value: "BRAKES", label: "Brakes" },
-  { value: "TYRES", label: "Tyres" },
-  { value: "REPAIR", label: "Engine Repair" },
-  { value: "DIAGNOSTICS", label: "Diagnostics" },
-  { value: "CLUTCH", label: "Clutch" },
-  { value: "CAMBELT", label: "Cambelt" },
-  { value: "EXHAUST", label: "Exhaust" },
-  { value: "BATTERY", label: "Battery" },
-  { value: "WINDSCREEN", label: "Windscreen" },
-  { value: "AIR_CON", label: "Air Con" },
-]
+const serviceOptions = [{ value: "", label: "All Services" }, ...SEARCH_SERVICE_OPTIONS]
 
 // A postcode-shaped query (e.g. "SW1A", "M1") starts with 1-2 letters then a digit.
-const POSTCODE_PATTERN = /^[A-Za-z]{1,2}\d/
+const POSTCODE_PATTERN = /^[A-Za-z]{1,2}d/
+
+const PAGE_SIZE = 20
 
 export function SearchResults() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
+  // The URL is the source of truth for every filter, so a search can be shared, refreshed and navigated back to.
+  const { searchParams, setParams } = useUrlParams()
 
-  const [location, setLocation] = useState(searchParams.get("location") ?? "")
-  const [serviceType, setServiceType] = useState(searchParams.get("service") ?? "")
-  const [registration, setRegistration] = useState(searchParams.get("reg") ?? "")
-  const [mobileOnly, setMobileOnly] = useState(searchParams.get("mobile") === "true")
-  const [verifiedOnly, setVerifiedOnly] = useState(false)
-  const [minRating, setMinRating] = useState("")
-  const [sortBy, setSortBy] = useState("best")
+  const location = searchParams.get("location") ?? ""
+  const serviceType = searchParams.get("service") ?? ""
+  const registration = searchParams.get("reg") ?? ""
+  const mobileOnly = searchParams.get("mobile") === "true"
+  const verifiedOnly = searchParams.get("verified") === "true"
+  const minRating = searchParams.get("minRating") ?? ""
+  const sortBy = searchParams.get("sort") ?? "best"
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1") || 1)
+
+  // The location box commits on submit, not on every keystroke (which used to refetch each time).
+  const [locationInput, setLocationInput] = useState(location)
+  const [syncedLocation, setSyncedLocation] = useState(location)
+  if (syncedLocation !== location) {
+    // Back/forward changed the URL: bring the box with it.
+    setSyncedLocation(location)
+    setLocationInput(location)
+  }
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [reloadKey, setReloadKey] = useState(0)
   const [garages, setGarages] = useState<GarageListItem[]>([])
   const [total, setTotal] = useState(0)
   // Below `lg` the filters sit behind a toggle so results aren't pushed off-screen.
@@ -64,6 +66,8 @@ export function SearchResults() {
         if (verifiedOnly) params.set("verified", "true")
         if (minRating) params.set("minRating", minRating)
         if (sortBy) params.set("sort", sortBy)
+        params.set("page", String(page))
+        params.set("limit", String(PAGE_SIZE))
 
         const res = await fetch(`/api/garages?${params.toString()}`, { signal: controller.signal })
         const data = await res.json()
@@ -73,22 +77,18 @@ export function SearchResults() {
       } catch (err: any) {
         if (err.name !== "AbortError") setError(err.message ?? "Failed to load garages")
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       }
     }
 
     fetchGarages()
     return () => controller.abort()
-  }, [location, serviceType, mobileOnly, verifiedOnly, minRating, sortBy])
+  }, [location, serviceType, mobileOnly, verifiedOnly, minRating, sortBy, page, reloadKey])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    const params = new URLSearchParams()
-    if (location) params.set("location", location)
-    if (registration) params.set("reg", registration)
-    if (serviceType) params.set("service", serviceType)
-    if (mobileOnly) params.set("mobile", "true")
-    router.push(`/search?${params.toString()}`)
+    // Only the search bar's own fields change; the sidebar filters and sort carry over.
+    setParams({ location: locationInput.trim(), service: serviceType }, { resetPage: true })
   }
 
   return (
@@ -102,8 +102,8 @@ export function SearchResults() {
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  value={locationInput}
+                  onChange={(e) => setLocationInput(e.target.value)}
                   placeholder="Postcode or town"
                   className="w-full h-11 pl-10 pr-4 rounded-lg bg-white dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316]"
                 />
@@ -113,7 +113,7 @@ export function SearchResults() {
                 <select
                   aria-label="Service needed"
                   value={serviceType}
-                  onChange={(e) => setServiceType(e.target.value)}
+                  onChange={(e) => setParams({ service: e.target.value }, { resetPage: true })}
                   className="w-full h-11 pl-10 pr-4 rounded-lg bg-white dark:bg-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#F97316] appearance-none cursor-pointer"
                 >
                   {serviceOptions.map((s) => (
@@ -160,11 +160,7 @@ export function SearchResults() {
                 <h2 className="font-bold text-slate-900 dark:text-white">Filters</h2>
                 <button
                   type="button"
-                  onClick={() => {
-                    setMobileOnly(false)
-                    setVerifiedOnly(false)
-                    setMinRating("")
-                  }}
+                  onClick={() => setParams({ mobile: null, verified: null, minRating: null, sort: null }, { resetPage: true })}
                   className="text-xs text-[#C2410C] dark:text-[#F97316] hover:underline cursor-pointer"
                 >
                   Clear all
@@ -177,7 +173,7 @@ export function SearchResults() {
                   <select
                     aria-label="Sort by"
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
+                    onChange={(e) => setParams({ sort: e.target.value === "best" ? null : e.target.value }, { resetPage: true })}
                     className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] cursor-pointer"
                   >
                     <option value="best">Best match</option>
@@ -192,7 +188,7 @@ export function SearchResults() {
                   <select
                     aria-label="Minimum rating"
                     value={minRating}
-                    onChange={(e) => setMinRating(e.target.value)}
+                    onChange={(e) => setParams({ minRating: e.target.value }, { resetPage: true })}
                     className="w-full h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] cursor-pointer"
                   >
                     <option value="">Any rating</option>
@@ -209,7 +205,7 @@ export function SearchResults() {
                       <input
                         type="checkbox"
                         checked={verifiedOnly}
-                        onChange={(e) => setVerifiedOnly(e.target.checked)}
+                        onChange={(e) => setParams({ verified: e.target.checked ? "true" : null }, { resetPage: true })}
                         className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-[#1E3A5F] cursor-pointer"
                       />
                       <div className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-300">
@@ -221,7 +217,7 @@ export function SearchResults() {
                       <input
                         type="checkbox"
                         checked={mobileOnly}
-                        onChange={(e) => setMobileOnly(e.target.checked)}
+                        onChange={(e) => setParams({ mobile: e.target.checked ? "true" : null }, { resetPage: true })}
                         className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 dark:bg-slate-800 text-[#1E3A5F] cursor-pointer"
                       />
                       <div className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-300">
@@ -244,6 +240,18 @@ export function SearchResults() {
               </p>
             </div>
 
+            {registration && (
+              <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-slate-700 dark:bg-white/5 dark:text-slate-300">
+                Quotes for <strong className="font-mono">{registration.toUpperCase()}</strong>.{" "}
+                <Link
+                  href={`/post-job?reg=${encodeURIComponent(registration)}${serviceType ? `&service=${serviceType}` : ""}`}
+                  className="font-semibold text-[#1E3A5F] underline dark:text-orange-300"
+                >
+                  Post it once and get several quotes
+                </Link>
+              </p>
+            )}
+
             {loading ? (
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
@@ -255,7 +263,7 @@ export function SearchResults() {
                 <AlertCircle className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">Something went wrong</h3>
                 <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">{error}</p>
-                <Button variant="outline" onClick={() => setSortBy((s) => s)}>Retry</Button>
+                <Button variant="outline" onClick={() => setReloadKey((k) => k + 1)}>Retry</Button>
               </div>
             ) : garages.length === 0 ? (
               <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10">
@@ -267,8 +275,19 @@ export function SearchResults() {
               <div className="space-y-4">
                 {serviceType && <PriceGuidanceNote service={serviceType} city={location.trim() && !POSTCODE_PATTERN.test(location.trim()) ? location.trim() : undefined} />}
                 {garages.map((garage) => (
-                  <GarageCard key={garage.id} garage={garage} />
+                  <GarageCard key={garage.id} garage={garage} service={serviceType || undefined} reg={registration || undefined} />
                 ))}
+                {total > PAGE_SIZE && (
+                  <Pagination
+                    page={page}
+                    pageSize={PAGE_SIZE}
+                    total={total}
+                    onPageChange={(p) => {
+                      setParams({ page: p > 1 ? p : null })
+                      window.scrollTo({ top: 0, behavior: "smooth" })
+                    }}
+                  />
+                )}
               </div>
             )}
           </div>

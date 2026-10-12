@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { toGarageListItem, toGarageProfile } from "@/lib/garage-mapper"
 import { MAX_COMPARE_GARAGES } from "@/lib/constants"
 import { isFeatured } from "@/lib/portal/plans"
+import { canBookOnline } from "@/lib/public-garage"
 import { haversineKm, orderGarages, priceScores, rankScore } from "@/lib/ranking"
 
 const LIST_SELECT = {
@@ -13,6 +14,9 @@ const LIST_SELECT = {
   featuredUntil: true, avgResponseMins: true,
 } as const
 
+// Only what canBookOnline needs; the raw settings never leave the server.
+const BOOKING_SELECT = { portalSettings: true, openingHours: true } as const
+
 // Ranking scores every garage that matches the filters, so cap how many it considers.
 const RANK_CANDIDATES = 500
 
@@ -22,6 +26,11 @@ const COMPARE_SELECT = {
   website: true,
   openingHours: true,
 } as const
+
+function clampInt(raw: string | null, fallback: number, min: number, max: number): number {
+  const n = parseInt(raw ?? "", 10)
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
+}
 
 export async function GET(req: Request) {
   try {
@@ -55,8 +64,9 @@ export async function GET(req: Request) {
     const sortBy = searchParams.get("sort") ?? "best"
     const lat = parseFloat(searchParams.get("lat") ?? "")
     const lng = parseFloat(searchParams.get("lng") ?? "")
-    const page = parseInt(searchParams.get("page") ?? "1")
-    const limit = parseInt(searchParams.get("limit") ?? "20")
+    // Clamped: an unbounded limit would let one request read the whole table.
+    const page = clampInt(searchParams.get("page"), 1, 1, 1000)
+    const limit = clampInt(searchParams.get("limit"), 20, 1, 50)
 
     const where: any = { status: "APPROVED" }
 
@@ -81,7 +91,7 @@ export async function GET(req: Request) {
 
     if (sortBy === "best") {
       const [candidates, total] = await Promise.all([
-        prisma.garage.findMany({ where, take: RANK_CANDIDATES, select: LIST_SELECT }),
+        prisma.garage.findMany({ where, take: RANK_CANDIDATES, select: { ...LIST_SELECT, ...BOOKING_SELECT } }),
         prisma.garage.count({ where }),
       ])
       const ids = candidates.map((c) => c.id)
@@ -128,7 +138,7 @@ export async function GET(req: Request) {
       )
       const pageItems = ranked.slice((page - 1) * limit, page * limit)
       return NextResponse.json({
-        garages: pageItems.map((r) => ({ ...toGarageListItem(r.item), featured: r.featured, recommended: r.recommended, avgResponseMins: r.item.avgResponseMins })),
+        garages: pageItems.map((r) => ({ ...toGarageListItem(r.item), bookOnline: canBookOnline(r.item), featured: r.featured, recommended: r.recommended, avgResponseMins: r.item.avgResponseMins })),
         total,
         page,
         limit,
@@ -142,13 +152,13 @@ export async function GET(req: Request) {
         orderBy,
         skip: (page - 1) * limit,
         take: limit,
-        select: LIST_SELECT,
+        select: { ...LIST_SELECT, ...BOOKING_SELECT },
       }),
       prisma.garage.count({ where }),
     ])
 
     return NextResponse.json({
-      garages: garages.map(toGarageListItem),
+      garages: garages.map((g) => ({ ...toGarageListItem(g), bookOnline: canBookOnline(g) })),
       total,
       page,
       limit,

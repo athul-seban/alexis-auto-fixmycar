@@ -4,10 +4,13 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
+import { parseServiceList } from "@/lib/garage-mapper"
+import { emailGarage } from "@/lib/portal/garage-email"
 import { findMatchingGaragesForJob, findMatchingJobRequestsForGarage, toGarageJobView } from "@/lib/job-matching"
 import { sendMail } from "@/lib/mail"
-import { jobRequestGarageNotification, jobRequestGuestConfirmation } from "@/lib/email-templates"
+import { garageEnquiryEmail, jobRequestGuestConfirmation } from "@/lib/email-templates"
 import { z } from "zod"
+import { SERVICE_TYPES } from "@/lib/constants"
 
 const createSchema = z.object({
   guestName: z.string().min(2),
@@ -19,12 +22,14 @@ const createSchema = z.object({
   year: z.number().int().min(1970).max(new Date().getFullYear() + 1),
   fuel: z.string().optional(),
   mileage: z.number().int().positive().optional(),
-  serviceType: z.string(),
+  serviceType: z.enum(SERVICE_TYPES),
   description: z.string().min(10),
   city: z.string().min(2),
   postcode: z.string().min(5),
   isMobilePreferred: z.boolean().default(false),
   preferredDate: z.string().datetime().optional(),
+  // Ask one garage (by its profile slug) instead of every matching garage.
+  garageSlug: z.string().trim().min(1).max(120).optional(),
 })
 
 async function generateUniqueToken(): Promise<string> {
@@ -43,7 +48,16 @@ export async function POST(req: Request) {
     if (limited) return limited
 
     const body = await req.json()
-    const data = createSchema.parse(body)
+    const { garageSlug, ...data } = createSchema.parse(body)
+
+    let target: { id: string; services: string } | null = null
+    if (garageSlug) {
+      target = await prisma.garage.findFirst({ where: { slug: garageSlug, status: "APPROVED" }, select: { id: true, services: true } })
+      if (!target) return NextResponse.json({ error: "That garage isn't available for quote requests" }, { status: 404 })
+      if (!(parseServiceList(target.services) as string[]).includes(data.serviceType)) {
+        return NextResponse.json({ error: "That garage doesn't offer this service" }, { status: 400 })
+      }
+    }
     const token = await generateUniqueToken()
 
     const jobRequest = await prisma.jobRequest.create({
@@ -53,6 +67,7 @@ export async function POST(req: Request) {
         preferredDate: data.preferredDate ? new Date(data.preferredDate) : undefined,
         token,
         status: "OPEN",
+        targetGarageId: target?.id ?? null,
       },
     })
 
@@ -61,14 +76,15 @@ export async function POST(req: Request) {
       postcode: data.postcode,
       serviceType: data.serviceType,
       mobileOnly: data.isMobilePreferred,
+      targetGarageId: target?.id,
     })
 
+    // Respects each garage's "New quote requests" email setting.
     await Promise.allSettled(
       matchedGarages.map((garage) =>
-        sendMail({
-          to: garage.email,
-          ...jobRequestGarageNotification({ garage, jobRequest }),
-        })
+        emailGarage(garage.id, "emailEnquiry", (g, t) =>
+          garageEnquiryEmail({ garageName: g.name, jobRequest, targeted: !!target, t })
+        )
       )
     )
 

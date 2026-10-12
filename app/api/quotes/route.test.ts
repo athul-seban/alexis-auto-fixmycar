@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterAll } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { GET, POST } from "./route"
+import { sendMail } from "@/lib/mail"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
 vi.mock("@/lib/auth", () => ({ authOptions: {} }))
+vi.mock("@/lib/mail", () => ({ sendMail: vi.fn().mockResolvedValue({ success: true }) }))
 vi.mock("@/lib/notifications", () => ({
   notifyGarage: vi.fn().mockResolvedValue(undefined),
   notifyUser: vi.fn().mockResolvedValue(undefined),
@@ -94,6 +96,29 @@ describe("Quotes route — cross-role permission checks", () => {
     expect(data.error).toBe("Invalid action")
   })
 
+  it("lets an owner request a quote for their own vehicle", async () => {
+    const { owner, garage, vehicle } = await makeFixtures()
+    mockSession.mockResolvedValue({ user: { id: owner.id, role: "OWNER" } } as any)
+    const res = await POST(postRequest({ action: "request", vehicleId: vehicle.id, garageId: garage.id, serviceType: "MOT", description: "Needs an MOT" }))
+    expect(res.status).toBe(201)
+    // The garage hears about it by email.
+    expect(vi.mocked(sendMail).mock.calls.at(-1)![0].to).toBe("g@example.com")
+  })
+
+  it("refuses a vehicle that belongs to someone else, a garage that isn't live, and an unknown service", async () => {
+    const { owner, garage, otherGarage, vehicle } = await makeFixtures()
+    const stranger = await prisma.user.create({ data: { email: `${PREFIX}stranger@example.com`, role: "OWNER" } })
+    const body = (over: object) => postRequest({ action: "request", vehicleId: vehicle.id, garageId: garage.id, serviceType: "MOT", description: "Needs an MOT", ...over })
+
+    mockSession.mockResolvedValue({ user: { id: stranger.id, role: "OWNER" } } as any)
+    expect((await POST(body({}))).status).toBe(404)
+
+    mockSession.mockResolvedValue({ user: { id: owner.id, role: "OWNER" } } as any)
+    await prisma.garage.update({ where: { id: otherGarage.id }, data: { status: "PENDING" } })
+    expect((await POST(body({ garageId: otherGarage.id }))).status).toBe(404)
+    expect((await POST(body({ serviceType: "TELEPORTING" }))).status).toBe(400)
+  })
+
   it("rejects an OWNER attempting to respond to a quote (garage-only action)", async () => {
     const { owner, quote } = await makeFixtures()
     mockSession.mockResolvedValue({ user: { id: owner.id, role: "OWNER" } } as any)
@@ -120,6 +145,10 @@ describe("Quotes route — cross-role permission checks", () => {
     const data = await res.json()
     expect(res.status).toBe(200)
     expect(data.quote.status).toBe("SENT")
+    // The owner is emailed the price.
+    const sent = vi.mocked(sendMail).mock.calls.at(-1)![0]
+    expect(sent.to).toBe(`${PREFIX}owner@example.com`)
+    expect(sent.subject).toContain("£100.00")
   })
 
   it("GET only returns quotes scoped to the requesting owner, not all owners' quotes", async () => {

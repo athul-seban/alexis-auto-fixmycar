@@ -34,6 +34,30 @@ export function validateContent(key: string, text: string): string | null {
   return null
 }
 
+/** Marks the places a solicitor must complete in a legal-page outline. Text containing it can be drafted, never published. */
+export const PLACEHOLDER_MARK = "[[" 
+
+/**
+ * Extra checks that apply only when text goes live. Legal pages are the business's legal statements, so an outline
+ * with unfinished `[[…]]` markers, or one nobody confirmed as reviewed, must not be published.
+ */
+export function validateForPublish(key: string, text: string, opts: { confirmedReviewed?: boolean } = {}): string | null {
+  if (!isBodyKey(key) || text.trim() === "") return null
+  if (text.includes(PLACEHOLDER_MARK)) return "This text still has [[…]] markers to complete. Finish and remove them before publishing."
+  if (!opts.confirmedReviewed) return "Confirm that a solicitor has reviewed this text before publishing."
+  return null
+}
+
+/** A heading skeleton for a UK marketplace's legal page. It contains no legal wording: every section is a marker to complete. */
+export function legalOutline(slug: string): string {
+  const sections: Record<string, string[]> = {
+    privacy: ["Who we are", "What personal data we collect", "Why we use it and our lawful basis", "Who we share it with (garages, payment, email and SMS providers)", "How long we keep it", "Your rights", "Cookies", "Contact us and the ICO"],
+    terms: ["About Quote My Garage and who these terms are with", "Using the service as a vehicle owner", "Quotes and bookings", "Deposits, cancellations and refunds", "Reviews", "Garages and their responsibilities", "Our liability", "Complaints and disputes", "Changes to these terms", "Governing law"],
+    cookies: ["What cookies are", "The cookies we use and why", "How to manage cookies", "Contact us"],
+  }
+  return (sections[slug] ?? ["Overview"]).map((h) => `## ${h}\n\n${PLACEHOLDER_MARK}Solicitor to complete]]`).join("\n\n") + "\n"
+}
+
 /** Section grouping and labels for the editor. */
 export const SECTION_LABELS: Record<string, string> = {
   nav: "Navigation",

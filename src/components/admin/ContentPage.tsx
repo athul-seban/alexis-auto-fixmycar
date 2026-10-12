@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/components/ui/toast"
 import { sendJson, useApi } from "@/hooks/use-api"
 import { LOCALE_META, type Locale } from "@/lib/i18n/config"
+import { legalOutline } from "@/lib/i18n/content-rules"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
 
 interface Entry {
@@ -46,6 +47,8 @@ function EntryEditor({ entry, locale, onChanged }: { entry: Entry; locale: Local
   const [text, setText] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const [reviewed, setReviewed] = useState(false)
+  const legalSlug = entry.isBody ? entry.key.split(".")[1] : null
 
   const current = text ?? baseline(entry)
   const dirty = text !== null && text !== baseline(entry)
@@ -54,7 +57,7 @@ function EntryEditor({ entry, locale, onChanged }: { entry: Entry; locale: Local
   async function act(action: "saveDraft" | "publish" | "discardDraft" | "reset", message: string) {
     setBusy(true)
     setError("")
-    const res = await sendJson("/api/admin/content", "PUT", { key: entry.key, locale, action, ...(action === "saveDraft" || (action === "publish" && dirty) ? { text: current } : {}) })
+    const res = await sendJson("/api/admin/content", "PUT", { key: entry.key, locale, action, ...(action === "saveDraft" || (action === "publish" && dirty) ? { text: current } : {}), ...(action === "publish" && entry.isBody ? { confirmedReviewed: reviewed } : {}) })
     setBusy(false)
     if (!res.ok) return setError(res.error ?? "Couldn't save")
     toast(message)
@@ -82,6 +85,22 @@ function EntryEditor({ entry, locale, onChanged }: { entry: Entry; locale: Local
         <textarea id={id} rows={entry.isBody ? 16 : 3} value={current} onChange={(e) => setText(e.target.value)} className={TEXTAREA} />
       ) : (
         <TextInput id={id} value={current} onChange={(e) => setText(e.target.value)} />
+      )}
+      {entry.isBody && (
+        <div className="mt-2 rounded-md bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+          <p>
+            <strong>Legal text.</strong> This is a legal statement by your business. Have a solicitor write or review it before it goes live. Quote My Garage does not provide legal text.
+          </p>
+          {current.trim() === "" && legalSlug && (
+            <Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => setText(legalOutline(legalSlug))}>
+              Insert section outline
+            </Button>
+          )}
+          <label className="mt-2 flex items-start gap-2">
+            <input type="checkbox" className="mt-0.5 h-4 w-4" checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} />
+            <span>A solicitor has reviewed this text and any <code>[[…]]</code> markers are completed.</span>
+          </label>
+        </div>
       )}
       {entry.isBody && (
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">

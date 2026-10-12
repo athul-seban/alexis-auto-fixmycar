@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getStripe } from "@/lib/stripe"
 import { notifyGarage } from "@/lib/notifications"
 import { recordBookingEvent } from "@/lib/portal/booking-events"
+import { emailCustomerAboutBooking } from "@/lib/portal/customer-email"
 import { absoluteUrl, garageLinks, manageUrl } from "@/lib/portal/links"
 import { applyAccountState } from "@/lib/portal/stripe-connect"
 import { handleBillingEvent } from "@/lib/portal/billing-service"
@@ -91,6 +92,7 @@ async function markPaid(session: Stripe.Checkout.Session) {
   // Auto-confirm garages get a confirmed booking once the deposit lands; others still confirm manually.
   if (booking.status === "PENDING" && parsePortalSettings(booking.garage.portalSettings).widget.autoConfirm) {
     await prisma.booking.update({ where: { id: bookingId }, data: { status: "CONFIRMED" } })
+    await emailCustomerAboutBooking(bookingId, "CONFIRMED")
   }
   await recordBookingEvent(prisma, { bookingId, actorType: "SYSTEM", type: "PAYMENT", detail: `Deposit of £${(booking.depositAmount ?? 0).toFixed(2)} paid` })
   await notifyGarage({
@@ -112,6 +114,7 @@ async function releaseExpired(session: Stripe.Checkout.Session) {
   })
   if (res.count > 0) {
     await recordBookingEvent(prisma, { bookingId, actorType: "SYSTEM", type: "PAYMENT", detail: "Checkout expired — booking released" })
+    await emailCustomerAboutBooking(bookingId, "CANCELLED")
   }
 }
 

@@ -2,11 +2,11 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
-import { toGarageProfile } from "@/lib/garage-mapper"
-import { parseServiceList } from "@/lib/garage-mapper"
+import { parseServiceList, toGarageProfile } from "@/lib/garage-mapper"
 import { SERVICE_TYPES } from "@/lib/constants"
 import { openingHoursSchema } from "@/lib/portal/opening-hours"
 import { handleRouteError } from "@/lib/portal/route-errors"
+import { getPublicGarage } from "@/lib/public-garage"
 import { z } from "zod"
 
 interface Params {
@@ -14,48 +14,11 @@ interface Params {
 }
 
 export async function GET(_req: Request, props: Params) {
-  const params = await props.params;
+  const params = await props.params
   try {
-    const garage = await prisma.garage.findFirst({
-      where: {
-        OR: [{ id: params.id }, { slug: params.id }],
-        status: "APPROVED",
-      },
-      include: {
-        reviews: {
-          orderBy: { createdAt: "desc" },
-          take: 10,
-          include: { owner: { select: { name: true, image: true } } },
-        },
-        _count: { select: { bookings: true, reviews: true } },
-      },
-    })
-
-    if (!garage) {
-      return NextResponse.json({ error: "Garage not found" }, { status: 404 })
-    }
-
-    const profile = toGarageProfile(garage)
-    const reviews = garage.reviews.map((r) => ({
-      id: r.id,
-      rating: r.rating,
-      title: r.title,
-      comment: r.comment,
-      createdAt: r.createdAt.toISOString(),
-      reply: r.reply,
-      repliedAt: r.repliedAt?.toISOString() ?? null,
-      owner: r.owner,
-    }))
-    const verificationBadges = parseServiceList((garage as any).verificationBadges)
-
-    // Published prices: only services the garage still offers and hasn't switched off.
-    const offered = new Set<string>(parseServiceList(garage.services))
-    const priceRows = await prisma.servicePrice.findMany({ where: { garageId: garage.id, isActive: true } })
-    const prices = priceRows
-      .filter((p) => offered.has(p.serviceType) && (p.priceFrom !== null || p.priceTo !== null))
-      .map((p) => ({ serviceType: p.serviceType, priceFrom: p.priceFrom, priceTo: p.priceTo, durationMins: p.durationMins, notes: p.notes }))
-
-    return NextResponse.json({ garage: { ...profile, verificationBadges, reviews, prices } })
+    const garage = await getPublicGarage(params.id)
+    if (!garage) return NextResponse.json({ error: "Garage not found" }, { status: 404 })
+    return NextResponse.json({ garage })
   } catch (err) {
     console.error("Garage GET error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

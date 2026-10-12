@@ -28,6 +28,8 @@ export const de: TranslatedMessages = {
   "svc.EXHAUST": "Auspuff",
   "svc.BATTERY": "Batterie",
   "svc.AIR_CON": "Klimaanlage",
+  "svc.MINOR_SERVICE": "Kleine Inspektion",
+  "svc.ELECTRIC_SERVICE": "Elektrofahrzeug-Service",
   "svc.WINDSCREEN": "Windschutzscheibe",
   "svc.ALL": "Alle Leistungen",
 
@@ -182,7 +184,7 @@ export const de: TranslatedMessages = {
   "footer.link.listGarage": "Werkstatt eintragen",
   "footer.link.garageLogin": "Werkstatt-Login",
   "footer.link.whyJoin": "Warum mitmachen",
-  "footer.copyright": "© {year} Quote My Garage Ltd. Alle Rechte vorbehalten. Eingetragen in England und Wales.",
+  "footer.copyright": "© {year} Quote My Garage",
   "footer.email": "",
   "footer.phone": "",
   "footer.address": "",

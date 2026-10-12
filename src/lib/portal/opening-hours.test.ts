@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { DEFAULT_OPENING_HOURS, normaliseOpeningHours, openingHoursError, openingHoursSchema } from "@/lib/portal/opening-hours"
+import { DEFAULT_OPENING_HOURS, normaliseOpeningHours, openingHoursError, openingHoursSchema, isOpenAt } from "@/lib/portal/opening-hours"
 
 describe("openingHoursSchema", () => {
   it("accepts the default week and closed days with blank times", () => {
@@ -33,5 +33,24 @@ describe("normaliseOpeningHours", () => {
     const partial = normaliseOpeningHours({ monday: { open: true, from: "08:00", to: "12:00" } })
     expect(partial.monday).toEqual({ open: true, from: "08:00", to: "12:00" })
     expect(partial.tuesday).toEqual(DEFAULT_OPENING_HOURS.tuesday)
+  })
+})
+
+describe("isOpenAt", () => {
+  const hours = normaliseOpeningHours({ saturday: { open: true, from: "09:00", to: "13:00" }, sunday: { open: false, from: "", to: "" } })
+
+  it("uses London wall-clock time, in summer and winter", () => {
+    // Fri 10 Jul 2026 16:30 UTC = 17:30 BST → the default 09:00–17:30 day has just closed; 16:29 UTC is still open.
+    expect(isOpenAt(hours, new Date("2026-07-10T16:29:00Z"))).toBe(true)
+    expect(isOpenAt(hours, new Date("2026-07-10T16:30:00Z"))).toBe(false)
+    // Fri 9 Jan 2026 17:29 UTC = 17:29 GMT: open; 08:59 GMT: not yet.
+    expect(isOpenAt(hours, new Date("2026-01-09T17:29:00Z"))).toBe(true)
+    expect(isOpenAt(hours, new Date("2026-01-09T08:59:00Z"))).toBe(false)
+  })
+
+  it("is closed on closed days and with no hours", () => {
+    expect(isOpenAt(hours, new Date("2026-07-12T11:00:00Z"))).toBe(false) // Sunday
+    expect(isOpenAt(hours, new Date("2026-07-11T12:30:00Z"))).toBe(false) // Saturday 13:30 BST, after 13:00
+    expect(isOpenAt(null)).toBe(false)
   })
 })

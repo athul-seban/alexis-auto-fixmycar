@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Car, History, Plus } from "lucide-react"
+import { Car, History, Pencil, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useApi } from "@/hooks/use-api"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { sendJson, useApi } from "@/hooks/use-api"
 import { formatDateShort, getServiceLabel } from "@/lib/utils"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
 import { AddVehicleDialog } from "@/components/owner-portal/AddVehicleDialog"
@@ -44,7 +45,7 @@ function VehicleHistory({ vehicleId }: { vehicleId: string }) {
   )
 }
 
-function VehicleCard({ vehicle }: { vehicle: OwnerVehicle }) {
+function VehicleCard({ vehicle, onEdit, onDelete }: { vehicle: OwnerVehicle; onEdit: () => void; onDelete: () => void }) {
   const [showHistory, setShowHistory] = useState(false)
   const [now] = useState(() => Date.now())
   const motDue = isDueSoon(vehicle.motDueDate, now)
@@ -75,6 +76,22 @@ function VehicleCard({ vehicle }: { vehicle: OwnerVehicle }) {
         >
           <History className="h-4 w-4" />
         </button>
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={`Edit ${vehicle.registration}`}
+          className="flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-400 hover:bg-slate-50 hover:text-[#1E3A5F] dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-white"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label={`Delete ${vehicle.registration}`}
+          className="flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-700 dark:text-slate-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
       {(motDue || serviceDue) && (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -90,6 +107,20 @@ function VehicleCard({ vehicle }: { vehicle: OwnerVehicle }) {
 export function OwnerVehiclesPage() {
   const { data, loading, error, reload } = useApi<{ vehicles: OwnerVehicle[] }>("/api/vehicles")
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<OwnerVehicle | null>(null)
+  const [deleting, setDeleting] = useState<OwnerVehicle | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
+
+  async function confirmDelete() {
+    if (!deleting) return
+    setDeleteBusy(true)
+    const res = await sendJson(`/api/vehicles/${deleting.id}`, "DELETE")
+    setDeleteBusy(false)
+    if (!res.ok) return setDeleteError(res.error ?? "Could not delete this vehicle")
+    setDeleting(null)
+    reload()
+  }
   const vehicles = data?.vehicles ?? []
 
   return (
@@ -120,7 +151,15 @@ export function OwnerVehiclesPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {vehicles.map((v) => (
-            <VehicleCard key={v.id} vehicle={v} />
+            <VehicleCard
+              key={v.id}
+              vehicle={v}
+              onEdit={() => setEditing(v)}
+              onDelete={() => {
+                setDeleteError("")
+                setDeleting(v)
+              }}
+            />
           ))}
         </div>
       )}
@@ -131,6 +170,28 @@ export function OwnerVehiclesPage() {
           setAdding(false)
           reload()
         }}
+      />
+      {editing && (
+        <AddVehicleDialog
+          key={editing.id}
+          vehicle={editing}
+          open
+          onOpenChange={(open) => !open && setEditing(null)}
+          onAdded={() => {
+            setEditing(null)
+            reload()
+          }}
+        />
+      )}
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title={`Delete ${deleting?.registration ?? "vehicle"}?`}
+        description={deleteError || "This removes the vehicle and its reminders. Vehicles with quotes or bookings can't be deleted."}
+        confirmLabel="Delete vehicle"
+        destructive
+        loading={deleteBusy}
+        onConfirm={confirmDelete}
       />
     </>
   )

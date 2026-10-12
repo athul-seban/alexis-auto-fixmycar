@@ -5,6 +5,7 @@ import { GET, PUT } from "./route"
 import { cleanupPrefix, makeOwner } from "@/test/fixtures"
 import { getMessages } from "@/lib/i18n/server"
 import { getLegalPage, liveLegalPages } from "@/lib/legal"
+import { legalOutline } from "@/lib/i18n/content-rules"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
 vi.mock("@/lib/auth", () => ({ authOptions: {} }))
@@ -113,6 +114,21 @@ describe("/api/admin/content", () => {
   })
 })
 
+describe("legal pages: publish rules", () => {
+  it("allows a draft with markers, but publishing needs the markers gone and a solicitor review confirmed", async () => {
+    await asAdmin()
+    const draft = legalOutline("privacy")
+    expect(draft).toContain("[[Solicitor to complete]]")
+    expect((await put({ key: "legal.privacy.body", locale: "en", action: "saveDraft", text: draft })).status).toBe(200)
+
+    expect((await put({ key: "legal.privacy.body", locale: "en", action: "publish" })).status).toBe(400) // markers remain
+    const done = "## Who we are\n\nReal text."
+    expect((await put({ key: "legal.privacy.body", locale: "en", action: "publish", text: done })).status).toBe(400) // not confirmed
+    expect((await put({ key: "legal.privacy.body", locale: "en", action: "publish", text: done, confirmedReviewed: true })).status).toBe(200)
+    expect(await getLegalPage("privacy", "en")).not.toBeNull()
+  })
+})
+
 describe("legal pages", () => {
   it("do not exist until the business publishes them, fall back to English per language, and list in the footer", async () => {
     await asAdmin()
@@ -120,7 +136,7 @@ describe("legal pages", () => {
     expect(await liveLegalPages("en")).toEqual([])
     expect(await getLegalPage("not-a-page", "en")).toBeNull()
 
-    await put({ key: "legal.privacy.body", locale: "en", action: "publish", text: "## What we collect\n\nYour name." })
+    await put({ key: "legal.privacy.body", locale: "en", action: "publish", confirmedReviewed: true, text: "## What we collect\n\nYour name." })
     const en = await getLegalPage("privacy", "en")
     expect(en).toMatchObject({ slug: "privacy", title: "Privacy Policy", fallback: false })
     expect(en?.body).toContain("What we collect")
@@ -128,7 +144,7 @@ describe("legal pages", () => {
     const fr = await getLegalPage("privacy", "fr") // no French text yet: English body under the French title is not offered as French
     expect(fr).toMatchObject({ fallback: true, title: "Privacy Policy" })
 
-    await put({ key: "legal.privacy.body", locale: "fr", action: "publish", text: "## Ce que nous collectons" })
+    await put({ key: "legal.privacy.body", locale: "fr", action: "publish", confirmedReviewed: true, text: "## Ce que nous collectons" })
     expect(await getLegalPage("privacy", "fr")).toMatchObject({ fallback: false, title: "Politique de confidentialité" })
     expect((await liveLegalPages("de")).map((p) => p.slug)).toEqual(["privacy"]) // German falls back to English
   })

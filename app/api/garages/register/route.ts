@@ -3,11 +3,14 @@ import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { slugify } from "@/lib/utils"
 import { z } from "zod"
+import { SERVICE_TYPES } from "@/lib/constants"
+import { limitByIp } from "@/lib/rate-limit"
+import { newPasswordSchema } from "@/lib/password-policy"
 
 const schema = z.object({
   name: z.string().min(2),
   email: z.string().email().trim().toLowerCase(),
-  password: z.string().min(8),
+  password: newPasswordSchema,
   phone: z.string().min(10),
   garageName: z.string().min(2),
   garagePhone: z.string().min(10),
@@ -17,11 +20,14 @@ const schema = z.object({
   postcode: z.string().min(5),
   description: z.string().optional(),
   isMobile: z.boolean().default(false),
-  services: z.array(z.string()).min(1),
+  services: z.array(z.enum(SERVICE_TYPES)).min(1).max(SERVICE_TYPES.length),
 })
 
 export async function POST(req: Request) {
   try {
+    const limited = await limitByIp(req.headers, "garage-register", 5, 60 * 60 * 1000)
+    if (limited) return limited
+
     const body = await req.json()
     const data = schema.parse(body)
 

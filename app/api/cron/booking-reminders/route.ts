@@ -2,6 +2,7 @@
 // environment variable is set, which is what this route checks, so it also can't be invoked by the public.
 import { NextResponse } from "next/server"
 import { sendDueBookingReminders, sendDueSmsReminders } from "@/lib/portal/reminders"
+import { sendDueReviewRequests } from "@/lib/portal/review-requests"
 
 export async function GET(req: Request) {
   if (!process.env.CRON_SECRET || req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -10,7 +11,8 @@ export async function GET(req: Request) {
   try {
     const email = await sendDueBookingReminders()
     const sms = await sendDueSmsReminders()
-    return NextResponse.json({ ...email, sms })
+    const reviews = await sendDueReviewRequests()
+    return NextResponse.json({ ...email, sms, reviews })
   } catch (err) {
     console.error("Booking reminders cron error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

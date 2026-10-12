@@ -3,6 +3,7 @@ import { parseServiceList } from "@/lib/garage-mapper"
 import { bayesianRating } from "@/lib/ranking"
 import { isFeatured } from "@/lib/portal/plans"
 import { getServiceLabel } from "@/lib/utils"
+import { displayName } from "@/lib/display-name"
 
 // Everything the home page shows about the marketplace comes from the database, never from hard-coded marketing
 // numbers. Each function degrades to "nothing to show" if the database is unreachable, and the sections that use
@@ -111,13 +112,7 @@ export interface HomeReview {
   createdAt: Date
 }
 
-/** "Sarah Mitchell" → "Sarah M."; a single name stays as is; nothing → "A customer". */
-export function displayName(name: string | null | undefined): string {
-  const parts = (name ?? "").trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return "A customer"
-  if (parts.length === 1) return parts[0]
-  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`
-}
+export { displayName }
 
 /** Recent genuine reviews worth quoting: 4★+, a real comment, and not removed after a dispute. */
 export async function getHomeReviews(limit = 6): Promise<HomeReview[]> {

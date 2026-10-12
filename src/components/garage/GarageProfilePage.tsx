@@ -1,25 +1,21 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import {
   MapPin, Star, Shield, Phone, Mail, Globe, Car,
-  ChevronLeft, MessageSquare, CheckCircle, AlertCircle, X, Loader2
+  ChevronLeft, MessageSquare, CheckCircle, AlertCircle, CalendarCheck, Navigation,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { getServiceLabel } from "@/lib/utils"
-import type { GarageProfile, PublicServicePrice, Review, ServiceType } from "@/types"
+import type { PublicGarage } from "@/lib/public-garage"
+import { OpenNowBadge } from "@/components/garage/OpenNowBadge"
+import { directionsUrl } from "@/lib/geo-links"
+import { formatLondonDate } from "@/lib/portal/tz"
 import { priceLabel } from "@/lib/portal/service-defaults"
-
-interface VehicleOption {
-  id: string
-  registration: string
-  make: string
-  model: string
-  year: number
-}
+import { QuoteRequestDialog } from "@/components/garage/QuoteRequestDialog"
 
 const VERIFICATION_BADGE_LABELS: Record<string, string> = {
   ID_VERIFIED: "ID Verified",
@@ -28,58 +24,34 @@ const VERIFICATION_BADGE_LABELS: Record<string, string> = {
 }
 
 interface Props {
-  slug: string
+  garage: PublicGarage | null
+  /** Carried from the search that led here, so the quote dialog opens already filled in. */
+  initialService?: string
+  initialReg?: string
 }
 
-export function GarageProfilePage({ slug }: Props) {
+const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const
+
+export function GarageProfilePage({ garage, initialService, initialReg }: Props) {
   const { data: session } = useSession()
-  const user = session?.user as any
+  const user = session?.user as { role?: string } | undefined
 
   const [activeTab, setActiveTab] = useState<"services" | "reviews" | "info">("services")
   const [showQuoteForm, setShowQuoteForm] = useState(false)
-  const [garage, setGarage] = useState<(GarageProfile & { reviews: Review[]; verificationBadges: string[]; prices?: PublicServicePrice[] }) | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
 
-  useEffect(() => {
-    setLoading(true)
-    setError("")
-    fetch(`/api/garages/${slug}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) throw new Error(data.error)
-        setGarage(data.garage)
-      })
-      .catch((err) => setError(err.message ?? "Failed to load garage"))
-      .finally(() => setLoading(false))
-  }, [slug])
-
-  const days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const
-
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-16 flex justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-300 dark:text-slate-600" />
-      </div>
-    )
-  }
-
-  if (error || !garage) {
+  if (!garage) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
         <AlertCircle className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
         <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">Garage not found</h2>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">{error || "This garage may no longer be listed."}</p>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">This garage may no longer be listed.</p>
         <Link href="/search"><Button variant="outline">Back to search</Button></Link>
       </div>
     )
   }
 
-  const ratingBreakdown = [5, 4, 3, 2, 1].map((stars) => {
-    const count = garage.reviews.filter((r) => r.rating === stars).length
-    const pct = garage.reviews.length ? Math.round((count / garage.reviews.length) * 100) : 0
-    return { stars, pct }
-  })
+  const ratingBreakdown = garage.ratingBreakdown
+  const bookHref = `/widget/${garage.slug}?from=profile${initialService ? `&service=${initialService}` : ""}${initialReg ? `&vrm=${encodeURIComponent(initialReg)}` : ""}`
 
   return (
     <div>
@@ -126,6 +98,7 @@ export function GarageProfilePage({ slug }: Props) {
                   <MapPin className="h-4 w-4" />
                   {garage.address}, {garage.city} {garage.postcode}
                 </div>
+                <OpenNowBadge hours={garage.openingHours} />
                 <div className="flex items-center gap-1">
                   <div className="flex">
                     {[1, 2, 3, 4, 5].map((i) => (
@@ -137,14 +110,22 @@ export function GarageProfilePage({ slug }: Props) {
                 </div>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <a href={`tel:${garage.phone}`}>
                 <Button variant="white" size="lg" className="gap-2">
                   <Phone className="h-4 w-4" />
                   Call
                 </Button>
               </a>
-              <Button size="lg" className="gap-2" onClick={() => setShowQuoteForm(true)}>
+              {garage.bookOnline && (
+                <Link href={bookHref}>
+                  <Button size="lg" className="gap-2">
+                    <CalendarCheck className="h-4 w-4" />
+                    Book online
+                  </Button>
+                </Link>
+              )}
+              <Button size="lg" variant={garage.bookOnline ? "white" : "primary"} className="gap-2" onClick={() => setShowQuoteForm(true)}>
                 <MessageSquare className="h-4 w-4" />
                 Get Quote
               </Button>
@@ -183,7 +164,7 @@ export function GarageProfilePage({ slug }: Props) {
               ))}
             </div>
 
-            {activeTab === "services" && (
+            <div hidden={activeTab !== "services"}>
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-6">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">About</h2>
                 <p className="text-slate-600 dark:text-slate-300 leading-relaxed mb-6">{garage.description || "No description provided yet."}</p>
@@ -208,9 +189,9 @@ export function GarageProfilePage({ slug }: Props) {
                   </div>
                 )}
               </div>
-            )}
+            </div>
 
-            {activeTab === "reviews" && (
+            <div hidden={activeTab !== "reviews"}>
               <div className="space-y-4">
                 <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-6">
                   <div className="flex items-center gap-6">
@@ -249,9 +230,9 @@ export function GarageProfilePage({ slug }: Props) {
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-[#1E3A5F] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                            {(review.owner.name ?? "U").split(" ").map((w) => w[0]).join("")}
+                            {review.author.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()}
                           </div>
-                          <p className="font-semibold text-slate-900 dark:text-white text-sm">{review.owner.name ?? "Anonymous"}</p>
+                          <p className="font-semibold text-slate-900 dark:text-white text-sm">{review.author}</p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           <div className="flex">
@@ -259,7 +240,7 @@ export function GarageProfilePage({ slug }: Props) {
                               <Star key={i} className={`h-4 w-4 ${i <= review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-200 dark:text-slate-700"}`} />
                             ))}
                           </div>
-                          <span className="text-xs text-slate-500 dark:text-slate-400">{new Date(review.createdAt).toLocaleDateString("en-GB")}</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">{formatLondonDate(review.createdAt)}</span>
                         </div>
                       </div>
                       {review.title && <p className="font-semibold text-slate-900 dark:text-white text-sm mb-1">{review.title}</p>}
@@ -268,7 +249,7 @@ export function GarageProfilePage({ slug }: Props) {
                         <div className="mt-3 rounded-lg border-l-4 border-[#F97316] bg-slate-50 p-3 dark:bg-white/5">
                           <p className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                             Response from {garage.name}
-                            {review.repliedAt && ` · ${new Date(review.repliedAt).toLocaleDateString("en-GB")}`}
+                            {review.repliedAt && ` · ${formatLondonDate(review.repliedAt)}`}
                           </p>
                           <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">{review.reply}</p>
                         </div>
@@ -277,13 +258,13 @@ export function GarageProfilePage({ slug }: Props) {
                   ))
                 )}
               </div>
-            )}
+            </div>
 
-            {activeTab === "info" && (
+            <div hidden={activeTab !== "info"}>
               <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-6">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-5">Opening Hours</h2>
                 <div className="space-y-2">
-                  {days.map((day) => {
+                  {DAYS.map((day) => {
                     const hours = garage.openingHours?.[day]
                     return (
                       <div key={day} className="flex items-center justify-between py-2 border-b border-gray-50 dark:border-white/5 last:border-0">
@@ -298,11 +279,24 @@ export function GarageProfilePage({ slug }: Props) {
                   })}
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-4">
+            {garage.bookOnline && (
+              <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-5">
+                <h3 className="font-bold text-slate-900 dark:text-white mb-3">Book online</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Pick a day and time that suits you. No account needed.</p>
+                <Link href={bookHref}>
+                  <Button className="w-full gap-2" size="lg">
+                    <CalendarCheck className="h-4 w-4" />
+                    Choose a time
+                  </Button>
+                </Link>
+              </div>
+            )}
+
             <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-5">
               <h3 className="font-bold text-slate-900 dark:text-white mb-3">Request a Free Quote</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Get a no-obligation quote from this garage.</p>
@@ -340,15 +334,24 @@ export function GarageProfilePage({ slug }: Props) {
                   <MapPin className="h-4 w-4 text-[#F97316] flex-shrink-0" />
                   <span className="text-slate-700 dark:text-slate-200">{garage.address}, {garage.city} {garage.postcode}</span>
                 </div>
+                <a
+                  href={directionsUrl(garage)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-[#1E3A5F] hover:underline dark:text-blue-300"
+                >
+                  <Navigation className="h-4 w-4" />
+                  Get directions
+                </a>
               </div>
             </div>
 
             <div className="bg-[#F8FAFC] dark:bg-slate-950 rounded-xl border border-gray-200 dark:border-white/10 p-5">
-              <div className="grid grid-cols-3 gap-3">
+              <div className={`grid gap-3 ${garage.completedJobs ? "grid-cols-3" : "grid-cols-2"}`}>
                 {[
                   { label: "Total Reviews", value: garage.totalReviews.toLocaleString() },
                   { label: "Avg Rating", value: `${garage.averageRating.toFixed(1)}★` },
-                  { label: "Jobs Completed", value: garage.totalBookings.toLocaleString() },
+                  ...(garage.completedJobs ? [{ label: "Jobs Completed", value: garage.completedJobs.toLocaleString() }] : []),
                 ].map((stat) => (
                   <div key={stat.label} className="text-center p-3 bg-white dark:bg-slate-800 rounded-lg border border-gray-100 dark:border-white/10">
                     <div className="text-xl font-bold text-[#1E3A5F] dark:text-white">{stat.value}</div>
@@ -361,169 +364,16 @@ export function GarageProfilePage({ slug }: Props) {
         </div>
       </div>
 
-      {showQuoteForm && (
-        <QuoteRequestModal
-          garageId={garage.id}
-          isSignedIn={!!user}
-          isOwner={user?.role === "OWNER"}
-          onClose={() => setShowQuoteForm(false)}
-        />
-      )}
-    </div>
-  )
-}
-
-function QuoteRequestModal({
-  garageId,
-  isSignedIn,
-  isOwner,
-  onClose,
-}: {
-  garageId: string
-  isSignedIn: boolean
-  isOwner: boolean
-  onClose: () => void
-}) {
-  const [vehicles, setVehicles] = useState<VehicleOption[]>([])
-  const [vehiclesLoading, setVehiclesLoading] = useState(true)
-  const [vehicleId, setVehicleId] = useState("")
-  const [serviceType, setServiceType] = useState<ServiceType>("MOT")
-  const [description, setDescription] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState(false)
-
-  useEffect(() => {
-    if (!isOwner) {
-      setVehiclesLoading(false)
-      return
-    }
-    fetch("/api/vehicles")
-      .then((res) => res.json())
-      .then((data) => {
-        setVehicles(data.vehicles ?? [])
-        if (data.vehicles?.[0]) setVehicleId(data.vehicles[0].id)
-      })
-      .catch(() => setVehicles([]))
-      .finally(() => setVehiclesLoading(false))
-  }, [isOwner])
-
-  const handleSubmit = async () => {
-    setError("")
-    if (!vehicleId) {
-      setError("Please select a vehicle")
-      return
-    }
-    if (description.trim().length < 10) {
-      setError("Please describe what you need in at least 10 characters")
-      return
-    }
-    setSubmitting(true)
-    try {
-      const res = await fetch("/api/quotes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "request", vehicleId, garageId, serviceType, description }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? "Failed to send quote request")
-      setSuccess(true)
-    } catch (err: any) {
-      setError(err.message ?? "Failed to send quote request")
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
-      <div
-        className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Request a Quote</h2>
-          <button onClick={onClose} className="text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {!isSignedIn ? (
-          <div className="text-center py-6">
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Sign in as a vehicle owner to request a quote directly, or post a job as a guest instead.</p>
-            <div className="flex flex-col gap-2">
-              <Link href="/login"><Button className="w-full">Sign In</Button></Link>
-              <Link href="/post-job"><Button variant="outline" className="w-full">Post a Job (No Account Needed)</Button></Link>
-            </div>
-          </div>
-        ) : !isOwner ? (
-          <p className="text-sm text-slate-600 dark:text-slate-300 py-6 text-center">Only vehicle owner accounts can request quotes directly.</p>
-        ) : success ? (
-          <div className="text-center py-6">
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-3" />
-            <p className="font-semibold text-slate-900 dark:text-white mb-1">Quote requested!</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">The garage will respond soon. Check your dashboard for updates.</p>
-            <Link href="/dashboard"><Button className="w-full">Go to Dashboard</Button></Link>
-          </div>
-        ) : vehiclesLoading ? (
-          <div className="py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-slate-300 dark:text-slate-600" /></div>
-        ) : vehicles.length === 0 ? (
-          <div className="text-center py-6">
-            <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">Add a vehicle to your account before requesting a quote.</p>
-            <Link href="/dashboard"><Button className="w-full">Add a Vehicle</Button></Link>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {error && (
-              <div className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400">
-                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                {error}
-              </div>
-            )}
-            <div>
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Vehicle</label>
-              <select
-                aria-label="Vehicle"
-                value={vehicleId}
-                onChange={(e) => setVehicleId(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]"
-              >
-                {vehicles.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.registration} · {v.year} {v.make} {v.model}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Service Needed</label>
-              <select
-                aria-label="Service needed"
-                value={serviceType}
-                onChange={(e) => setServiceType(e.target.value as ServiceType)}
-                className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]"
-              >
-                {["MOT", "FULL_SERVICE", "INTERIM_SERVICE", "MINOR_SERVICE", "REPAIR", "DIAGNOSTICS", "TYRES", "BRAKES", "CLUTCH", "CAMBELT", "EXHAUST", "BATTERY", "WINDSCREEN", "AIR_CON", "ELECTRIC_SERVICE", "OTHER"].map((s) => (
-                  <option key={s} value={s}>{getServiceLabel(s)}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Description</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                placeholder="Describe the issue or service you need..."
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] resize-none"
-              />
-            </div>
-            <Button className="w-full" loading={submitting} onClick={handleSubmit}>
-              Send Quote Request
-            </Button>
-          </div>
-        )}
-      </div>
+      <QuoteRequestDialog
+        open={showQuoteForm}
+        onOpenChange={setShowQuoteForm}
+        garageId={garage.id}
+        garageSlug={garage.slug}
+        initialService={initialService}
+        initialReg={initialReg}
+        isSignedIn={!!user}
+        isOwner={user?.role === "OWNER"}
+      />
     </div>
   )
 }

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { GET, PATCH } from "./route"
 import { createBooking } from "@/lib/portal/booking-service"
 import { DEFAULT_OPENING_HOURS } from "@/lib/portal/opening-hours"
-import { cleanupPrefix, makeGarage, makeOwner } from "@/test/fixtures"
+import { cleanupPrefix, makeGarage, makeOwner, makeWalkInBooking } from "@/test/fixtures"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
 vi.mock("@/lib/auth", () => ({ authOptions: {} }))
@@ -125,6 +125,32 @@ describe("GET /api/garages/[id] (public)", () => {
     const { garage: g } = await (await getPublic(garage.slug)).json()
     expect(g.reviews[0]).toMatchObject({ reply: "Thank you, see you next year!" })
     expect(g.reviews[0].repliedAt).toBeTruthy()
+  })
+
+  it("returns a short author for reviews without an account, and never the owner object", async () => {
+    const { garage } = await makeGarage(PREFIX, { key: "guestrev" })
+    const booking = await makeWalkInBooking(garage.id, { status: "COMPLETED" })
+    await prisma.review.create({ data: { ownerId: null, customerName: "Sarah Mitchell", garageId: garage.id, bookingId: booking.id, rating: 4, comment: "Quick and friendly service" } })
+
+    const res = await getPublic(garage.slug)
+    expect(res.status).toBe(200)
+    const { garage: g } = await res.json()
+    expect(g.reviews[0].author).toBe("Sarah M.")
+    expect(g.reviews[0]).not.toHaveProperty("owner")
+    expect(g.ratingBreakdown.find((b: { stars: number }) => b.stars === 4).pct).toBe(100)
+  })
+
+  it("offers online booking only when the widget is on and opening hours are set, without leaking settings", async () => {
+    const on = await makeGarage(PREFIX, { key: "on", openingHours: DEFAULT_OPENING_HOURS })
+    const off = await makeGarage(PREFIX, { key: "off", openingHours: DEFAULT_OPENING_HOURS, portalSettings: JSON.stringify({ widget: { enabled: false } }) })
+    const noHours = await makeGarage(PREFIX, { key: "nohours" })
+
+    const get = async (g: { garage: { slug: string } }) => (await (await getPublic(g.garage.slug)).json()).garage
+    const a = await get(on)
+    expect(a.bookOnline).toBe(true)
+    expect(a).not.toHaveProperty("portalSettings")
+    expect((await get(off)).bookOnline).toBe(false)
+    expect((await get(noHours)).bookOnline).toBe(false)
   })
 
   it("lists only active, offered services that actually have a price", async () => {
