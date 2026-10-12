@@ -25,6 +25,13 @@ export function SearchResults() {
   const location = searchParams.get("location") ?? ""
   const serviceType = searchParams.get("service") ?? ""
   const registration = searchParams.get("reg") ?? ""
+  const vehicleParams = new URLSearchParams()
+  for (const k of ["make", "model", "year", "fuel"]) {
+    const v = searchParams.get(k)
+    if (v) vehicleParams.set(k, v)
+  }
+  const vehicleLabel = [searchParams.get("make"), searchParams.get("model")].filter(Boolean).join(" ")
+  const vehicleExtra = [searchParams.get("year"), searchParams.get("fuel")].filter(Boolean).join(", ")
   const mobileOnly = searchParams.get("mobile") === "true"
   const verifiedOnly = searchParams.get("verified") === "true"
   const minRating = searchParams.get("minRating") ?? ""
@@ -242,9 +249,17 @@ export function SearchResults() {
 
             {registration && (
               <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-slate-700 dark:bg-white/5 dark:text-slate-300">
-                Quotes for <strong className="font-mono">{registration.toUpperCase()}</strong>.{" "}
+                Quotes for <strong className="font-mono">{registration.toUpperCase()}</strong>
+                {vehicleLabel && (
+                  <>
+                    {" "}
+                    <strong>{vehicleLabel}</strong>
+                    {vehicleExtra && ` (${vehicleExtra})`}
+                  </>
+                )}
+                .{" "}
                 <Link
-                  href={`/post-job?reg=${encodeURIComponent(registration)}${serviceType ? `&service=${serviceType}` : ""}`}
+                  href={`/post-job?reg=${encodeURIComponent(registration)}${serviceType ? `&service=${serviceType}` : ""}${vehicleParams.size ? `&${vehicleParams.toString()}` : ""}`}
                   className="font-semibold text-[#1E3A5F] underline dark:text-orange-300"
                 >
                   Post it once and get several quotes

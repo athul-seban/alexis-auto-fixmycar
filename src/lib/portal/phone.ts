@@ -16,6 +16,16 @@ export function formatPhone(input: string | null | undefined): string {
   return n
 }
 
+/** A plausible UK number of any kind: 10-11 digits after the leading 0 (landline, mobile, 03/08 business lines). */
+export function isValidUkPhone(input: string | null | undefined): boolean {
+  return /^0[1-9]\d{8,9}$/.test(normalisePhone(input))
+}
+
+/** A UK mobile (07xxx xxxxxx), the only kind that can receive booking texts. */
+export function isValidUkMobile(input: string | null | undefined): boolean {
+  return toE164Mobile(input) !== null
+}
+
 /**
  * UK number → E.164 ("+447700900123") for the SMS provider, or null when it isn't a plausible UK mobile.
  * Only mobiles can receive texts, so landlines (01/02/03) and malformed numbers are rejected rather than paid for.

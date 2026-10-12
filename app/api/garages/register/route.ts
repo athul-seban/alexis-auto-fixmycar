@@ -6,15 +6,22 @@ import { z } from "zod"
 import { SERVICE_TYPES } from "@/lib/constants"
 import { limitByIp } from "@/lib/rate-limit"
 import { newPasswordSchema } from "@/lib/password-policy"
+import { formatPhone, isValidUkMobile, isValidUkPhone } from "@/lib/portal/phone"
+import { formatVat, isValidUkVat } from "@/lib/portal/vat"
 
 const schema = z.object({
   name: z.string().min(2),
   email: z.string().email().trim().toLowerCase(),
   password: newPasswordSchema,
-  phone: z.string().min(10),
+  phone: z.string().refine(isValidUkMobile, "Enter a valid UK mobile number, e.g. 07700 900123"),
   garageName: z.string().min(2),
-  garagePhone: z.string().min(10),
+  garagePhone: z.string().refine(isValidUkPhone, "Enter a valid UK phone number, e.g. 020 7123 4567"),
   garageEmail: z.string().email().trim().toLowerCase(),
+  vatNumber: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || isValidUkVat(v), "Enter a valid UK VAT number, e.g. GB123456789"),
   address: z.string().min(5),
   city: z.string().min(2),
   postcode: z.string().min(5),
@@ -48,15 +55,16 @@ export async function POST(req: Request) {
       data: {
         name: data.name,
         email: data.email,
-        phone: data.phone,
+        phone: formatPhone(data.phone),
         password: hashedPassword,
         role: "GARAGE",
         garage: {
           create: {
             name: data.garageName,
             slug,
-            phone: data.garagePhone,
+            phone: formatPhone(data.garagePhone),
             email: data.garageEmail,
+            vatNumber: data.vatNumber ? formatVat(data.vatNumber) : null,
             address: data.address,
             city: data.city,
             postcode: data.postcode.toUpperCase(),
@@ -73,7 +81,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ user }, { status: 201 })
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid data", details: err.errors }, { status: 400 })
+      return NextResponse.json({ error: err.errors[0]?.message ?? "Invalid data", details: err.errors }, { status: 400 })
     }
     console.error("Garage register error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

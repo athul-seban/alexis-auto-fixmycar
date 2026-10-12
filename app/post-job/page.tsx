@@ -59,7 +59,9 @@ function PostJobForm() {
   const [result, setResult] = useState<JobRequestResult | null>(null)
 
   const [form, setForm] = useState({
-    registration: (search.get("reg") ?? "").slice(0, 12).toUpperCase(), make: "", model: "", year: "", fuel: "", mileage: "",
+    registration: (search.get("reg") ?? "").slice(0, 12).toUpperCase(),
+    make: (search.get("make") ?? "").slice(0, 40), model: (search.get("model") ?? "").slice(0, 60),
+    year: /^\d{4}$/.test(search.get("year") ?? "") ? search.get("year")! : "", fuel: (search.get("fuel") ?? "").slice(0, 30), mileage: "",
     serviceType: SERVICE_OPTIONS.some((o) => o.value === presetService) ? presetService : "", description: "", city: "", postcode: "",
     isMobilePreferred: false, preferredDate: "",
     guestName: "", guestEmail: "", guestPhone: "",

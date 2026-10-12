@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ConsentNotice } from "@/components/shared/ConsentNotice"
 import { SEARCH_SERVICE_OPTIONS } from "@/lib/service-options"
+import { isValidUkMobile, isValidUkPhone } from "@/lib/portal/phone"
+import { isValidUkVat } from "@/lib/portal/vat"
 
 const serviceOptions = SEARCH_SERVICE_OPTIONS
 
@@ -22,16 +24,31 @@ export default function GarageRegisterPage() {
     // Account
     name: "", email: "", password: "", phone: "",
     // Garage
-    garageName: "", garagePhone: "", garageEmail: "", address: "",
+    garageName: "", garagePhone: "", garageEmail: "", vatNumber: "", address: "",
     city: "", postcode: "", description: "", isMobile: false,
     // Services
     services: [] as string[],
   })
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const target = e.target as HTMLInputElement
     const value = target.type === "checkbox" ? target.checked : target.value
     setForm((prev) => ({ ...prev, [e.target.name]: value }))
+    setFieldErrors((prev) => (prev[e.target.name] ? { ...prev, [e.target.name]: "" } : prev))
+  }
+
+  // Validate the current step before moving on; the server re-checks everything.
+  const validateStep = (s: number) => {
+    const errors: Record<string, string> = {}
+    if (s === 1 && !isValidUkMobile(form.phone)) errors.phone = "Enter a valid UK mobile number, e.g. 07700 900123"
+    if (s === 2) {
+      if (!isValidUkPhone(form.garagePhone)) errors.garagePhone = "Enter a valid UK phone number, e.g. 020 7123 4567"
+      if (form.vatNumber.trim() && !isValidUkVat(form.vatNumber)) errors.vatNumber = "Enter a valid UK VAT number, e.g. GB123456789"
+    }
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
   const toggleService = (value: string) => {
@@ -111,7 +128,7 @@ export default function GarageRegisterPage() {
           ))}
         </div>
 
-        <form onSubmit={step < 3 ? (e) => { e.preventDefault(); setStep(s => s + 1) } : handleSubmit}>
+        <form onSubmit={step < 3 ? (e) => { e.preventDefault(); if (validateStep(step)) setStep(s => s + 1) } : handleSubmit}>
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-white/10 p-8 shadow-sm">
             {error && (
               <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-lg mb-5 text-sm text-red-700 dark:text-red-400">
@@ -127,7 +144,7 @@ export default function GarageRegisterPage() {
                 </h2>
                 <Input label="Your full name" name="name" value={form.name} onChange={handleChange} placeholder="John Smith" required />
                 <Input label="Email address" type="email" name="email" value={form.email} onChange={handleChange} placeholder="you@garage.com" required />
-                <Input label="Mobile number" type="tel" name="phone" value={form.phone} onChange={handleChange} placeholder="07700 900000" required />
+                <Input label="Mobile number" type="tel" name="phone" value={form.phone} onChange={handleChange} placeholder="07700 900000" required error={fieldErrors.phone} hint="UK mobile, used for booking alerts" />
                 <Input label="Password" type="password" name="password" value={form.password} onChange={handleChange} placeholder="Min. 8 characters" required hint="At least 8 characters" />
               </div>
             )}
@@ -138,8 +155,9 @@ export default function GarageRegisterPage() {
                   <MapPin className="h-5 w-5 text-[#F97316]" /> Garage Details
                 </h2>
                 <Input label="Garage name" name="garageName" value={form.garageName} onChange={handleChange} placeholder="Premier Auto Services" required />
-                <Input label="Garage phone" type="tel" name="garagePhone" value={form.garagePhone} onChange={handleChange} placeholder="020 7123 4567" required />
+                <Input label="Garage phone" type="tel" name="garagePhone" value={form.garagePhone} onChange={handleChange} placeholder="020 7123 4567" required error={fieldErrors.garagePhone} />
                 <Input label="Garage email" type="email" name="garageEmail" value={form.garageEmail} onChange={handleChange} placeholder="info@yourgarage.com" required />
+                <Input label="VAT number (optional)" name="vatNumber" value={form.vatNumber} onChange={handleChange} placeholder="GB123456789" error={fieldErrors.vatNumber} hint="Leave blank if you are not VAT registered" />
                 <Input label="Street address" name="address" value={form.address} onChange={handleChange} placeholder="123 High Street" required />
                 <div className="grid grid-cols-2 gap-4">
                   <Input label="City/Town" name="city" value={form.city} onChange={handleChange} placeholder="London" required />

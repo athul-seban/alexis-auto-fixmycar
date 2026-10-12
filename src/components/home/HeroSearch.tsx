@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search, MapPin, Car, ChevronDown, Check, Star, Shield, TrendingDown, Zap } from "lucide-react"
 import { useT } from "@/lib/i18n/client"
 import type { MessageKey } from "@/lib/i18n/messages/en"
+import { isPlausibleVrm, normaliseVrm } from "@/lib/portal/vrm"
+import type { LookedUpVehicle } from "@/components/shared/VehicleLookup"
 
 // Service codes (match /search?service=) with the emoji shown in the dropdown; the names come from the translations.
 const services = [
@@ -35,6 +37,33 @@ export function HeroSearch() {
   const [location, setLocation] = useState("")
   const [serviceType, setServiceType] = useState("")
   const [loading, setLoading] = useState(false)
+  const [vehicle, setVehicle] = useState<LookedUpVehicle | null>(null)
+
+  // Look the registration up once it looks complete. Purely a convenience: any failure (or no API credentials) leaves
+  // the search working exactly as before.
+  useEffect(() => {
+    const reg = normaliseVrm(registration)
+    if (reg.length < 5 || !isPlausibleVrm(reg)) return
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => {
+      fetch(`/api/vehicle-lookup?reg=${encodeURIComponent(reg)}`, { signal: ctrl.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => setVehicle(d?.found && d.vehicle ? (d.vehicle as LookedUpVehicle) : null))        .catch(() => {})
+    }, 600)
+    return () => {
+      clearTimeout(timer)
+      ctrl.abort()
+    }
+  }, [registration])
+
+  // Only use a lookup that belongs to the registration currently typed.
+  const current = vehicle && normaliseVrm(vehicle.registration) === normaliseVrm(registration) ? vehicle : null
+
+  const vehicleSummary = current
+    ? [[current.make, current.model].filter(Boolean).join(" "), [current.year, current.fuel, current.colour].filter(Boolean).join(", ")]
+        .filter(Boolean)
+        .join(" · ")
+    : ""
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,6 +72,12 @@ export function HeroSearch() {
     const params = new URLSearchParams()
     if (location) params.set("location", location)
     if (registration) params.set("reg", registration)
+    if (current) {
+      if (current.make) params.set("make", current.make)
+      if (current.model) params.set("model", current.model)
+      if (current.year) params.set("year", String(current.year))
+      if (current.fuel) params.set("fuel", current.fuel)
+    }
     if (serviceType) params.set("service", serviceType)
     router.push(`/search?${params.toString()}`)
   }
@@ -142,6 +177,12 @@ export function HeroSearch() {
                           maxLength={8}
                         />
                       </div>
+                      {vehicleSummary && (
+                        <p role="status" className="mt-1.5 px-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                          <Check className="mr-1 inline h-3 w-3" aria-hidden />
+                          {vehicleSummary}
+                        </p>
+                      )}
                     </div>
 
                     {/* Location */}

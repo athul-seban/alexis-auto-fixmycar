@@ -113,6 +113,7 @@ model Garage {
   images             String    @default("[]")
   phone              String
   email              String
+  vatNumber          String?   // UK VAT registration, e.g. GB123456789; null when not VAT registered
   website            String?
   address            String
   city               String

@@ -7,6 +7,7 @@ import { Wrench, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ConsentNotice } from "@/components/shared/ConsentNotice"
 import { Input } from "@/components/ui/input"
+import { isValidUkMobile } from "@/lib/portal/phone"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -32,6 +33,10 @@ export default function RegisterPage() {
 
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match.")
+      return
+    }
+    if (form.phone.trim() && !isValidUkMobile(form.phone)) {
+      setError("Enter a valid UK mobile number, e.g. 07700 900123, or leave it blank.")
       return
     }
     if (form.password.length < 8) {
