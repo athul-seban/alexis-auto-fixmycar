@@ -1,6 +1,7 @@
 import { Star, Shield, Car, MessageSquare, Calendar, CheckCircle, Minus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { formatCurrency, formatDateShort } from "@/lib/utils"
+import { formatCurrency, formatDateShort, getServiceLabel } from "@/lib/utils"
+import { parseLineItems } from "@/lib/portal/quote-pricing"
 import type { CompareRowConfig } from "@/components/compare/CompareTable"
 import type { TrackedJobResponse } from "@/components/post-job/types"
 
@@ -34,6 +35,38 @@ export function buildJobResponseCompareRows(
       highlightMin: true,
       rawValue: (r) => r.price,
       render: (r) => <span className="font-bold">{formatCurrency(r.price)}</span>,
+    },
+    {
+      type: "data",
+      key: "source",
+      label: "How it was priced",
+      render: (r) =>
+        r.source === "AUTO" ? (
+          <span className="font-semibold text-emerald-700 dark:text-emerald-400">Instant price</span>
+        ) : r.source === "ESTIMATE" ? (
+          <span className="font-semibold text-amber-700 dark:text-amber-400">Estimate, confirmed by the garage</span>
+        ) : (
+          <span>Quoted by the garage</span>
+        ),
+    },
+    {
+      type: "data",
+      key: "breakdown",
+      label: "Breakdown",
+      render: (r) => {
+        const items = parseLineItems(r.lineItems)
+        if (items.length < 2) return "—"
+        return (
+          <ul className="space-y-0.5 text-left">
+            {items.map((i) => (
+              <li key={i.serviceType} className="flex gap-3">
+                <span>{getServiceLabel(i.serviceType)}</span>
+                <span className="font-medium">{formatCurrency(i.price)}</span>
+              </li>
+            ))}
+          </ul>
+        )
+      },
     },
     {
       type: "data",

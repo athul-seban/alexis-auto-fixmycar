@@ -369,6 +369,8 @@ export function GarageProfilePage({ garage, initialService, initialReg }: Props)
         onOpenChange={setShowQuoteForm}
         garageId={garage.id}
         garageSlug={garage.slug}
+        offeredServices={garage.services}
+        terms={garage.quoteTerms}
         initialService={initialService}
         initialReg={initialReg}
         isSignedIn={!!user}

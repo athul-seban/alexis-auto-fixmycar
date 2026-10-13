@@ -160,65 +160,10 @@ export const POST = withGarage(
       }
     }
 
-    // ── From a priced quote (an account holder) ──
-    if (data.fromQuoteId) {
-      const quote = await prisma.quote.findFirst({ where: { id: data.fromQuoteId, garageId: garage.id } })
-      if (!quote) throw new BookingError("NOT_FOUND", "Quote not found")
-      if (quote.status !== "SENT" || quote.price === null) {
-        throw new BookingError("CONFLICT", "Only a quote you've priced and sent can be booked")
-      }
-      const booking = await createBooking({
-        garageId: garage.id,
-        source: "QUOTE",
-        ownerId: quote.ownerId,
-        vehicleId: quote.vehicleId,
-        quoteId: quote.id,
-        serviceType: quote.serviceType,
-        description: quote.description,
-        notes: data.notes,
-        scheduledAt,
-        durationMins: data.durationMins,
-        technicianId: data.technicianId,
-        totalPrice: data.totalPrice ?? quote.price,
-        status: data.status,
-        enforceApproved: false,
-        notify: false,
-        checkAvailability: !data.allowOverlap,
-      })
-      if (data.notifyCustomer) {
-        await notifyBookingOwner(booking, {
-          type: "BOOKING_CREATED",
-          title: "Your booking is scheduled",
-          body: `${garage.name} booked your ${getServiceLabel(booking.serviceType)} for ${formatLondonDateTime(scheduledAt)}`,
-        })
-      }
-      return NextResponse.json({ booking: toBookingRow(await loadRow(booking.id)), warnings }, { status: 201 })
-    }
-
-    // ── From a priced guest job response ──
-    if (data.fromJobResponseId) {
-      const response = await prisma.jobResponse.findFirst({ where: { id: data.fromJobResponseId, garageId: garage.id } })
-      if (!response) throw new BookingError("NOT_FOUND", "Job response not found")
-      if (response.status !== "SENT") throw new BookingError("CONFLICT", "That quote has already been accepted or declined")
-
-      const accepted = await acceptJobResponse({ jobRequestId: response.jobRequestId, jobResponseId: response.id, scheduledAt })
-      const booking = await prisma.booking.update({
-        where: { id: accepted.booking.id },
-        data: {
-          status: data.status,
-          durationMins: data.durationMins ?? null,
-          technicianId: data.technicianId ?? null,
-          notes: data.notes ?? null,
-          ...(data.totalPrice !== undefined ? { totalPrice: data.totalPrice } : {}),
-        },
-      })
-      if (data.notifyCustomer) {
-        await sendMail({
-          to: accepted.jobRequest.guestEmail,
-          ...bookingConfirmedGuestNotification({ jobRequest: accepted.jobRequest, garage: accepted.jobResponse.garage, price: booking.totalPrice }),
-        })
-      }
-      return NextResponse.json({ booking: toBookingRow(await loadRow(booking.id)), warnings }, { status: 201 })
+    // A quote becomes a booking only when the customer accepts it: that is the moment their details are shared
+    // with the garage. A garage can't book a quote on the customer's behalf.
+    if (data.fromQuoteId || data.fromJobResponseId) {
+      throw new BookingError("CONFLICT", "Only the customer can accept a quote. You'll get their details once they do.")
     }
 
     // ── Walk-in / phone booking ──

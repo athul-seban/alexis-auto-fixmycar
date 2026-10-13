@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { useToast } from "@/components/ui/toast"
 import { sendJson, useApi } from "@/hooks/use-api"
 import { formatCurrency, formatDate, getServiceLabel } from "@/lib/utils"
+import { parseLineItems, parseWorks } from "@/lib/portal/quote-pricing"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
 import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
 import { ThreadDialog, type ThreadTarget } from "@/components/owner-portal/ThreadDialog"
@@ -49,7 +50,7 @@ export function OwnerQuotesPage() {
       mobile: "title",
       cell: (q) => (
         <span>
-          <span className="font-medium text-slate-900 dark:text-white">{getServiceLabel(q.serviceType)}</span>
+          <span className="font-medium text-slate-900 dark:text-white">{parseWorks(q.services, q.serviceType).map(getServiceLabel).join(", ")}</span>
           <span className={`block text-xs font-normal ${muted}`}>
             {q.vehicle.registration} · {q.vehicle.make} {q.vehicle.model}
           </span>
@@ -66,7 +67,30 @@ export function OwnerQuotesPage() {
       ),
     },
     { id: "asked", header: "Requested", className: muted, cell: (q) => formatDate(q.createdAt) },
-    { id: "price", header: "Quote", cell: (q) => (q.price === null ? "Awaiting quote" : formatCurrency(q.price)) },
+    {
+      id: "price",
+      header: "Quote",
+      cell: (q) =>
+        q.price === null ? (
+          <span>
+            Awaiting quote
+            {q.respondBy && q.status === "PENDING" && (
+              <span className={`block text-xs font-normal ${muted}`}>Reply due {new Date(q.respondBy).toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })}</span>
+            )}
+          </span>
+        ) : (
+          <span>
+            {formatCurrency(q.price)}
+            {q.source === "AUTO" && <span className="block text-xs font-semibold text-emerald-700 dark:text-emerald-400">Instant price</span>}
+            {q.source === "ESTIMATE" && <span className="block text-xs font-semibold text-amber-700 dark:text-amber-400">Estimate, confirmed by the garage</span>}
+            {parseLineItems(q.lineItems).length > 1 && (
+              <span className={`block text-xs font-normal ${muted}`}>
+                {parseLineItems(q.lineItems).map((i) => `${getServiceLabel(i.serviceType)} ${formatCurrency(i.price)}`).join(" · ")}
+              </span>
+            )}
+          </span>
+        ),
+    },
     { id: "status", header: "Status", mobile: "badge", cell: (q) => <StatusPill status={q.status} /> },
     {
       id: "actions",

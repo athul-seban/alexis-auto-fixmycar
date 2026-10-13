@@ -30,8 +30,11 @@ describe("jobMatchesGarage", () => {
 })
 
 describe("toGarageJobView", () => {
-  it("drops the tracking token and guest email but keeps the rest", () => {
-    const view = toGarageJobView({ token: "secret", guestEmail: "g@example.com", guestPhone: "0770", city: "Bristol" })
-    expect(view).toEqual({ guestPhone: "0770", city: "Bristol" })
+  it("drops the token and every personal detail, keeping only the outward postcode", () => {
+    const view = toGarageJobView({
+      token: "secret", guestEmail: "g@example.com", guestName: "Gary", guestPhone: "0770", registration: "AB12CDE",
+      postcode: "LE11 3TU", city: "Bristol",
+    })
+    expect(view).toEqual({ postcode: "LE11", city: "Bristol" })
   })
 })

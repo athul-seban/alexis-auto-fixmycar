@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { expireDueRequests } from "@/lib/portal/quote-request-service"
 
 interface Params {
   params: Promise<{ token: string }>
@@ -8,6 +9,8 @@ interface Params {
 export async function GET(_req: Request, props: Params) {
   const params = await props.params;
   try {
+    const found = await prisma.jobRequest.findUnique({ where: { token: params.token }, select: { id: true } })
+    if (found) await expireDueRequests({ jobId: found.id })
     const jobRequest = await prisma.jobRequest.findUnique({
       where: { token: params.token },
       include: {

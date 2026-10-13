@@ -19,6 +19,8 @@ async function loadPricing(garageId: string, servicesJson: string) {
       offered: offered.has(serviceType),
       priceFrom: r?.priceFrom ?? null,
       priceTo: r?.priceTo ?? null,
+      fixedPrice: r?.fixedPrice ?? null,
+      autoQuote: r?.autoQuote ?? false,
       durationMins: r?.durationMins ?? DEFAULT_SERVICE_DURATION[serviceType],
       notes: r?.notes ?? null,
       isActive: r?.isActive ?? true,
@@ -47,9 +49,10 @@ export const PUT = withGarage(
           where: { garageId_serviceType: { garageId: garage.id, serviceType: p.serviceType } },
           create: {
             garageId: garage.id, serviceType: p.serviceType, priceFrom: p.priceFrom ?? null, priceTo: p.priceTo ?? null,
+            fixedPrice: p.fixedPrice ?? null, autoQuote: p.autoQuote,
             durationMins: p.durationMins, notes: p.notes || null, isActive: p.isActive,
           },
-          update: { priceFrom: p.priceFrom ?? null, priceTo: p.priceTo ?? null, durationMins: p.durationMins, notes: p.notes || null, isActive: p.isActive },
+          update: { priceFrom: p.priceFrom ?? null, priceTo: p.priceTo ?? null, fixedPrice: p.fixedPrice ?? null, autoQuote: p.autoQuote, durationMins: p.durationMins, notes: p.notes || null, isActive: p.isActive },
         })
       )
     )

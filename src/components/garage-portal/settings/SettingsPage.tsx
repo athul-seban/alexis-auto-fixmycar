@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { FieldError, FieldLabel, TextInput } from "@/components/ui/form-controls"
+import { FieldError, FieldLabel, NativeSelect, TextInput } from "@/components/ui/form-controls"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/toast"
@@ -32,6 +32,7 @@ export function SettingsPage() {
         <div className="max-w-3xl space-y-6">
           <TechniciansCard />
           <CapacityCard key={data.settings.bays ?? "auto"} bays={data.settings.bays ?? null} onSaved={reload} />
+          <QuoteRequestsCard key={`${data.settings.quotes.responseHours}-${data.settings.quotes.onExpiry}`} quotes={data.settings.quotes} onSaved={reload} />
           <NotificationsCard settings={data.settings} smsAvailable={data.smsAvailable} onSaved={reload} />
           <AppOnDeviceCard />
           <AccountCard account={data.account} />
@@ -115,6 +116,61 @@ function CapacityCard({ bays, onSaved }: { bays: number | null; onSaved: () => v
           <FieldLabel htmlFor="bays">Concurrent jobs</FieldLabel>
           <TextInput id="bays" type="number" min={1} max={50} placeholder="Automatic" value={value} onChange={(e) => setValue(e.target.value)} />
         </div>
+        <Button size="sm" variant="primary" disabled={!dirty} loading={saving} onClick={save}>Save</Button>
+      </div>
+      <FieldError>{error}</FieldError>
+    </Panel>
+  )
+}
+
+const RESPONSE_HOURS = [1, 2, 4, 8, 12, 24, 48, 72, 168]
+const hoursLabel = (h: number) => (h === 168 ? "7 days" : h >= 48 ? `${h / 24} days` : h === 1 ? "1 hour" : `${h} hours`)
+
+function QuoteRequestsCard({ quotes, onSaved }: { quotes: PortalSettings["quotes"]; onSaved: () => void }) {
+  const { toast } = useToast()
+  const [hours, setHours] = useState(quotes.responseHours)
+  const [onExpiry, setOnExpiry] = useState(quotes.onExpiry)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+  const dirty = hours !== quotes.responseHours || onExpiry !== quotes.onExpiry
+  const options = RESPONSE_HOURS.includes(hours) ? RESPONSE_HOURS : [...RESPONSE_HOURS, hours].sort((a, b) => a - b)
+
+  const save = async () => {
+    setError("")
+    setSaving(true)
+    const res = await sendJson("/api/garage/settings", "PATCH", { quotes: { responseHours: hours, onExpiry } })
+    setSaving(false)
+    if (!res.ok) return setError(res.error ?? "Couldn't save")
+    toast("Quote settings saved")
+    onSaved()
+  }
+
+  return (
+    <Panel className="p-5 sm:p-6">
+      <h2 className="text-lg font-bold text-slate-900 dark:text-white">Quote requests</h2>
+      <p className="mb-4 mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+        Services with a fixed price and “Quote instantly” on (see Pricing) are answered straight away. For everything else you have this long to send a price.
+        Customer details are only shared once the customer accepts your quote.
+      </p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <FieldLabel htmlFor="quote-hours">Time to send a quote</FieldLabel>
+          <NativeSelect id="quote-hours" value={hours} onChange={(e) => setHours(Number(e.target.value))}>
+            {options.map((h) => <option key={h} value={h}>{hoursLabel(h)}</option>)}
+          </NativeSelect>
+        </div>
+        <div>
+          <FieldLabel htmlFor="quote-expiry">If you don&apos;t reply in time</FieldLabel>
+          <NativeSelect id="quote-expiry" value={onExpiry} onChange={(e) => setOnExpiry(e.target.value as typeof onExpiry)}>
+            <option value="EXPIRE">Close the request</option>
+            <option value="ESTIMATE">Send my “from” prices as an estimate</option>
+          </NativeSelect>
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+        An estimate is only sent when every service in the request has a price on your Pricing page; otherwise the request closes.
+      </p>
+      <div className="mt-4">
         <Button size="sm" variant="primary" disabled={!dirty} loading={saving} onClick={save}>Save</Button>
       </div>
       <FieldError>{error}</FieldError>

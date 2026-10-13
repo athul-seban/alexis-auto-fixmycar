@@ -76,9 +76,10 @@ describe("GET /api/job-requests (garage view)", () => {
     expect(mine.token).toBeUndefined()
     expect(mine.guestEmail).toBeUndefined()
     expect(JSON.stringify(body)).not.toContain(`${PREFIX}secret-token`)
-    // The garage still gets what it needs to follow up.
-    expect(mine.guestName).toBe("Guest Person")
-    expect(mine.guestPhone).toBe("07123456789")
+    // Personal details stay hidden until the customer accepts a quote.
+    expect(mine.guestName).toBeUndefined()
+    expect(mine.guestPhone).toBeUndefined()
+    expect(mine.registration).toBeUndefined()
     expect(mine.hasResponded).toBe(false)
   })
 

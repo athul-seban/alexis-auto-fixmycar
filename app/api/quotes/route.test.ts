@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { GET, POST } from "./route"
 import { sendMail } from "@/lib/mail"
+import { notifyUser } from "@/lib/notifications"
+import { expireDueRequests } from "@/lib/portal/quote-request-service"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
 vi.mock("@/lib/auth", () => ({ authOptions: {} }))
@@ -30,6 +32,7 @@ async function makeFixtures() {
       city: "Bristol",
       postcode: "BS1 1AA",
       status: "APPROVED",
+      services: JSON.stringify(["MOT", "BRAKES"]),
     },
   })
   const otherGarage = await prisma.garage.create({
@@ -43,6 +46,7 @@ async function makeFixtures() {
       city: "Bristol",
       postcode: "BS1 1AB",
       status: "APPROVED",
+      services: JSON.stringify(["MOT", "BRAKES"]),
     },
   })
   const vehicle = await prisma.vehicle.create({
@@ -62,7 +66,7 @@ async function makeFixtures() {
 }
 
 async function cleanup() {
-  await prisma.quote.deleteMany({ where: { description: "Needs an MOT" } })
+  await prisma.quote.deleteMany({ where: { OR: [{ description: "Needs an MOT" }, { description: { startsWith: "Timed:" } }] } })
   await prisma.vehicle.deleteMany({ where: { registration: `${PREFIX}REG` } })
   await prisma.garage.deleteMany({ where: { name: { startsWith: PREFIX } } })
   await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } })
@@ -172,5 +176,68 @@ describe("Quotes route — cross-role permission checks", () => {
     mockSession.mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
     const res = await GET(getRequest())
     expect(res.status).toBe(403)
+  })
+})
+
+describe("Quotes route: several works, instant prices and deadlines", () => {
+  beforeEach(cleanup)
+  afterAll(cleanup)
+
+  const request = (garageId: string, vehicleId: string, over: object = {}) =>
+    POST(postRequest({ action: "request", vehicleId, garageId, services: ["MOT", "BRAKES"], description: "Timed: MOT and brakes", ...over }))
+
+  it("sends an instant quote when every work has an automatic price", async () => {
+    const { owner, garage, vehicle } = await makeFixtures()
+    await prisma.servicePrice.create({ data: { garageId: garage.id, serviceType: "MOT", fixedPrice: 40, autoQuote: true } })
+    await prisma.servicePrice.create({ data: { garageId: garage.id, serviceType: "BRAKES", fixedPrice: 110, autoQuote: true } })
+    mockSession.mockResolvedValue({ user: { id: owner.id, role: "OWNER" } } as any)
+
+    const res = await request(garage.id, vehicle.id)
+    const data = await res.json()
+    expect(res.status).toBe(201)
+    expect(data.instantlyQuoted).toBe(true)
+    expect(data.quote).toMatchObject({ status: "SENT", price: 150, source: "AUTO" })
+  })
+
+  it("waits for the garage within its deadline, and takes an amount for every work", async () => {
+    const { owner, garageUser, garage, vehicle } = await makeFixtures()
+    await prisma.garage.update({ where: { id: garage.id }, data: { portalSettings: JSON.stringify({ quotes: { responseHours: 2 } }) } })
+    mockSession.mockResolvedValue({ user: { id: owner.id, role: "OWNER" } } as any)
+
+    const created = (await (await request(garage.id, vehicle.id)).json()).quote
+    expect(created.status).toBe("PENDING")
+    expect(new Date(created.respondBy).getTime()).toBeLessThanOrEqual(Date.now() + 2 * 3_600_000 + 1000)
+
+    mockSession.mockResolvedValue({ user: { id: garageUser.id, role: "GARAGE" } } as any)
+    const respond = (body: object) => POST(postRequest({ action: "respond", quoteId: created.id, ...body }))
+    expect((await respond({ items: [{ serviceType: "MOT", price: 40 }] })).status).toBe(400) // BRAKES missing
+    const ok = await respond({ items: [{ serviceType: "MOT", price: 40 }, { serviceType: "BRAKES", price: 99 }] })
+    expect(ok.status).toBe(200)
+    expect((await ok.json()).quote).toMatchObject({ status: "SENT", price: 139, source: "MANUAL" })
+  })
+
+  it("never shows a garage the customer's name, phone or registration before they accept", async () => {
+    const { owner, garageUser, garage, vehicle } = await makeFixtures()
+    mockSession.mockResolvedValue({ user: { id: owner.id, role: "OWNER" } } as any)
+    await request(garage.id, vehicle.id)
+
+    mockSession.mockResolvedValue({ user: { id: garageUser.id, role: "GARAGE" } } as any)
+    const text = JSON.stringify(await (await GET(getRequest())).json())
+    expect(text).not.toContain(`${PREFIX}REG`)
+    expect(text).not.toContain(`${PREFIX}owner@example.com`)
+    expect(text).not.toContain('"phone"')
+    expect(text).not.toContain('"owner"')
+  })
+
+  it("closes an unanswered request once the garage's deadline has passed", async () => {
+    const { owner, garage, vehicle } = await makeFixtures()
+    mockSession.mockResolvedValue({ user: { id: owner.id, role: "OWNER" } } as any)
+    const created = (await (await request(garage.id, vehicle.id)).json()).quote
+    await prisma.quote.update({ where: { id: created.id }, data: { respondBy: new Date(Date.now() - 1000) } })
+
+    expect(await expireDueRequests({ ownerId: owner.id })).toBe(1)
+    expect((await prisma.quote.findUniqueOrThrow({ where: { id: created.id } })).status).toBe("EXPIRED")
+    expect(vi.mocked(notifyUser)).toHaveBeenCalledWith(expect.objectContaining({ userId: owner.id, type: "QUOTE_EXPIRED" }))
+    expect(await expireDueRequests({ ownerId: owner.id })).toBe(0)
   })
 })

@@ -4,6 +4,8 @@ import { pushToGarage, pushToUser } from "@/lib/push"
 export type NotificationType =
   | "QUOTE_REQUESTED"
   | "QUOTE_RESPONDED"
+  | "QUOTE_AUTO_SENT"
+  | "QUOTE_EXPIRED"
   | "BOOKING_CREATED"
   | "BOOKING_STATUS_CHANGED"
   | "JOB_RESPONSE_RECEIVED"

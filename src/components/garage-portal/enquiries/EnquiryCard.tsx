@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { CalendarPlus, CheckCircle2, Clock, MapPin, MessageSquare, Phone, RotateCcw, Send, XCircle } from "lucide-react"
+import { CheckCircle2, Clock, Lock, MapPin, MessageSquare, Phone, RotateCcw, Send, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn, formatCurrency, getServiceLabel, timeAgo } from "@/lib/utils"
 import { formatLondonDate } from "@/lib/portal/tz"
@@ -20,7 +20,6 @@ interface EnquiryCardProps {
   highlighted?: boolean
   busy?: boolean
   onWork: (patch: { contacted?: boolean; ignored?: boolean }) => void
-  onBook: () => void
   onQuoted: () => void
 }
 
@@ -35,7 +34,7 @@ const STATUS_NOTE: Record<string, string> = {
   IGNORED: "Ignored",
 }
 
-export function EnquiryCard({ enquiry: e, highlighted, busy, onWork, onBook, onQuoted }: EnquiryCardProps) {
+export function EnquiryCard({ enquiry: e, highlighted, busy, onWork, onQuoted }: EnquiryCardProps) {
   const { data: session } = useSession()
   const [quoting, setQuoting] = useState(false)
   const [thread, setThread] = useState(false)
@@ -53,32 +52,44 @@ export function EnquiryCard({ enquiry: e, highlighted, busy, onWork, onBook, onQ
       <div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
-            <h3 className="font-bold text-slate-900 dark:text-white">{getServiceLabel(e.serviceType)}</h3>
+            <h3 className="font-bold text-slate-900 dark:text-white">{e.works.map(getServiceLabel).join(", ")}</h3>
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">
               {e.kind === "QUOTE" ? "Quote request" : "Job lead"}
             </span>
             <StatusPill status={e.status === "NEW" || e.status === "IGNORED" ? "PENDING" : e.status} className={cn(e.status === "IGNORED" && "opacity-70")} />
+            {e.source === "AUTO" && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">Instant price</span>}
+            {e.source === "ESTIMATE" && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">Sent as estimate</span>}
             <span className="text-xs text-slate-500 dark:text-slate-400" title={new Date(e.createdAt).toLocaleString("en-GB", { timeZone: "Europe/London" })}>{timeAgo(e.createdAt)}</span>
           </div>
           <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">{e.description}</p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-500 dark:text-slate-400">
             <span className="flex items-center gap-2">
-              <VrmPlate vrm={e.vehicle.vrm} />
+              {e.vehicle.vrm && <VrmPlate vrm={e.vehicle.vrm} />}
               {e.vehicle.year} {e.vehicle.make} {e.vehicle.model}
             </span>
             {e.location && (
               <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{e.location.city}, {e.location.postcode}</span>
             )}
+            {e.respondBy && e.stage === "new" && (
+              <span className="flex items-center gap-1 font-medium text-orange-700 dark:text-orange-300"><Clock className="h-3.5 w-3.5" />Quote by {new Date(e.respondBy).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })}</span>
+            )}
             {e.preferredDate && (
               <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />Wants ~{formatLondonDate(e.preferredDate)}</span>
             )}
-            <span className="flex items-center gap-1">
-              <Phone className="h-3.5 w-3.5" />
-              {e.customer.name ?? "Customer"}
-              {e.customer.phone && (
-                <> · <a href={`tel:${e.customer.phone}`} className="font-medium text-[#1E3A5F] hover:underline dark:text-blue-300">{phone}</a></>
-              )}
-            </span>
+            {e.detailsShared ? (
+              <span className="flex items-center gap-1">
+                <Phone className="h-3.5 w-3.5" />
+                {e.customer.name ?? "Customer"}
+                {e.customer.phone && (
+                  <> · <a href={`tel:${e.customer.phone}`} className="font-medium text-[#1E3A5F] hover:underline dark:text-blue-300">{phone}</a></>
+                )}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                <Lock className="h-3.5 w-3.5" aria-hidden />
+                Customer details are shared once they accept your quote
+              </span>
+            )}
           </div>
         </div>
 
@@ -95,11 +106,6 @@ export function EnquiryCard({ enquiry: e, highlighted, busy, onWork, onBook, onQ
           {e.stage === "new" && !quoting && (
             <Button size="sm" variant="primary" className="gap-1.5" onClick={() => setQuoting(true)}>
               <Send className="h-3.5 w-3.5" /> Send quote
-            </Button>
-          )}
-          {e.stage === "estimates" && e.canBook && (
-            <Button size="sm" variant="primary" className="gap-1.5" onClick={onBook}>
-              <CalendarPlus className="h-3.5 w-3.5" /> Create booking
             </Button>
           )}
           {e.bookingId && (

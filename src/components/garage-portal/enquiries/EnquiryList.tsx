@@ -10,8 +10,6 @@ import { useToast } from "@/components/ui/toast"
 import { sendJson, useApi } from "@/hooks/use-api"
 import type { EnquiriesResult, EnquiryKind, EnquiryRow, EnquiryStage } from "@/lib/portal/enquiries"
 import { EnquiryCard } from "@/components/garage-portal/enquiries/EnquiryCard"
-import { EstimateBookingDialog } from "@/components/garage-portal/enquiries/EstimateBookingDialog"
-import type { TechnicianOption } from "@/components/garage-portal/bookings/types"
 
 interface EnquiryListProps {
   stage: EnquiryStage
@@ -21,18 +19,15 @@ interface EnquiryListProps {
   pageSize: number
   onPageChange: (page: number) => void
   onPageSizeChange: (size: number) => void
-  technicians: TechnicianOption[]
   highlightKey?: string | null
   /** Tell the parent counts changed (tab badges). */
   onData?: (result: EnquiriesResult) => void
-  /** Called after a booking is made, so the parent can navigate/refresh. */
-  onBooked?: (bookingId: string) => void
   emptyTitle?: string
   emptyDescription?: string
 }
 
 export function EnquiryList({
-  stage, kind, q, page, pageSize, onPageChange, onPageSizeChange, technicians, highlightKey, onData, onBooked, emptyTitle, emptyDescription,
+  stage, kind, q, page, pageSize, onPageChange, onPageSizeChange, highlightKey, onData, emptyTitle, emptyDescription,
 }: EnquiryListProps) {
   const { toast } = useToast()
   const params = new URLSearchParams({ stage, page: String(page), pageSize: String(pageSize) })
@@ -41,7 +36,6 @@ export function EnquiryList({
 
   const { data, loading, error, reload } = useApi<EnquiriesResult>(`/api/garage/enquiries?${params}`)
   const [busyKey, setBusyKey] = useState<string | null>(null)
-  const [booking, setBooking] = useState<EnquiryRow | null>(null)
 
   useEffect(() => {
     if (data) onData?.(data)
@@ -94,7 +88,6 @@ export function EnquiryList({
               highlighted={row.key === highlightKey}
               busy={busyKey === row.key}
               onWork={(patch) => work(row, patch)}
-              onBook={() => setBooking(row)}
               onQuoted={() => { toast("Quote sent"); reload() }}
             />
           ))}
@@ -104,16 +97,6 @@ export function EnquiryList({
       {data.total > pageSize && (
         <Pagination className="mt-5" page={page} pageSize={pageSize} total={data.total} pageSizes={[10, 25, 50]} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />
       )}
-
-      <EstimateBookingDialog
-        enquiry={booking}
-        technicians={technicians}
-        onOpenChange={(open) => !open && setBooking(null)}
-        onCreated={(b) => {
-          reload()
-          onBooked?.(b.id)
-        }}
-      />
     </>
   )
 }

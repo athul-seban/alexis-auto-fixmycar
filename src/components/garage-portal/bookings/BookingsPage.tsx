@@ -162,8 +162,6 @@ export function BookingsPage() {
               pageSize={pageSize}
               onPageChange={(p) => setParams({ page: p <= 1 ? null : p })}
               onPageSizeChange={(s) => setParams({ pageSize: s === 25 ? null : s }, { resetPage: true })}
-              technicians={technicians}
-              onBooked={(id) => setParams({ tab: null, booking: id })}
               emptyTitle="No estimates waiting"
               emptyDescription="Quotes you send to customers wait here until they book. You can also create the booking for them."
             />

@@ -323,47 +323,19 @@ describe("POST /api/garage/bookings", () => {
     expect((await late.json()).warnings).toContain("OUTSIDE_OPENING_HOURS")
   })
 
-  it("books from a priced quote for an account holder, accepting the quote", async () => {
+  it("won't let a garage book a quote on the customer's behalf", async () => {
     const { user, garage } = await makeGarage(PREFIX)
     const { user: owner, vehicle } = await makeOwner(PREFIX)
     const quote = await prisma.quote.create({ data: { ownerId: owner.id, vehicleId: vehicle.id, garageId: garage.id, serviceType: "BRAKES", description: "Front brakes squealing", status: "SENT", price: 180 } })
-    asUser(user.id)
-
-    const res = await post({ fromQuoteId: quote.id, scheduledAt: future() })
-    const { booking } = await res.json()
-
-    expect(res.status).toBe(201)
-    expect(booking).toMatchObject({ source: "QUOTE", serviceType: "BRAKES", totalPrice: 180, hasOwner: true, vrm: "AB12CDE" })
-    expect((await prisma.quote.findUniqueOrThrow({ where: { id: quote.id } })).status).toBe("ACCEPTED")
-    expect(await prisma.notification.count({ where: { userId: owner.id, type: "BOOKING_CREATED" } })).toBe(1)
-  })
-
-  it("won't book an unpriced quote or another garage's quote", async () => {
-    const { user, garage } = await makeGarage(PREFIX)
-    const { garage: other } = await makeGarage(PREFIX, { key: "other" })
-    const { user: owner, vehicle } = await makeOwner(PREFIX)
-    const unpriced = await prisma.quote.create({ data: { ownerId: owner.id, vehicleId: vehicle.id, garageId: garage.id, serviceType: "MOT", description: "Needs an MOT test", status: "PENDING" } })
-    const foreign = await prisma.quote.create({ data: { ownerId: owner.id, vehicleId: vehicle.id, garageId: other.id, serviceType: "MOT", description: "Needs an MOT test", status: "SENT", price: 40 } })
-    asUser(user.id)
-
-    expect((await post({ fromQuoteId: unpriced.id, scheduledAt: future() })).status).toBe(409)
-    expect((await post({ fromQuoteId: foreign.id, scheduledAt: future() })).status).toBe(404)
-  })
-
-  it("books from a guest job response, marking the job booked", async () => {
-    const { user, garage } = await makeGarage(PREFIX)
     const job = await prisma.jobRequest.create({
       data: { token: `${PREFIX}tok-a`, guestName: "Gary Guest", guestEmail: `${PREFIX}gary@example.com`, guestPhone: "07700900777", registration: "GU12EST", make: "Audi", model: "A3", year: 2017, serviceType: "MOT", description: "Needs an MOT test please", city: "Testville", postcode: "ZZ9 1AB" },
     })
     const response = await prisma.jobResponse.create({ data: { jobRequestId: job.id, garageId: garage.id, price: 65 } })
     asUser(user.id)
 
-    const res = await post({ fromJobResponseId: response.id, scheduledAt: future(), durationMins: 90 })
-    const { booking } = await res.json()
-
-    expect(res.status).toBe(201)
-    expect(booking).toMatchObject({ source: "JOB_REQUEST", status: "CONFIRMED", customerName: "Gary Guest", totalPrice: 65, durationMins: 90, timeConfirmed: true })
-    expect((await prisma.jobRequest.findUniqueOrThrow({ where: { id: job.id } })).status).toBe("BOOKED")
-    expect((await post({ fromJobResponseId: response.id, scheduledAt: future(9) })).status).toBe(409)
+    expect((await post({ fromQuoteId: quote.id, scheduledAt: future() })).status).toBe(409)
+    expect((await post({ fromJobResponseId: response.id, scheduledAt: future() })).status).toBe(409)
+    expect((await prisma.quote.findUniqueOrThrow({ where: { id: quote.id } })).status).toBe("SENT")
+    expect((await prisma.jobRequest.findUniqueOrThrow({ where: { id: job.id } })).status).not.toBe("BOOKED")
   })
 })

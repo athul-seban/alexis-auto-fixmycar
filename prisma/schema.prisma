@@ -181,6 +181,10 @@ model Quote {
   notes       String?
   validUntil  DateTime?
   contactedAt DateTime?
+  services    String    @default("[]")  // JSON array of every work requested (serviceType is the first)
+  respondBy   DateTime?                 // garage's deadline to quote
+  source      String    @default("MANUAL") // MANUAL | AUTO | ESTIMATE: how the price was produced
+  lineItems   String?                   // JSON [{ serviceType, price, source }]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -208,6 +212,7 @@ model Booking {
   scheduledAt DateTime
   completedAt DateTime?
   totalPrice  Float
+  lineItems   String?   // JSON [{ serviceType, price, source }] when the booking covers several works
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -313,7 +318,7 @@ model BookingEvent {
 model JobRequest {
   id     String @id @default(cuid())
   token  String @unique
-  status String @default("OPEN") // OPEN | QUOTED | BOOKED | CANCELLED
+  status String @default("OPEN") // OPEN | QUOTED | BOOKED | CANCELLED | EXPIRED
 
   guestName  String
   guestEmail String
@@ -336,6 +341,11 @@ model JobRequest {
   // Set when the customer asked one specific garage for a quote (from its profile); null = sent to every matching garage.
   targetGarageId String?
 
+  // Every work requested (JSON array of service codes; serviceType is the first). respondBy is the garage's deadline
+  // to quote; after it the request expires or falls back to an estimate (garage setting).
+  services  String    @default("[]")
+  respondBy DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -355,6 +365,8 @@ model JobResponse {
   message      String?
   status       String    @default("SENT") // SENT | ACCEPTED | DECLINED
   validUntil   DateTime?
+  source       String    @default("MANUAL") // MANUAL | AUTO | ESTIMATE: how the price was produced
+  lineItems    String?   // JSON [{ serviceType, price, source }]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -429,6 +441,9 @@ model ServicePrice {
   durationMins Int      @default(60)
   notes        String?
   isActive     Boolean  @default(true)
+  // A fixed price the garage commits to. With autoQuote on, a request for this work is answered instantly at this price.
+  fixedPrice   Float?
+  autoQuote    Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

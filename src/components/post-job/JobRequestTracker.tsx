@@ -6,12 +6,14 @@ import { Clock, CheckCircle2, PartyPopper, AlertCircle } from "lucide-react"
 import { CompareTable } from "@/components/compare/CompareTable"
 import { buildJobResponseCompareRows } from "@/components/post-job/jobResponseCompareRows"
 import { getServiceLabel } from "@/lib/utils"
+import { parseWorks } from "@/lib/portal/quote-pricing"
 import type { TrackedJobRequest } from "@/components/post-job/types"
 
 const STATUS_CONFIG: Record<string, { label: string; icon: typeof Clock; className: string }> = {
   OPEN: { label: "Waiting for quotes…", icon: Clock, className: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30" },
   QUOTED: { label: "Quotes received", icon: CheckCircle2, className: "bg-orange-50 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-500/30" },
   BOOKED: { label: "Booked!", icon: PartyPopper, className: "bg-green-50 dark:bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/30" },
+  EXPIRED: { label: "No reply in time", icon: Clock, className: "bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10" },
   CANCELLED: { label: "Cancelled", icon: AlertCircle, className: "bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10" },
 }
 
@@ -74,7 +76,7 @@ export function JobRequestTracker({ jobRequest: initialJobRequest }: Props) {
       )}
 
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 p-5 mb-6">
-        <h1 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{getServiceLabel(jobRequest.serviceType)}</h1>
+        <h1 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{parseWorks(jobRequest.services, jobRequest.serviceType).map(getServiceLabel).join(", ")}</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
           {jobRequest.year} {jobRequest.make} {jobRequest.model} · {jobRequest.registration} · {jobRequest.city}, {jobRequest.postcode}
         </p>
@@ -82,11 +84,26 @@ export function JobRequestTracker({ jobRequest: initialJobRequest }: Props) {
       </div>
 
       {jobRequest.responses.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10">
-          <Clock className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">No quotes yet</h3>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">Garages usually respond within a few hours. We&apos;ll email you as quotes arrive.</p>
-        </div>
+        jobRequest.status === "EXPIRED" ? (
+          <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 px-4">
+            <Clock className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">The garage didn&apos;t reply in time</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">We&apos;ve closed this request and you weren&apos;t charged. Other garages near you can quote for the same job.</p>
+            <a href={`/search?service=${encodeURIComponent(jobRequest.serviceType)}&location=${encodeURIComponent(jobRequest.postcode)}`} className="inline-block rounded-lg bg-[#F97316] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#EA580C]">
+              Find another garage
+            </a>
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-white/10 px-4">
+            <Clock className="h-12 w-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">No quotes yet</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
+              {jobRequest.respondBy
+                ? `The garage has until ${new Date(jobRequest.respondBy).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })} to send a price. We'll email you the moment it does.`
+                : "Garages usually respond within a few hours. We'll email you as quotes arrive."}
+            </p>
+          </div>
+        )
       ) : (
         <CompareTable
           columns={jobRequest.responses.map((r) => ({ id: r.id, data: r }))}

@@ -61,6 +61,8 @@ export interface CreateBookingInput {
   vehicleId?: string | null
   quoteId?: string | null
   jobResponseId?: string | null
+  /** JSON [{ serviceType, price, source }] when the booking covers several works (copied from the accepted quote). */
+  lineItems?: string | null
   // Snapshots — derived from owner/vehicle when omitted
   customerName?: string | null
   customerEmail?: string | null
@@ -153,6 +155,7 @@ async function createInTx(db: Db, input: CreateBookingInput) {
     vehicleYear ??= vehicle.year
   }
 
+  let lineItems = input.lineItems ?? null
   if (input.quoteId) {
     const quote = await db.quote.findUnique({ where: { id: input.quoteId }, include: { booking: { select: { id: true } } } })
     if (!quote || quote.garageId !== input.garageId || (input.ownerId && quote.ownerId !== input.ownerId)) {
@@ -161,6 +164,10 @@ async function createInTx(db: Db, input: CreateBookingInput) {
     if (quote.booking) throw new BookingError("CONFLICT", "That quote has already been booked")
     // Only a priced, still-open quote can be booked (not an unpriced, declined or expired one).
     if (quote.status !== "SENT") throw new BookingError("CONFLICT", "That quote isn't open for booking")
+    if (quote.validUntil && quote.validUntil.getTime() < Date.now()) {
+      throw new BookingError("CONFLICT", "This quote has expired. Ask the garage for a new one.")
+    }
+    lineItems ??= quote.lineItems
   }
 
   const reference = await uniqueReference(db)
@@ -180,6 +187,7 @@ async function createInTx(db: Db, input: CreateBookingInput) {
       scheduledAt: input.scheduledAt,
       durationMins: input.durationMins ?? null,
       totalPrice: input.totalPrice,
+      lineItems,
       technicianId: input.technicianId ?? null,
       timeConfirmed: input.timeConfirmed ?? true,
       source: input.source,
@@ -559,6 +567,9 @@ export async function acceptJobResponse(input: AcceptJobInput) {
     if (!jobResponse || jobResponse.jobRequestId !== jobRequest.id) {
       throw new BookingError("NOT_FOUND", "Quote not found for this job request")
     }
+    if (jobResponse.validUntil && jobResponse.validUntil.getTime() < Date.now()) {
+      throw new BookingError("CONFLICT", "This quote has expired. Ask the garage for a new one.")
+    }
 
     let user = await tx.user.findUnique({ where: { email: jobRequest.guestEmail } })
     if (!user) {
@@ -595,6 +606,7 @@ export async function acceptJobResponse(input: AcceptJobInput) {
         scheduledAt: explicitTime ?? new Date(Date.now() + PLACEHOLDER_LEAD_MS),
         timeConfirmed: explicitTime !== null,
         totalPrice: jobResponse.price,
+        lineItems: jobResponse.lineItems,
         customerName: jobRequest.guestName,
         customerEmail: jobRequest.guestEmail,
         customerPhone: jobRequest.guestPhone,

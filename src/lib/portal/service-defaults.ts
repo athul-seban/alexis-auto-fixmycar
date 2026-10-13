@@ -29,6 +29,13 @@ export const pricingRowSchema = z
     durationMins: z.number().int().min(15).max(960),
     notes: z.string().trim().max(300).nullable().optional(),
     isActive: z.boolean(),
+    // A price the garage commits to; with autoQuote on, customers get it instantly with no manual quote.
+    fixedPrice: z.number().positive().max(1_000_000).nullable().optional(),
+    autoQuote: z.boolean().default(false),
+  })
+  .refine((r) => !r.autoQuote || (r.fixedPrice != null && r.fixedPrice > 0), {
+    path: ["fixedPrice"],
+    message: "Set a fixed price to send it automatically",
   })
   .refine((r) => r.priceFrom == null || r.priceTo == null || r.priceTo >= r.priceFrom, {
     path: ["priceTo"],

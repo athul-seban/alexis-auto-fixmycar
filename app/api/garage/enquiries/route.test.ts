@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from "vitest"
+import { outwardPostcode } from "@/lib/portal/redact"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { GET } from "./route"
@@ -51,9 +52,10 @@ describe("GET /api/garage/enquiries", () => {
     expect(news.enquiries[0]).toMatchObject({ kind: "QUOTE", stage: "new", status: "PENDING", canBook: false, canMessage: true })
 
     const est = (await (await get("stage=estimates")).json()).enquiries[0]
-    expect(est).toMatchObject({ status: "SENT", myPrice: 120, canBook: true })
-    expect(est.vehicle).toMatchObject({ vrm: "AB12CDE", make: "Ford" })
-    expect(est.customer.name).toBeTruthy()
+    expect(est).toMatchObject({ status: "SENT", myPrice: 120, canBook: false, detailsShared: false })
+    // Customer details stay hidden until they accept: no registration, name or phone.
+    expect(est.vehicle).toMatchObject({ vrm: null, make: "Ford" })
+    expect(est.customer).toEqual({ name: null, phone: null })
   })
 
   it("lists matching guest job leads without exposing the token or email", async () => {
@@ -67,8 +69,12 @@ describe("GET /api/garage/enquiries", () => {
     expect(body.enquiries).toHaveLength(1)
     const e = body.enquiries[0]
     expect(e).toMatchObject({ kind: "JOB", id: job.id, status: "NEW", canMessage: false, canBook: false })
-    expect(e.location).toEqual({ city: areaFor(PREFIX).city, postcode: areaFor(PREFIX).postcode })
-    expect(e.customer).toEqual({ name: "Gary Guest", phone: "07700900777" })
+    expect(e.location).toEqual({ city: areaFor(PREFIX).city, postcode: outwardPostcode(areaFor(PREFIX).postcode) })
+    expect(e.customer).toEqual({ name: null, phone: null })
+    expect(e.vehicle.vrm).toBeNull()
+    expect(JSON.stringify(body)).not.toContain("Gary Guest")
+    expect(JSON.stringify(body)).not.toContain("07700900777")
+    expect(JSON.stringify(body)).not.toContain("GU12")
     expect(JSON.stringify(body)).not.toContain(job.token)
     expect(JSON.stringify(body)).not.toContain(job.guestEmail)
   })
@@ -86,7 +92,7 @@ describe("GET /api/garage/enquiries", () => {
 
     const body = await (await get("stage=all&pageSize=50")).json()
     const byDesc = Object.fromEntries(body.enquiries.map((e: any) => [e.description, e]))
-    expect(byDesc["priced job"]).toMatchObject({ stage: "estimates", status: "SENT", myPrice: 70, canBook: true })
+    expect(byDesc["priced job"]).toMatchObject({ stage: "estimates", status: "SENT", myPrice: 70, canBook: false })
     expect(byDesc["won job"]).toMatchObject({ stage: "closed", status: "ACCEPTED" })
     expect(byDesc["lost job"]).toMatchObject({ stage: "closed", status: "DECLINED" })
   })
@@ -115,7 +121,7 @@ describe("GET /api/garage/enquiries", () => {
     expect((await (await get("stage=all&kind=JOB")).json()).enquiries).toHaveLength(1)
     expect((await (await get("stage=all&kind=QUOTE")).json()).enquiries).toHaveLength(1)
     expect((await (await get("stage=all&q=GEARBOX")).json()).enquiries).toHaveLength(1)
-    expect((await (await get("stage=all&q=ab12cde")).json()).enquiries).toHaveLength(1) // quote's vehicle VRM
+    expect((await (await get("stage=all&q=ab12cde")).json()).enquiries).toHaveLength(0) // the registration is hidden, so it is not searchable
     const page = await (await get("stage=all&pageSize=10&page=2")).json()
     expect(page).toMatchObject({ page: 2, total: 2, totalPages: 1, enquiries: [] })
 

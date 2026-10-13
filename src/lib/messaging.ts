@@ -90,7 +90,7 @@ export async function threadSummaries(viewer: { role: "OWNER" | "GARAGE"; userId
   const quoteIds = picked.flatMap(([, t]) => (t.quoteId ? [t.quoteId] : []))
   const bookingIds = picked.flatMap(([, t]) => (t.bookingId ? [t.bookingId] : []))
   const [quotes, bookings] = await Promise.all([
-    prisma.quote.findMany({ where: { id: { in: quoteIds } }, select: { id: true, serviceType: true, garage: { select: { name: true } }, owner: { select: { name: true, email: true } } } }),
+    prisma.quote.findMany({ where: { id: { in: quoteIds } }, select: { id: true, serviceType: true, garage: { select: { name: true } }, owner: { select: { name: true, email: true } }, booking: { select: { id: true } } } }),
     prisma.booking.findMany({ where: { id: { in: bookingIds } }, select: { id: true, serviceType: true, customerName: true, garage: { select: { name: true } }, owner: { select: { name: true, email: true } } } }),
   ])
   const q = new Map(quotes.map((x) => [x.id, x]))
@@ -105,7 +105,8 @@ export async function threadSummaries(viewer: { role: "OWNER" | "GARAGE"; userId
       if (!row) continue
       out.push({
         key, kind: "quote", id: t.quoteId, unread: t.unread, lastBody, lastAt,
-        with: viewer.role === "GARAGE" ? (row.owner.name ?? row.owner.email) : row.garage.name,
+        // A garage only learns who the customer is once they have accepted (a booking exists).
+        with: viewer.role === "GARAGE" ? (row.booking ? (row.owner.name ?? row.owner.email) : "Customer") : row.garage.name,
         about: `Quote · ${getServiceLabel(row.serviceType)}`,
         link: viewer.role === "GARAGE" ? garageLinks.enquiry(t.quoteId) : `/dashboard/quotes`,
       })

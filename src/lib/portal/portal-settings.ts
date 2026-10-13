@@ -42,10 +42,21 @@ export const paymentSettingsSchema = z.object({
   refundPolicy: z.enum(REFUND_POLICIES).default("UNTIL_24H"),
 })
 
+export const EXPIRY_ACTIONS = ["EXPIRE", "ESTIMATE"] as const
+
+// How a garage answers requests for a quote from it: how long it has to reply by hand, and what happens if it doesn't.
+//  EXPIRE:   the request closes and the customer is told to try other garages.
+//  ESTIMATE: the garage's own "from" prices are sent to the customer as an estimate (only if every work has a price).
+export const quoteSettingsSchema = z.object({
+  responseHours: z.number().int().min(1).max(168).default(24),
+  onExpiry: z.enum(EXPIRY_ACTIONS).default("EXPIRE"),
+})
+
 export const portalSettingsSchema = z.object({
   widget: widgetSettingsSchema.default({}),
   payments: paymentSettingsSchema.default({}),
   notifications: notificationSettingsSchema.default({}),
+  quotes: quoteSettingsSchema.default({}),
   // Overrides capacity (concurrent jobs). Default = number of active technicians, min 1.
   bays: z.number().int().min(1).max(50).optional(),
 })
@@ -53,6 +64,7 @@ export const portalSettingsSchema = z.object({
 export type PortalSettings = z.infer<typeof portalSettingsSchema>
 export type WidgetSettings = z.infer<typeof widgetSettingsSchema>
 export type PaymentSettings = z.infer<typeof paymentSettingsSchema>
+export type QuoteSettings = z.infer<typeof quoteSettingsSchema>
 
 export const DEFAULT_PORTAL_SETTINGS: PortalSettings = portalSettingsSchema.parse({})
 
@@ -80,5 +92,6 @@ export function mergePortalSettings(current: PortalSettings, patch: DeepPartial<
     widget: { ...current.widget, ...(patch.widget ?? {}) },
     payments: { ...current.payments, ...(patch.payments ?? {}) },
     notifications: { ...current.notifications, ...(patch.notifications ?? {}) },
+    quotes: { ...current.quotes, ...(patch.quotes ?? {}) },
   })
 }

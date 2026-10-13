@@ -7,10 +7,14 @@ import { jobResponseGuestNotification } from "@/lib/email-templates"
 import { jobMatchesGarage } from "@/lib/job-matching"
 import { leadDecision, monthStart } from "@/lib/portal/plans"
 import { refundLeadCredit, spendLeadCredit } from "@/lib/portal/billing-service"
+import { parseWorks, resolveQuoteLines } from "@/lib/portal/quote-pricing"
+import { expireDueRequests } from "@/lib/portal/quote-request-service"
 import { z } from "zod"
 
 const respondSchema = z.object({
-  price: z.number().positive(),
+  // A request with several works needs an amount for each one in items; a single work may just send price.
+  price: z.number().positive().optional(),
+  items: z.array(z.object({ serviceType: z.string(), price: z.number().positive() })).max(20).optional(),
   laborCost: z.number().positive().optional(),
   partsCost: z.number().positive().optional(),
   message: z.string().optional(),
@@ -38,12 +42,17 @@ export async function POST(req: Request, props: Params) {
       return NextResponse.json({ error: "Your listing isn't live, so you can't quote on jobs yet" }, { status: 403 })
     }
 
+    // A garage that missed its deadline can no longer quote by hand (the request has closed or become an estimate).
+    await expireDueRequests({ jobId: params.id })
     const jobRequest = await prisma.jobRequest.findUnique({ where: { id: params.id } })
     if (!jobRequest) return NextResponse.json({ error: "Job request not found" }, { status: 404 })
     if (!jobMatchesGarage(jobRequest, garage)) {
       return NextResponse.json({ error: "This job isn't in your area or services" }, { status: 403 })
     }
 
+    if (jobRequest.status === "EXPIRED") {
+      return NextResponse.json({ error: "The time to send a quote for this request has passed", code: "EXPIRED" }, { status: 409 })
+    }
     if (jobRequest.status === "BOOKED" || jobRequest.status === "CANCELLED") {
       return NextResponse.json({ error: "This job is no longer accepting quotes" }, { status: 409 })
     }
@@ -57,6 +66,9 @@ export async function POST(req: Request, props: Params) {
 
     const body = await req.json()
     const data = respondSchema.parse(body)
+    const works = parseWorks(jobRequest.services, jobRequest.serviceType)
+    const lines = resolveQuoteLines(works, data)
+    if ('error' in lines) return NextResponse.json({ error: lines.error }, { status: 400 })
 
     const validUntil = new Date()
     validUntil.setDate(validUntil.getDate() + data.validDays)
@@ -81,7 +93,9 @@ export async function POST(req: Request, props: Params) {
         data: {
           jobRequestId: jobRequest.id,
           garageId: garage.id,
-          price: data.price,
+          price: lines.total,
+          source: "MANUAL",
+          lineItems: JSON.stringify(lines.items),
           laborCost: data.laborCost,
           partsCost: data.partsCost,
           message: data.message,

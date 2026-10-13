@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/Header"
 import { Footer } from "@/components/layout/Footer"
 import { JobRequestTracker } from "@/components/post-job/JobRequestTracker"
 import { prisma } from "@/lib/prisma"
+import { expireDueRequests } from "@/lib/portal/quote-request-service"
 import type { TrackedJobRequest } from "@/components/post-job/types"
 
 interface Props {
@@ -13,6 +14,9 @@ export const metadata = { title: "Track My Quotes", robots: { index: false, foll
 
 export default async function TrackJobRequestPage(props: Props) {
   const params = await props.params;
+  // A garage that missed its quoting deadline closes the request (or sends an estimate) before the customer looks.
+  const found = await prisma.jobRequest.findUnique({ where: { token: params.token }, select: { id: true } })
+  if (found) await expireDueRequests({ jobId: found.id })
   const jobRequest = await prisma.jobRequest.findUnique({
     where: { token: params.token },
     include: {
@@ -37,6 +41,7 @@ export default async function TrackJobRequestPage(props: Props) {
     ...jobRequest,
     preferredDate: jobRequest.preferredDate?.toISOString() ?? null,
     createdAt: jobRequest.createdAt.toISOString(),
+    respondBy: jobRequest.respondBy?.toISOString() ?? null,
     responses: jobRequest.responses.map((r) => ({
       ...r,
       validUntil: r.validUntil?.toISOString() ?? null,

@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server"
 import { sendDueBookingReminders, sendDueSmsReminders } from "@/lib/portal/reminders"
 import { sendDueReviewRequests } from "@/lib/portal/review-requests"
+import { expireDueRequests } from "@/lib/portal/quote-request-service"
 
 export async function GET(req: Request) {
   if (!process.env.CRON_SECRET || req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -12,7 +13,9 @@ export async function GET(req: Request) {
     const email = await sendDueBookingReminders()
     const sms = await sendDueSmsReminders()
     const reviews = await sendDueReviewRequests()
-    return NextResponse.json({ ...email, sms, reviews })
+    // Requests whose garage missed its quoting deadline (also closed lazily whenever they're read).
+    const expiredQuoteRequests = await expireDueRequests()
+    return NextResponse.json({ ...email, sms, reviews, expiredQuoteRequests })
   } catch (err) {
     console.error("Booking reminders cron error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

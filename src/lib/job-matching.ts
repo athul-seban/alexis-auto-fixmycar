@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { outwardPostcode } from "@/lib/portal/redact"
 import { parseServiceList } from "@/lib/garage-mapper"
 import { MAX_MATCHED_GARAGES } from "@/lib/constants"
 import type { Garage, JobRequest } from "@prisma/client"
@@ -63,15 +64,14 @@ export function jobMatchesGarage(
   return (cityMatch || postcodeMatch) && servicesMatch && mobileMatch
 }
 
-// A garage may see who to call, but never the guest's tracking token (it authorises
-// accepting a quote on the guest's behalf) or their email.
-export function toGarageJobView<T extends { token: string; guestEmail: string }>(
+// A garage never sees the guest's tracking token (it authorises accepting a quote on the guest's behalf), nor their
+// name, phone, email or full registration/postcode, until the customer accepts a quote (src/lib/portal/redact.ts).
+export function toGarageJobView<T extends { token: string; guestEmail: string; guestName: string; guestPhone: string; registration: string; postcode: string }>(
   job: T
-): Omit<T, "token" | "guestEmail"> {
-  const { token: _token, guestEmail: _guestEmail, ...safe } = job
-  void _token
-  void _guestEmail
-  return safe
+): Omit<T, "token" | "guestEmail" | "guestName" | "guestPhone" | "registration"> {
+  const { token: _t, guestEmail: _e, guestName: _n, guestPhone: _p, registration: _r, postcode, ...safe } = job
+  void _t, _e, _n, _p, _r
+  return { ...safe, postcode: outwardPostcode(postcode) } as unknown as Omit<T, "token" | "guestEmail" | "guestName" | "guestPhone" | "registration">
 }
 
 export async function findMatchingJobRequestsForGarage(

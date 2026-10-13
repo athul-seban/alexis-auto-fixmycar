@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { FieldError, FieldLabel, NativeSelect } from "@/components/ui/form-controls"
 import { Textarea } from "@/components/ui/textarea"
-import { SEARCH_SERVICE_OPTIONS } from "@/lib/service-options"
+import { WorkPicker, hoursLabel, type QuoteTerms } from "@/components/shared/WorkPicker"
 
 interface VehicleOption {
   id: string
@@ -22,6 +22,9 @@ interface Props {
   onOpenChange: (open: boolean) => void
   garageId: string
   garageSlug: string
+  /** The works this garage offers. */
+  offeredServices: string[]
+  terms: QuoteTerms
   isSignedIn: boolean
   isOwner: boolean
   /** Preselect a service (from the search the visitor came from). */
@@ -33,15 +36,19 @@ interface Props {
 const normaliseReg = (r: string) => r.replace(/\s+/g, "").toUpperCase()
 
 /** Signed-in owners request a quote from this garage; everyone else is pointed at the right alternative. */
-export function QuoteRequestDialog({ open, onOpenChange, garageId, garageSlug, isSignedIn, isOwner, initialService, initialReg }: Props) {
+export function QuoteRequestDialog({ open, onOpenChange, garageId, garageSlug, offeredServices, terms, isSignedIn, isOwner, initialService, initialReg }: Props) {
   const [vehicles, setVehicles] = useState<VehicleOption[]>([])
   const [vehiclesLoading, setVehiclesLoading] = useState(isOwner)
   const [vehicleId, setVehicleId] = useState("")
-  const [serviceType, setServiceType] = useState(initialService && SEARCH_SERVICE_OPTIONS.some((s) => s.value === initialService) ? initialService : "MOT")
+  const [works, setWorks] = useState<string[]>(() => {
+    const first = initialService && offeredServices.includes(initialService) ? initialService : offeredServices[0]
+    return first ? [first] : []
+  })
   const [description, setDescription] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
+  const [instant, setInstant] = useState(false)
 
   useEffect(() => {
     if (!open || !isOwner) return
@@ -65,16 +72,18 @@ export function QuoteRequestDialog({ open, onOpenChange, garageId, garageSlug, i
   const handleSubmit = async () => {
     setError("")
     if (!vehicleId) return setError("Please select a vehicle")
+    if (works.length === 0) return setError("Choose at least one service")
     if (description.trim().length < 10) return setError("Please describe what you need in at least 10 characters")
     setSubmitting(true)
     try {
       const res = await fetch("/api/quotes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "request", vehicleId, garageId, serviceType, description }),
+        body: JSON.stringify({ action: "request", vehicleId, garageId, services: works, description }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Failed to send quote request")
+      setInstant(Boolean(data.instantlyQuoted))
       setSuccess(true)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to send quote request")
@@ -83,14 +92,14 @@ export function QuoteRequestDialog({ open, onOpenChange, garageId, garageSlug, i
     }
   }
 
-  const postJobHref = `/post-job?garage=${encodeURIComponent(garageSlug)}${serviceType ? `&service=${serviceType}` : ""}${initialReg ? `&reg=${encodeURIComponent(initialReg)}` : ""}`
+  const postJobHref = `/post-job?garage=${encodeURIComponent(garageSlug)}${works.length ? `&service=${works.join(",")}` : ""}${initialReg ? `&reg=${encodeURIComponent(initialReg)}` : ""}`
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Request a quote</DialogTitle>
-          <DialogDescription>Tell the garage what you need and it will reply with a price.</DialogDescription>
+          <DialogDescription>Choose what you need. The garage never sees your name or contact details unless you accept its quote.</DialogDescription>
         </DialogHeader>
 
         {!isSignedIn ? (
@@ -106,8 +115,12 @@ export function QuoteRequestDialog({ open, onOpenChange, garageId, garageSlug, i
         ) : success ? (
           <div className="py-4 text-center">
             <CheckCircle className="mx-auto mb-3 h-12 w-12 text-green-500" />
-            <p className="mb-1 font-semibold text-slate-900 dark:text-white">Quote requested!</p>
-            <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">The garage will respond soon. You&apos;ll see its reply under your quotes.</p>
+            <p className="mb-1 font-semibold text-slate-900 dark:text-white">{instant ? "Your quote is ready" : "Quote requested"}</p>
+            <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">
+              {instant
+                ? "The garage's price for everything you chose is waiting under your quotes."
+                : `The garage will reply within ${hoursLabel(terms.responseHours)}. You'll see its price under your quotes.`}
+            </p>
             <Link href="/dashboard/quotes"><Button className="w-full">View my quotes</Button></Link>
           </div>
         ) : vehiclesLoading ? (
@@ -128,12 +141,8 @@ export function QuoteRequestDialog({ open, onOpenChange, garageId, garageSlug, i
               </NativeSelect>
             </div>
             <div>
-              <FieldLabel htmlFor="qr-service">Service needed</FieldLabel>
-              <NativeSelect id="qr-service" value={serviceType} onChange={(e) => setServiceType(e.target.value)}>
-                {SEARCH_SERVICE_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </NativeSelect>
+              <p className="mb-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">Services needed</p>
+              <WorkPicker idPrefix="qr-work" options={offeredServices} selected={works} onChange={setWorks} terms={terms} />
             </div>
             <div>
               <FieldLabel htmlFor="qr-description">Description</FieldLabel>

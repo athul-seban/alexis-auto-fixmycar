@@ -20,6 +20,10 @@ export interface TrackedJobResponse {
   message: string | null
   status: string
   validUntil: string | null
+  /** MANUAL (the garage typed it), AUTO (its fixed price, sent instantly) or ESTIMATE (it didn't reply in time). */
+  source: string
+  /** JSON [{ serviceType, price, source }] */
+  lineItems: string | null
   createdAt: string
   garage: TrackedGarage
 }
@@ -38,6 +42,9 @@ export interface TrackedJobRequest {
   fuel: string | null
   mileage: number | null
   serviceType: string
+  /** JSON array of every work requested. */
+  services: string
+  respondBy: string | null
   description: string
   city: string
   postcode: string

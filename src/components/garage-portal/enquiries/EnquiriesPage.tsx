@@ -1,28 +1,23 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Search } from "lucide-react"
 import { NativeSelect, TextInput } from "@/components/ui/form-controls"
 import { FilterTab, FilterTabList, FilterTabs } from "@/components/ui/filter-tabs"
-import { useApi } from "@/hooks/use-api"
 import { useDebounce } from "@/hooks/use-debounce"
 import { useUrlParams } from "@/hooks/use-url-params"
-import { garageLinks } from "@/lib/portal/links"
 import type { EnquiriesResult, EnquiryKind, EnquiryStage } from "@/lib/portal/enquiries"
 import { PageHeader } from "@/components/garage-portal/shared/PageHeader"
 import { EnquiryList } from "@/components/garage-portal/enquiries/EnquiryList"
-import type { TechnicianOption } from "@/components/garage-portal/bookings/types"
 
 const STAGES: { value: EnquiryStage; label: string; empty: [string, string] }[] = [
   { value: "new", label: "New", empty: ["No new enquiries", "New quote requests and job leads that match your services and area will appear here."] },
-  { value: "estimates", label: "Quotes sent", empty: ["No quotes awaiting a reply", "Once you've priced an enquiry it waits here until the customer books."] },
+  { value: "estimates", label: "Quotes sent", empty: ["No quotes awaiting a reply", "Once you've priced an enquiry it waits here until the customer accepts. You'll get their details then."] },
   { value: "closed", label: "Closed", empty: ["Nothing closed yet", "Accepted, declined and ignored enquiries end up here."] },
   { value: "all", label: "All", empty: ["No enquiries yet", "Customer requests will show up here."] },
 ]
 
 export function EnquiriesPage() {
-  const router = useRouter()
   const { searchParams, setParams } = useUrlParams()
 
   // A deep link (?quote=ID from a notification) searches every stage so the target is always visible.
@@ -37,7 +32,6 @@ export function EnquiriesPage() {
 
   // Counts for every stage (an unfiltered request, so badges don't shrink as you search).
   const [counts, setCounts] = useState<EnquiriesResult["counts"] | null>(null)
-  const { data: techData } = useApi<{ technicians: TechnicianOption[] }>("/api/garage/technicians")
 
   return (
     <>
@@ -69,7 +63,7 @@ export function EnquiriesPage() {
           </div>
           <div className="relative sm:w-64">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <TextInput aria-label="Search enquiries" className="pl-9" placeholder="Search name, reg, description…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <TextInput aria-label="Search enquiries" className="pl-9" placeholder="Search vehicle or description…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
         </div>
       </div>
@@ -82,10 +76,8 @@ export function EnquiriesPage() {
         pageSize={pageSize}
         onPageChange={(p) => setParams({ page: p <= 1 ? null : p })}
         onPageSizeChange={(s) => setParams({ pageSize: s === 25 ? null : s }, { resetPage: true })}
-        technicians={techData?.technicians ?? []}
         highlightKey={quoteParam ? `QUOTE:${quoteParam}` : null}
         onData={(r) => setCounts(r.counts)}
-        onBooked={(id) => router.push(garageLinks.booking(id))}
         emptyTitle={STAGES.find((s) => s.value === stage)?.empty[0]}
         emptyDescription={STAGES.find((s) => s.value === stage)?.empty[1]}
       />

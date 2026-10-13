@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { ConsentNotice } from "@/components/shared/ConsentNotice"
 import { getServiceLabel } from "@/lib/utils"
 import { SERVICE_OPTIONS } from "@/lib/service-options"
+import { WorkPicker, hoursLabel, type QuoteTerms } from "@/components/shared/WorkPicker"
 
 const serviceOptions = SERVICE_OPTIONS
 
@@ -20,6 +21,7 @@ const STEP_LABELS = ["Vehicle", "Job Details", "Your Details"]
 interface JobRequestResult {
   jobRequest: { token: string }
   matchedGarageCount: number
+  instantlyQuoted?: boolean
 }
 
 export default function PostJobPage() {
@@ -37,6 +39,8 @@ function PostJobForm() {
   // Set when the visitor came from one garage's profile: the request then goes to that garage only.
   const [garageSlug, setGarageSlug] = useState<string | null>(search.get("garage"))
   const [garageName, setGarageName] = useState("")
+  const [garageServices, setGarageServices] = useState<string[]>([])
+  const [terms, setTerms] = useState<QuoteTerms | undefined>()
   useEffect(() => {
     if (!garageSlug) return
     let cancelled = false
@@ -44,7 +48,11 @@ function PostJobForm() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (cancelled) return
-        if (d?.garage) setGarageName(d.garage.name)
+        if (d?.garage) {
+          setGarageName(d.garage.name)
+          setGarageServices(d.garage.services ?? [])
+          setTerms(d.garage.quoteTerms)
+        }
         else setGarageSlug(null) // unknown or unlisted garage: fall back to the normal flow
       })
       .catch(() => {})
@@ -62,10 +70,14 @@ function PostJobForm() {
     registration: (search.get("reg") ?? "").slice(0, 12).toUpperCase(),
     make: (search.get("make") ?? "").slice(0, 40), model: (search.get("model") ?? "").slice(0, 60),
     year: /^\d{4}$/.test(search.get("year") ?? "") ? search.get("year")! : "", fuel: (search.get("fuel") ?? "").slice(0, 30), mileage: "",
-    serviceType: SERVICE_OPTIONS.some((o) => o.value === presetService) ? presetService : "", description: "", city: "", postcode: "",
+    services: presetService.split(",").filter((v) => SERVICE_OPTIONS.some((o) => o.value === v)),
+    description: "", city: "", postcode: "",
     isMobilePreferred: false, preferredDate: "",
     guestName: "", guestEmail: "", guestPhone: "",
   })
+
+  // With a chosen garage you can pick several of its services; otherwise it's one service for every garage nearby.
+  const selectedWorks = garageSlug ? form.services.filter((w) => garageServices.includes(w)) : form.services.slice(0, 1)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const target = e.target as HTMLInputElement
@@ -84,6 +96,7 @@ function PostJobForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          services: garageSlug ? form.services : form.services.slice(0, 1),
           garageSlug: garageSlug ?? undefined,
           year: parseInt(form.year, 10),
           mileage: form.mileage ? parseInt(form.mileage, 10) : undefined,
@@ -108,11 +121,13 @@ function PostJobForm() {
           <div className="w-20 h-20 bg-green-100 dark:bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-5">
             <CheckCircle className="h-10 w-10 text-green-700 dark:text-green-400" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Your request is live!</h2>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">{result.instantlyQuoted ? "Your quote is ready" : "Your request is live!"}</h2>
           <p className="text-slate-600 dark:text-slate-400 mb-2">
-            {result.matchedGarageCount > 0
+            {result.instantlyQuoted
+              ? `${garageName || "The garage"} has sent its price for everything you chose.`
+              : result.matchedGarageCount > 0
               ? garageSlug && garageName
-                ? `We've sent your request to ${garageName}.`
+                ? `We've sent your request to ${garageName}.${terms ? ` It replies within ${hoursLabel(terms.responseHours)}.` : ""} It won't see your name or contact details unless you accept its quote.`
                 : `We've notified ${result.matchedGarageCount} garage${result.matchedGarageCount === 1 ? "" : "s"} near you.`
               : "We're still finding garages near you — check back soon."}
           </p>
@@ -229,24 +244,34 @@ function PostJobForm() {
                   <Wrench className="h-5 w-5 text-[#F97316]" /> Job Details
                 </h2>
                 <p className="text-slate-500 dark:text-slate-400 text-sm mb-3">What does your car need?</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {serviceOptions.map((s) => (
-                    <button
-                      key={s.value}
-                      type="button"
-                      onClick={() => setForm((prev) => ({ ...prev, serviceType: s.value }))}
-                      className={`p-3 rounded-lg border text-sm font-medium text-left transition-all cursor-pointer ${
-                        form.serviceType === s.value
-                          ? "border-[#F97316] bg-orange-50 dark:bg-orange-500/10 text-[#C2410C] dark:text-[#F97316]"
-                          : "border-gray-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-white/5"
-                      }`}
-                    >
-                      {form.serviceType === s.value && "✓ "}
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-                {!form.serviceType && (
+                {garageSlug && garageServices.length > 0 ? (
+                  <WorkPicker
+                    idPrefix="pj-work"
+                    options={garageServices.filter((w) => w !== "OTHER" || garageServices.length === 1)}
+                    selected={form.services.filter((w) => garageServices.includes(w))}
+                    onChange={(services) => setForm((prev) => ({ ...prev, services }))}
+                    terms={terms}
+                  />
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {serviceOptions.map((s) => (
+                      <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, services: [s.value] }))}
+                        className={`p-3 rounded-lg border text-sm font-medium text-left transition-all cursor-pointer ${
+                          form.services[0] === s.value
+                            ? "border-[#F97316] bg-orange-50 dark:bg-orange-500/10 text-[#C2410C] dark:text-[#F97316]"
+                            : "border-gray-200 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-white/5"
+                        }`}
+                      >
+                        {form.services[0] === s.value && "✓ "}
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedWorks.length === 0 && (
                   <p className="text-xs text-slate-500 dark:text-slate-400">Choose a service to continue.</p>
                 )}
                 <div>
@@ -293,7 +318,7 @@ function PostJobForm() {
                 <Input label="Mobile number" type="tel" name="guestPhone" value={form.guestPhone} onChange={handleChange} placeholder="07700 900000" required />
 
                 <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-100 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400">
-                  <p className="font-semibold text-slate-800 dark:text-slate-100 mb-1">{form.serviceType && getServiceLabel(form.serviceType)}</p>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100 mb-1">{selectedWorks.map(getServiceLabel).join(", ")}</p>
                   <p>{form.year} {form.make} {form.model} · {form.registration}</p>
                 </div>
               </div>
@@ -309,7 +334,7 @@ function PostJobForm() {
               <Button
                 type="submit"
                 loading={loading}
-                disabled={step === 2 && !form.serviceType}
+                disabled={step === 2 && selectedWorks.length === 0}
                 className={`gap-2 ${step === 1 ? "ml-auto" : ""}`}
                 size="lg"
               >

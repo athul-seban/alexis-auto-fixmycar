@@ -3,6 +3,9 @@ import type { Garage } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { findMatchingJobRequestsForGarage } from "@/lib/job-matching"
 import { normaliseVrm } from "@/lib/portal/vrm"
+import { redactForGarage } from "@/lib/portal/redact"
+import { parseLineItems, parseWorks, type LineItem } from "@/lib/portal/quote-pricing"
+import { expireDueRequests } from "@/lib/portal/quote-request-service"
 
 // One inbox over the two ways a customer asks a garage for a price:
 //  - QUOTE: a logged-in owner requested a quote from this garage specifically.
@@ -21,10 +24,21 @@ export interface EnquiryRow {
   /** Human state: PENDING/SENT/ACCEPTED/REJECTED/EXPIRED for quotes; NEW/SENT/ACCEPTED/DECLINED/IGNORED for jobs. */
   status: string
   serviceType: string
+  /** Every work requested (serviceType is the first). */
+  works: string[]
+  /** Deadline for sending a quote by hand; null when the garage has already answered or there is none. */
+  respondBy: string | null
+  /** MANUAL, or AUTO / ESTIMATE when the platform sent the garage's own price. */
+  source: string
+  lineItems: LineItem[]
+  /** The garage's own fixed price per work, to prefill a manual quote. */
+  suggestedPrices: Record<string, number>
   description: string
   vehicle: { vrm: string | null; make: string; model: string; year: number }
   customer: { name: string | null; phone: string | null }
   location: { city: string; postcode: string } | null
+  /** False until the customer accepts: name, phone, full registration and full postcode are withheld. */
+  detailsShared: boolean
   preferredDate: string | null
   myPrice: number | null
   laborCost: number | null
@@ -64,6 +78,11 @@ const iso = (d: Date | null) => (d ? d.toISOString() : null)
 
 export async function listEnquiries(garage: Garage, q: EnquiriesQuery): Promise<EnquiriesResult> {
   const live = garage.status === "APPROVED"
+  // Close (or estimate) any request whose deadline has passed before listing, so nothing stale shows as awaiting a quote.
+  await expireDueRequests({ garageId: garage.id })
+
+  const priceRows = await prisma.servicePrice.findMany({ where: { garageId: garage.id, isActive: true, fixedPrice: { not: null } }, select: { serviceType: true, fixedPrice: true } })
+  const suggested: Record<string, number> = Object.fromEntries(priceRows.map((p) => [p.serviceType, p.fixedPrice as number]))
 
   const [quotes, responses, openJobs, leads] = await Promise.all([
     prisma.quote.findMany({
@@ -99,10 +118,20 @@ export async function listEnquiries(garage: Garage, q: EnquiriesQuery): Promise<
       stage,
       status: quote.status,
       serviceType: quote.serviceType,
+      works: parseWorks(quote.services, quote.serviceType),
+      respondBy: quote.status === "PENDING" ? iso(quote.respondBy) : null,
+      source: quote.source,
+      lineItems: parseLineItems(quote.lineItems),
+      suggestedPrices: suggested,
       description: quote.description,
-      vehicle: { vrm: normaliseVrm(quote.vehicle.registration) || null, make: quote.vehicle.make, model: quote.vehicle.model, year: quote.vehicle.year },
-      customer: { name: quote.owner.name, phone: quote.owner.phone },
-      location: null,
+      ...redactForGarage(
+        {
+          vehicle: { vrm: normaliseVrm(quote.vehicle.registration) || null, make: quote.vehicle.make, model: quote.vehicle.model, year: quote.vehicle.year },
+          customer: { name: quote.owner.name, phone: quote.owner.phone },
+          location: null,
+        },
+        quote.booking !== null
+      ),
       preferredDate: null,
       myPrice: quote.price,
       laborCost: quote.laborCost,
@@ -111,7 +140,7 @@ export async function listEnquiries(garage: Garage, q: EnquiriesQuery): Promise<
       validUntil: iso(quote.validUntil),
       responseId: null,
       bookingId: quote.booking?.id ?? null,
-      canBook: quote.status === "SENT" && quote.price !== null,
+      canBook: false, // only the customer accepts a quote
       canMessage: true,
       contacted: quote.contactedAt !== null,
       ignored: quote.status === "REJECTED",
@@ -141,10 +170,20 @@ export async function listEnquiries(garage: Garage, q: EnquiriesQuery): Promise<
       stage,
       status,
       serviceType: job.serviceType,
+      works: parseWorks(job.services, job.serviceType),
+      respondBy: response ? null : iso(job.respondBy),
+      source: response?.source ?? "MANUAL",
+      lineItems: parseLineItems(response?.lineItems),
+      suggestedPrices: suggested,
       description: job.description,
-      vehicle: { vrm: normaliseVrm(job.registration) || null, make: job.make, model: job.model, year: job.year },
-      customer: { name: job.guestName, phone: job.guestPhone },
-      location: { city: job.city, postcode: job.postcode },
+      ...redactForGarage(
+        {
+          vehicle: { vrm: normaliseVrm(job.registration) || null, make: job.make, model: job.model, year: job.year },
+          customer: { name: job.guestName, phone: job.guestPhone },
+          location: { city: job.city, postcode: job.postcode },
+        },
+        response?.booking != null
+      ),
       preferredDate: iso(job.preferredDate),
       myPrice: response?.price ?? null,
       laborCost: response?.laborCost ?? null,
@@ -153,7 +192,7 @@ export async function listEnquiries(garage: Garage, q: EnquiriesQuery): Promise<
       validUntil: iso(response?.validUntil ?? null),
       responseId: response?.id ?? null,
       bookingId: response?.booking?.id ?? null,
-      canBook: response?.status === "SENT",
+      canBook: false, // only the customer accepts a quote
       canMessage: false, // guests have no account to message
       contacted: !!lead?.contactedAt,
       ignored,
@@ -203,6 +242,7 @@ export async function listEnquiries(garage: Garage, q: EnquiriesQuery): Promise<
  * listEnquiries, without building rows — used by the dashboard.
  */
 export async function countNewEnquiries(garage: Garage): Promise<number> {
+  await expireDueRequests({ garageId: garage.id })
   const [pendingQuotes, ignored, matched] = await Promise.all([
     prisma.quote.count({ where: { garageId: garage.id, status: "PENDING" } }),
     prisma.garageLead.findMany({ where: { garageId: garage.id, status: "IGNORED" }, select: { jobRequestId: true } }),

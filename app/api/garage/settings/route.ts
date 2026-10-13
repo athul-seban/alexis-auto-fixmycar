@@ -9,6 +9,7 @@ import {
   notificationSettingsSchema,
   parsePortalSettings,
   paymentSettingsSchema,
+  quoteSettingsSchema,
   serializePortalSettings,
   widgetSettingsSchema,
 } from "@/lib/portal/portal-settings"
@@ -31,6 +32,7 @@ const patchSchema = z
     widget: widgetSettingsSchema.partial().optional(),
     payments: paymentSettingsSchema.partial().optional(),
     notifications: notificationSettingsSchema.partial().optional(),
+    quotes: quoteSettingsSchema.partial().optional(),
     // null clears the override (capacity falls back to the number of active technicians).
     bays: z.number().int().min(1).max(50).nullable().optional(),
   })
@@ -51,7 +53,7 @@ export const PATCH = withGarage(
       return NextResponse.json({ error: "Text messages aren't set up on this platform yet.", code: "SMS_UNAVAILABLE" }, { status: 409 })
     }
     const current = parsePortalSettings(garage.portalSettings)
-    const merged = mergePortalSettings(current, { widget: data.widget, payments: data.payments, notifications: data.notifications })
+    const merged = mergePortalSettings(current, { widget: data.widget, payments: data.payments, notifications: data.notifications, quotes: data.quotes })
     const next = data.bays === undefined ? merged : { ...merged, bays: data.bays ?? undefined }
 
     await prisma.garage.update({ where: { id: garage.id }, data: { portalSettings: serializePortalSettings(next) } })

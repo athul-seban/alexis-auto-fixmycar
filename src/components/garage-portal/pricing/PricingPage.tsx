@@ -19,6 +19,8 @@ interface ServicePricing {
   offered: boolean
   priceFrom: number | null
   priceTo: number | null
+  fixedPrice: number | null
+  autoQuote: boolean
   durationMins: number
   notes: string | null
   isActive: boolean
@@ -31,6 +33,8 @@ interface Row {
   label: string
   from: string
   to: string
+  fixed: string
+  auto: boolean
   duration: string
   notes: string
   isActive: boolean
@@ -41,6 +45,8 @@ const toRow = (s: ServicePricing): Row => ({
   label: s.label,
   from: s.priceFrom?.toString() ?? "",
   to: s.priceTo?.toString() ?? "",
+  fixed: s.fixedPrice?.toString() ?? "",
+  auto: s.autoQuote,
   duration: String(s.durationMins),
   notes: s.notes ?? "",
   isActive: s.isActive,
@@ -51,6 +57,9 @@ function rowError(r: Row): string | null {
   const to = r.to === "" ? null : Number(r.to)
   if ((from !== null && !(from >= 0)) || (to !== null && !(to >= 0))) return "Prices must be positive numbers"
   if (from !== null && to !== null && to < from) return "“Up to” can't be lower than “from”"
+  const fixed = r.fixed === "" ? null : Number(r.fixed)
+  if (fixed !== null && !(fixed > 0)) return "Fixed price must be more than £0"
+  if (r.auto && fixed === null) return "Set a fixed price to send it automatically"
   const d = Number(r.duration)
   if (!Number.isInteger(d) || d < 15 || d > 960) return "Duration must be 15–960 minutes"
   return null
@@ -63,14 +72,14 @@ export function PricingPage() {
     <>
       <PageHeader
         title="Pricing"
-        description="The prices and job lengths for each service. They prefill new bookings and your booking widget, and customers see them on your listing."
+        description="Prices and job lengths for each service. Set a fixed price and turn on “Quote instantly” to answer quote requests for that service automatically."
       />
       {error && !data ? (
         <Panel className="p-6 text-center text-sm text-red-700 dark:text-red-400" role="alert">{error}</Panel>
       ) : !data ? (
         <Skeleton className="h-96 w-full rounded-xl" />
       ) : (
-        <PricingForm key={JSON.stringify(data.services.map((s) => [s.serviceType, s.priceFrom, s.priceTo, s.durationMins, s.isActive, s.notes]))} services={data.services} onSaved={reload} />
+        <PricingForm key={JSON.stringify(data.services.map((s) => [s.serviceType, s.priceFrom, s.priceTo, s.fixedPrice, s.autoQuote, s.durationMins, s.isActive, s.notes]))} services={data.services} onSaved={reload} />
       )}
     </>
   )
@@ -99,6 +108,8 @@ function PricingForm({ services, onSaved }: { services: ServicePricing[]; onSave
         serviceType: r.serviceType,
         priceFrom: r.from === "" ? null : Number(r.from),
         priceTo: r.to === "" ? null : Number(r.to),
+        fixedPrice: r.fixed === "" ? null : Number(r.fixed),
+        autoQuote: r.auto,
         durationMins: Number(r.duration),
         notes: r.notes.trim() || null,
         isActive: r.isActive,
@@ -143,6 +154,13 @@ function PricingForm({ services, onSaved }: { services: ServicePricing[]; onSave
                 <label className="text-xs text-slate-500 dark:text-slate-400">Up to (£)<TextInput type="number" inputMode="decimal" min={0} step="0.01" className="mt-1" value={r.to} onChange={(e) => update(r.serviceType, { to: e.target.value })} aria-invalid={!!err} /></label>
                 <label className="text-xs text-slate-500 dark:text-slate-400">Minutes<TextInput type="number" inputMode="numeric" min={15} max={960} step={15} className="mt-1" value={r.duration} onChange={(e) => update(r.serviceType, { duration: e.target.value })} /></label>
               </div>
+              <div className="mt-2 grid grid-cols-2 items-end gap-2">
+                <label className="text-xs text-slate-500 dark:text-slate-400">Fixed price (£)<TextInput type="number" inputMode="decimal" min={0} step="0.01" className="mt-1" value={r.fixed} onChange={(e) => update(r.serviceType, { fixed: e.target.value })} aria-invalid={!!err} /></label>
+                <label className="flex items-center gap-2 pb-2 text-xs text-slate-500 dark:text-slate-400">
+                  <Switch checked={r.auto} onCheckedChange={(v) => update(r.serviceType, { auto: v })} aria-label={`${r.label} send fixed price automatically`} />
+                  Quote instantly
+                </label>
+              </div>
               <label className="mt-2 block text-xs text-slate-500 dark:text-slate-400">Notes<TextInput className="mt-1" maxLength={300} placeholder="e.g. Class 4 vehicles" value={r.notes} onChange={(e) => update(r.serviceType, { notes: e.target.value })} /></label>
             </li>
           )
@@ -156,6 +174,8 @@ function PricingForm({ services, onSaved }: { services: ServicePricing[]; onSave
               <TableHead>Service</TableHead>
               <TableHead>Price from (£)</TableHead>
               <TableHead>Up to (£)</TableHead>
+              <TableHead>Fixed price (£)</TableHead>
+              <TableHead>Quote instantly</TableHead>
               <TableHead>Duration (min)</TableHead>
               <TableHead>Notes</TableHead>
               <TableHead>Offered</TableHead>
@@ -169,6 +189,8 @@ function PricingForm({ services, onSaved }: { services: ServicePricing[]; onSave
                   <TableCell className="font-semibold text-slate-900 dark:text-white">{r.label}</TableCell>
                   <TableCell><TextInput aria-label={`${r.label} price from`} type="number" min={0} step="0.01" className="w-28" value={r.from} onChange={(e) => update(r.serviceType, { from: e.target.value })} aria-invalid={!!err} /></TableCell>
                   <TableCell><TextInput aria-label={`${r.label} price up to`} type="number" min={0} step="0.01" className="w-28" value={r.to} onChange={(e) => update(r.serviceType, { to: e.target.value })} aria-invalid={!!err} /></TableCell>
+                  <TableCell><TextInput aria-label={`${r.label} fixed price`} type="number" min={0} step="0.01" className="w-28" value={r.fixed} onChange={(e) => update(r.serviceType, { fixed: e.target.value })} aria-invalid={!!err} /></TableCell>
+                  <TableCell><Switch checked={r.auto} onCheckedChange={(v) => update(r.serviceType, { auto: v })} aria-label={`${r.label} send fixed price automatically`} /></TableCell>
                   <TableCell><TextInput aria-label={`${r.label} duration in minutes`} type="number" min={15} max={960} step={15} className="w-24" value={r.duration} onChange={(e) => update(r.serviceType, { duration: e.target.value })} /></TableCell>
                   <TableCell><TextInput aria-label={`${r.label} notes`} className="min-w-52" maxLength={300} placeholder="e.g. Class 4 vehicles" value={r.notes} onChange={(e) => update(r.serviceType, { notes: e.target.value })} /></TableCell>
                   <TableCell><Switch checked={r.isActive} onCheckedChange={(v) => update(r.serviceType, { isActive: v })} aria-label={`${r.label} offered for booking`} /></TableCell>
@@ -180,7 +202,7 @@ function PricingForm({ services, onSaved }: { services: ServicePricing[]; onSave
       </Panel>
 
       <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-        Leave “Up to” blank to show “from £x”, or leave both blank to show no price. Turn a service off to hide it from the booking widget without removing it from your listing.
+        Leave “Up to” blank to show “from £x”, or leave both blank to show no price. A fixed price you switch on for “Quote instantly” is sent to customers the moment they ask, with no work from you; without it you quote by hand in the time you set in Settings. Turn a service off to hide it from the booking widget without removing it from your listing.
       </p>
 
       {notOffered.length > 0 && (

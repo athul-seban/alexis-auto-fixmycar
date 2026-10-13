@@ -1,4 +1,6 @@
 import { escapeHtml as e, formatCurrency, formatDateShort, getServiceLabel } from "@/lib/utils"
+import { parseWorks } from "@/lib/portal/quote-pricing"
+import { outwardPostcode } from "@/lib/portal/redact"
 import type { Garage, JobRequest, JobResponse } from "@prisma/client"
 import { DEFAULT_MESSAGES, makeTranslator, type MessageKey, type Translate } from "@/lib/i18n/messages"
 
@@ -43,8 +45,9 @@ export function jobRequestGarageNotification({
     `<p>Hi ${e(garage.name)},</p>
      <p>A customer near you is looking for <strong>${e(getServiceLabel(jobRequest.serviceType))}</strong>:</p>
      <p style="background:#f8fafc; border-radius:8px; padding:12px 16px;">${e(jobRequest.description)}</p>
-     <p><strong>Vehicle:</strong> ${jobRequest.year} ${e(jobRequest.make)} ${e(jobRequest.model)} (${e(jobRequest.registration)})<br/>
-     <strong>Location:</strong> ${e(jobRequest.city)}, ${e(jobRequest.postcode)}</p>
+     <p><strong>Vehicle:</strong> ${jobRequest.year} ${e(jobRequest.make)} ${e(jobRequest.model)}<br/>
+     <strong>Area:</strong> ${e(jobRequest.city)}, ${e(outwardPostcode(jobRequest.postcode))}</p>
+     <p style="color:#64748b; font-size:12px;">Customer details are shared once they accept your quote.</p>
      <p style="color:#64748b; font-size:12px;">We matched you based on your registered services and location. Log in to your garage portal to send a quote.</p>`,
     `${APP_URL}/garage-dashboard/enquiries`,
     "View Enquiries"
@@ -219,15 +222,16 @@ export function garageEnquiryEmail({
   jobRequest: JobRequest
   targeted: boolean
 }): { subject: string; html: string } {
-  const vars = { service: getServiceLabel(jobRequest.serviceType), city: jobRequest.city, customer: jobRequest.guestName }
+  const vars = { service: parseWorks(jobRequest.services, jobRequest.serviceType).map(getServiceLabel).join(", "), city: jobRequest.city, customer: "A customer" }
   const subject = t("email.enquiry.subject", vars)
   const html = wrapper(
     subject,
     `<p>${rich(t, "email.greeting", { name: garageName })}</p>
      <p>${rich(t, targeted ? "email.enquiry.introTargeted" : "email.enquiry.intro", vars)}</p>
      <p style="background:#f8fafc; border-radius:8px; padding:12px 16px;">${e(jobRequest.description)}</p>
-     <p><strong>Vehicle:</strong> ${jobRequest.year} ${e(jobRequest.make)} ${e(jobRequest.model)} (${e(jobRequest.registration)})<br/>
-     <strong>Location:</strong> ${e(jobRequest.city)}, ${e(jobRequest.postcode)}</p>
+     <p><strong>Vehicle:</strong> ${jobRequest.year} ${e(jobRequest.make)} ${e(jobRequest.model)}<br/>
+     <strong>Area:</strong> ${e(jobRequest.city)}, ${e(outwardPostcode(jobRequest.postcode))}</p>
+     <p style="color:#64748b; font-size:12px;">Customer details are shared once they accept your quote.</p>
      <p style="color:#64748b; font-size:12px;">${e(t("email.enquiry.outro"))}</p>`,
     `${APP_URL}/garage-dashboard/enquiries`,
     t("email.enquiry.cta")
@@ -247,7 +251,7 @@ export function garageQuoteRequestEmail({
   description: string
   ctaHref: string
 }): { subject: string; html: string } {
-  const vars = { customer: customerName ?? "A customer", service: getServiceLabel(serviceType), vehicle }
+  const vars = { customer: "A customer", service: serviceType.split(",").map(getServiceLabel).join(", "), vehicle }
   const subject = t("email.quoteRequest.subject", vars)
   const html = wrapper(
     subject,
@@ -516,6 +520,34 @@ export function reviewRequestEmail({
     reviewHref,
     "Leave a review",
     `You're getting this because you booked with ${e(garage.name)}, ${e(garage.address)}, ${e(garage.city)} ${e(garage.postcode)} through Quote My Garage. <a href="${unsubscribeHref}" style="color:#64748b;">Unsubscribe</a> from emails like this.`
+  )
+  return { subject, html }
+}
+
+/** A guest's quote request got no reply in time (and the garage doesn't send estimates). */
+export function requestExpiredGuestEmail({ jobRequest, garageName }: { jobRequest: JobRequest; garageName: string }): { subject: string; html: string } {
+  const subject = `${garageName} didn't reply in time`
+  const html = wrapper(
+    subject,
+    `<p>Hi ${e(jobRequest.guestName)},</p>
+     <p><strong>${e(garageName)}</strong> didn't send a quote for your ${e(getServiceLabel(jobRequest.serviceType))} within the time they set, so we've closed the request. You weren't charged anything.</p>
+     <p>Other garages near you can quote for the same job.</p>`,
+    `${APP_URL}/search?service=${encodeURIComponent(jobRequest.serviceType)}&location=${encodeURIComponent(jobRequest.postcode)}`,
+    "Find another garage"
+  )
+  return { subject, html }
+}
+
+/** A signed-in owner's quote request got no reply in time. */
+export function quoteExpiredEmail({ customerName, garageName, serviceType, ctaHref }: { customerName: string | null; garageName: string; serviceType: string; ctaHref: string }): { subject: string; html: string } {
+  const subject = `${garageName} didn't reply in time`
+  const html = wrapper(
+    subject,
+    `<p>Hi ${e(customerName ?? "there")},</p>
+     <p><strong>${e(garageName)}</strong> didn't send a quote for your ${e(getServiceLabel(serviceType))} request within the time they set, so we've closed it. You weren't charged anything.</p>
+     <p>You can ask another garage for a quote.</p>`,
+    ctaHref,
+    "Find another garage"
   )
   return { subject, html }
 }

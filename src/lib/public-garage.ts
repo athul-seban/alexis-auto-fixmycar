@@ -15,6 +15,8 @@ export type PublicGarage = GarageProfile & {
   completedJobs: number
   verificationBadges: string[]
   prices: PublicServicePrice[]
+  /** How a request to this garage is answered: its reply time, and the works it prices instantly. */
+  quoteTerms: { responseHours: number; instantPrices: Record<string, number> }
   /** The booking widget is switched on, so the profile can offer "Book online". Raw portal settings never leave the server. */
   bookOnline: boolean
 }
@@ -68,6 +70,11 @@ export async function getPublicGarage(idOrSlug: string): Promise<PublicGarage | 
     .filter((p) => offered.has(p.serviceType) && (p.priceFrom !== null || p.priceTo !== null))
     .map((p) => ({ serviceType: p.serviceType, priceFrom: p.priceFrom, priceTo: p.priceTo, durationMins: p.durationMins, notes: p.notes }))
 
+  const instantPrices: Record<string, number> = {}
+  for (const p of priceRows) {
+    if (offered.has(p.serviceType) && p.autoQuote && p.fixedPrice != null && p.fixedPrice > 0) instantPrices[p.serviceType] = p.fixedPrice
+  }
+
   return {
     ...toGarageProfile(garage),
     verificationBadges: parseServiceList(garage.verificationBadges),
@@ -75,6 +82,7 @@ export async function getPublicGarage(idOrSlug: string): Promise<PublicGarage | 
     ratingBreakdown,
     completedJobs,
     prices,
+    quoteTerms: { responseHours: parsePortalSettings(garage.portalSettings).quotes.responseHours, instantPrices },
     bookOnline: canBookOnline(garage),
   } as PublicGarage
 }

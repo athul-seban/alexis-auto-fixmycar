@@ -36,6 +36,12 @@ export interface OwnerQuote {
   status: string
   description: string
   price: number | null
+  /** JSON array of every work requested. */
+  services: string
+  /** MANUAL, AUTO (instant price) or ESTIMATE (the garage didn't reply in time). */
+  source: string
+  lineItems: string | null
+  respondBy: string | null
   createdAt: string
   vehicle: { id: string; registration: string; make: string; model: string }
   garage: { id: string; name: string; slug: string; city: string; averageRating: number; isVerified: boolean }
