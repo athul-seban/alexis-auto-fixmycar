@@ -177,3 +177,75 @@ html {
 *:focus-visible {
   @apply outline-none ring-2 ring-primary-600 ring-offset-2;
 }
+
+/* ---------- Motion (Corporate personality: ease-out entrances, 200-600ms, stagger under 500ms) ---------- */
+:root {
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Scroll reveal: .reveal starts 20px low and invisible; <Reveal> adds .is-in when it enters the viewport. */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 450ms var(--ease-out), transform 450ms var(--ease-out);
+  transition-delay: var(--d, 0ms);
+}
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* One orchestrated hero entrance */
+@keyframes hero-rise {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+.hero-rise {
+  animation: hero-rise 600ms var(--ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes plate-drop {
+  0% { opacity: 0; transform: translateY(-28px) rotate(-2deg); }
+  70% { opacity: 1; transform: translateY(3px) rotate(0.4deg); }
+  100% { opacity: 1; transform: none; }
+}
+.plate-drop { animation: plate-drop 700ms var(--ease-out) 350ms both; }
+
+/* Ambient: lane markings rolling toward the viewer, headlight sweep, gentle float */
+@keyframes lane-roll {
+  from { background-position-y: 0; }
+  to { background-position-y: 160px; }
+}
+.road-lanes {
+  background-image: repeating-linear-gradient(to bottom, rgba(255,255,255,0.55) 0 56px, transparent 56px 160px);
+  animation: lane-roll 2.4s linear infinite;
+}
+@keyframes sweep {
+  from { transform: translateX(-30%); opacity: 0; }
+  20% { opacity: 1; }
+  to { transform: translateX(130%); opacity: 0; }
+}
+.headlight-sweep { animation: sweep 7s ease-in-out 1.2s infinite; }
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.float-y { animation: float-y 5s ease-in-out infinite; }
+
+/* Dashed connector that draws itself between the "How it works" steps */
+@keyframes draw-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.draw-line { transform-origin: left; transform: scaleX(0); }
+.is-in .draw-line, .draw-line.is-in { animation: draw-x 900ms var(--ease-out) 250ms both; }
+
+/* Press feedback for the main call to action */
+.btn-press { transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out); }
+.btn-press:hover { transform: translateY(-1px); }
+.btn-press:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .hero-rise, .plate-drop, .road-lanes, .headlight-sweep, .float-y, .draw-line { animation: none !important; }
+  .draw-line { transform: none; }
+  .btn-press, .btn-press:hover, .btn-press:active { transform: none; }
+}

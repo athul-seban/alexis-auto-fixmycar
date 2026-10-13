@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
+import { Inter, Barlow_Semi_Condensed } from "next/font/google"
 import { headers } from "next/headers"
 import "./globals.css"
 import { Providers } from "@/components/layout/Providers"
@@ -12,6 +12,8 @@ import { liveLegalPages } from "@/lib/legal"
 import { LegalLinksProvider } from "@/components/shared/ConsentNotice"
 
 const inter = Inter({ subsets: ["latin"] })
+// Road-sign style display face for the public site headings (used via the `font-display` class).
+const display = Barlow_Semi_Condensed({ subsets: ["latin"], weight: ["600", "700"], variable: "--font-display" })
 
 export const viewport: Viewport = { themeColor: "#1E3A5F" }
 
@@ -60,7 +62,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang={LOCALE_META[locale].htmlLang} suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${display.variable}`}>
         <I18nProvider locale={locale} messages={clientMessages(messages)}>
           <LegalLinksProvider links={legalLinks}>
             <Providers>{children}</Providers>

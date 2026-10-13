@@ -1,6 +1,7 @@
-import { ClipboardList, GitCompare, CalendarCheck, ArrowRight } from "lucide-react"
+import { ClipboardList, GitCompare, CalendarCheck } from "lucide-react"
 import { getT } from "@/lib/i18n/server"
 import type { MessageKey } from "@/lib/i18n/messages/en"
+import { Reveal } from "@/components/shared/Reveal"
 
 const steps: { icon: typeof ClipboardList; number: string; titleKey: MessageKey; textKey: MessageKey; gradient: string; lightBg: string; glowColor: string; iconColor: string }[] = [
   {
@@ -40,31 +41,26 @@ export async function HowItWorks() {
   return (
     <section className="py-24 bg-[#F8FAFC] dark:bg-slate-950">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
+        <Reveal className="text-center mb-16">
           <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
             {t("howit.badge")}
           </span>
-          <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-4 tracking-tight">
+          <h2 className="font-display text-4xl md:text-5xl font-bold text-slate-900 dark:text-white mb-4 tracking-tight">
             {t("howit.title")}
           </h2>
           <p className="text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto leading-relaxed">
             {t("howit.subtitle")}
           </p>
-        </div>
+        </Reveal>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+          {/* Dashed route that draws itself behind the steps */}
+          <Reveal className="hidden md:block absolute left-[16%] right-[16%] top-[3.1rem] h-0 z-0 pointer-events-none">
+            <div className="draw-line border-t-2 border-dashed border-slate-300 dark:border-slate-600" />
+          </Reveal>
           {steps.map((step, index) => (
-            <div key={index} className="relative flex flex-col">
-              {/* Arrow connector on desktop */}
-              {index < steps.length - 1 && (
-                <div className="hidden md:flex absolute -right-4 top-12 z-10 items-center justify-center">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[#E2E8F0] dark:bg-slate-700">
-                    <ArrowRight className="h-4 w-4 text-slate-400" />
-                  </div>
-                </div>
-              )}
-
-              <div className="group flex-1 rounded-2xl p-7 transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-slate-800 border border-[#E8EDF5] dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_24px_rgba(0,0,0,0.04)]">
+            <Reveal key={index} delay={index * 90} className="relative flex flex-col">
+              <div className="group relative z-10 flex-1 rounded-2xl p-7 transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-slate-800 border border-[#E8EDF5] dark:border-white/10 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_4px_24px_rgba(0,0,0,0.04)]">
                 {/* Step number badge */}
                 <div className="flex items-start justify-between mb-5">
                   {/* Icon with glow */}
@@ -81,10 +77,10 @@ export async function HowItWorks() {
                   />
                 </div>
 
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3">{t(step.titleKey)}</h3>
+                <h3 className="font-display text-2xl font-bold text-slate-900 dark:text-white mb-3">{t(step.titleKey)}</h3>
                 <p className="text-slate-500 dark:text-slate-400 leading-relaxed text-[15px]">{t(step.textKey)}</p>
               </div>
-            </div>
+          </Reveal>
           ))}
         </div>
 

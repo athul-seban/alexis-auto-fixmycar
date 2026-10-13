@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Star } from "lucide-react"
 import { getHomeReviews, getHomeStats } from "@/lib/home-data"
 import { getLocale, getT } from "@/lib/i18n/server"
+import { Reveal } from "@/components/shared/Reveal"
 
 const COLORS = ["#3B82F6", "#8B5CF6", "#10B981", "#F97316", "#F43F5E", "#14B8A6"]
 const MIN_REVIEWS = 3
@@ -17,11 +18,11 @@ export async function Testimonials() {
   return (
     <section className="py-24 bg-white dark:bg-slate-900 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-14">
+        <Reveal className="text-center mb-14">
           <span className="inline-block text-[#C2410C] dark:text-[#F97316] font-bold text-xs uppercase tracking-[0.15em] bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 px-4 py-1.5 rounded-full mb-4">
             {t("rev.badge")}
           </span>
-          <h2 className="text-3xl md:text-[2.6rem] font-extrabold text-slate-900 dark:text-white mb-5 tracking-tight">{t("rev.title")}</h2>
+          <h2 className="font-display text-4xl md:text-5xl font-bold text-slate-900 dark:text-white mb-5 tracking-tight">{t("rev.title")}</h2>
           {stats.averageRating !== null && (
             <div className="inline-flex items-center gap-3 rounded-2xl px-6 py-3 bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] dark:from-amber-500/10 dark:to-amber-500/5 dark:border-amber-500/30">
               <div className="flex gap-0.5" aria-hidden>
@@ -35,7 +36,7 @@ export async function Testimonials() {
               </div>
             </div>
           )}
-        </div>
+        </Reveal>
 
         <div
           role="region"

@@ -50,7 +50,7 @@ export async function GarageCTA() {
             >
               {t("cta.badge")}
             </span>
-            <h2 className="text-3xl md:text-4xl lg:text-[2.6rem] font-extrabold text-white mb-5 leading-[1.15] tracking-tight">
+            <h2 className="font-display text-4xl md:text-5xl font-bold text-white mb-5 leading-[1.15] tracking-tight">
               {t("cta.title1")}
               <br />
               <span

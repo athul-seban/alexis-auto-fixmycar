@@ -186,7 +186,7 @@ export async function ServiceCategories() {
                 <cat.icon className="h-5 w-5" style={{ color: cat.color }} />
               </div>
               <span className="text-[12px] font-semibold text-slate-700 dark:text-slate-300 text-center leading-tight group-hover:text-slate-900 dark:group-hover:text-white">
-                {t(`svc.${cat.href.split("=")[1]}` as MessageKey)}
+                {cat.href.includes("service=") ? t(`svc.${cat.href.split("service=")[1]}` as MessageKey) : cat.label}
               </span>
             </Link>
           ))}

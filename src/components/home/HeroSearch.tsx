@@ -87,20 +87,28 @@ export function HeroSearch() {
       className="relative overflow-hidden min-h-[620px] flex items-center"
       style={{ background: "linear-gradient(135deg, #0a1628 0%, #0f1f3d 35%, #1a3055 65%, #1e3a5f 100%)" }}
     >
-      {/* Grid pattern overlay */}
+      {/* Ambient layer: a road in perspective running to the horizon, centre line rolling toward the viewer */}
       <div
-        className="absolute inset-0 opacity-[0.04]"
+        aria-hidden
+        className="absolute inset-0 overflow-hidden pointer-events-none"
         style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-          backgroundSize: "60px 60px",
+          perspective: "420px",
+          perspectiveOrigin: "72% 0%",
+          WebkitMaskImage: "linear-gradient(to bottom, transparent 5%, #000 40%)",
+          maskImage: "linear-gradient(to bottom, transparent 5%, #000 40%)",
         }}
-      />
-
-      {/* Glow blobs */}
-      <div className="absolute -top-32 left-1/4 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute top-10 right-1/4 w-[300px] h-[300px] bg-orange-500/10 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-20 left-10 w-[200px] h-[200px] bg-blue-400/8 rounded-full blur-[80px] pointer-events-none" />
+      >
+        <div
+          className="absolute top-[30%] left-[72%] h-[1800px] w-[520px] origin-top"
+          style={{ transform: "translateX(-50%) rotateX(64deg)", background: "linear-gradient(to bottom, #1d2f4d, #31496d)" }}
+        >
+          <div className="absolute left-[3%] top-0 h-full w-3 bg-white/50" />
+          <div className="absolute right-[3%] top-0 h-full w-3 bg-white/50" />
+          <div className="road-lanes absolute left-1/2 top-0 h-full w-5 -translate-x-1/2" />
+        </div>
+      </div>
+      <div aria-hidden className="absolute inset-0 pointer-events-none bg-gradient-to-r from-[#0a1628] via-[#0a1628]/70 to-transparent" />
+      <div aria-hidden className="headlight-sweep absolute bottom-24 left-0 h-24 w-[60%] rounded-full bg-amber-200/10 blur-3xl pointer-events-none" />
 
       <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -108,35 +116,23 @@ export function HeroSearch() {
           {/* LEFT — Copy + Search */}
           <div>
             {/* Rating pill */}
-            <div className="inline-flex items-center gap-2.5 bg-white/8 backdrop-blur-md border border-white/12 rounded-full px-4 py-2 mb-7">
+            <div className="hero-rise inline-flex items-center gap-2.5 bg-white/8 backdrop-blur-md border border-white/12 rounded-full px-4 py-2 mb-7">
               <Check className="h-4 w-4 text-emerald-400" aria-hidden />
               <span className="text-white/90 text-sm font-medium">{t("hero.badge")}</span>
             </div>
 
-            <h1 className="text-4xl md:text-5xl lg:text-[3.5rem] font-extrabold text-white leading-[1.1] mb-5 tracking-tight">
-              {t("hero.title1")}
-              <br />
-              <span
-                className="text-transparent"
-                style={{
-                  backgroundImage: "linear-gradient(90deg, #F97316 0%, #FB923C 50%, #FDBA74 100%)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}
-              >
-                {t("hero.title2")}
-              </span>
-              <br />
-              {t("hero.title3")}
+            <h1 className="font-display text-5xl md:text-6xl lg:text-[4.25rem] font-bold text-white leading-[1.02] mb-5 tracking-tight">
+              <span className="hero-rise block" style={{ "--d": "80ms" } as React.CSSProperties}>{t("hero.title1")}</span>
+              <span className="hero-rise block" style={{ "--d": "180ms" } as React.CSSProperties}>{t("hero.title2")}</span>
+              <span className="hero-rise block" style={{ "--d": "280ms" } as React.CSSProperties}>{t("hero.title3")}</span>
             </h1>
 
-            <p className="text-blue-200/80 text-lg leading-relaxed mb-8 max-w-lg">
+            <p className="hero-rise text-blue-100/80 text-lg leading-relaxed mb-8 max-w-lg" style={{ "--d": "380ms" } as React.CSSProperties}>
               {t("hero.subtitle")}
             </p>
 
             {/* Search Form */}
-            <form onSubmit={handleSearch}>
+            <form onSubmit={handleSearch} className="hero-rise" style={{ "--d": "460ms" } as React.CSSProperties}>
               <div
                 className="rounded-2xl p-1.5"
                 style={{
@@ -231,7 +227,7 @@ export function HeroSearch() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full h-12 rounded-xl font-bold text-white text-base flex items-center justify-center gap-2.5 transition-all duration-200 cursor-pointer disabled:opacity-70"
+                    className="btn-press w-full h-12 rounded-xl font-bold text-white text-base flex items-center justify-center gap-2.5 transition-all duration-200 cursor-pointer disabled:opacity-70"
                     style={{
                       background: loading
                         ? "#d97706"
@@ -247,7 +243,7 @@ export function HeroSearch() {
             </form>
 
             {/* Popular searches */}
-            <div className="flex flex-wrap items-center gap-2 mt-4">
+            <div className="hero-rise flex flex-wrap items-center gap-2 mt-4" style={{ "--d": "540ms" } as React.CSSProperties}>
               <span className="text-white/40 text-xs font-medium">{t("hero.popular")}</span>
               {popularSearches.map((s) => (
                 <button
@@ -262,32 +258,45 @@ export function HeroSearch() {
             </div>
           </div>
 
-          {/* RIGHT — Stats & Social Proof */}
-          <div className="hidden lg:flex flex-col gap-4">
-            {/* Trust pillars */}
-            <div className="grid grid-cols-2 gap-3">
+          {/* RIGHT — a number plate that fills in as the registration is typed, then the trust points */}
+          <div className="hidden lg:flex flex-col gap-8 items-stretch">
+            <div className="plate-drop">
+              <div className="float-y mx-auto w-full max-w-[26rem]" aria-hidden>
+                <div
+                  className="flex items-center rounded-lg overflow-hidden"
+                  style={{ background: "#F7C300", border: "3px solid #111", boxShadow: "0 18px 40px rgba(0,0,0,0.45), inset 0 0 0 2px rgba(255,255,255,0.25)" }}
+                >
+                  <div className="self-stretch w-12 flex flex-col items-center justify-center gap-1 bg-[#1d4ea8] text-[10px] font-bold text-white">
+                    <span className="h-5 w-5 rounded-full border-2 border-dashed border-yellow-300" />
+                    GB
+                  </div>
+                  <div
+                    className="flex-1 py-3 text-center text-[2.6rem] leading-none text-black uppercase"
+                    style={{ fontFamily: "'Arial Black', 'Arial Narrow Bold', sans-serif", letterSpacing: "0.08em" }}
+                  >
+                    {registration.trim() || "AB12 CDE"}
+                  </div>
+                </div>
+                <p className="mt-3 text-center text-sm text-blue-100/70 min-h-5">{vehicleSummary || t("hero.regLabel")}</p>
+              </div>
+            </div>
+
+            <ul className="divide-y divide-white/10 border-y border-white/10">
               {[
                 { icon: Shield, label: t("hero.pillar1.title"), sub: t("hero.pillar1.text"), color: "text-blue-400" },
                 { icon: Star, label: t("hero.pillar2.title"), sub: t("hero.pillar2.text"), color: "text-yellow-400" },
                 { icon: TrendingDown, label: t("hero.pillar3.title"), sub: t("hero.pillar3.text"), color: "text-green-400" },
                 { icon: Zap, label: t("hero.pillar4.title"), sub: t("hero.pillar4.text"), color: "text-orange-400" },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-start gap-3 p-3.5 rounded-xl"
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                  }}
-                >
-                  <item.icon className={`h-5 w-5 ${item.color} mt-0.5 flex-shrink-0`} />
+              ].map((item, i) => (
+                <li key={item.label} className="hero-rise flex items-start gap-3 py-3" style={{ "--d": `${520 + i * 90}ms` } as React.CSSProperties}>
+                  <item.icon className={`h-5 w-5 ${item.color} mt-0.5 flex-shrink-0`} aria-hidden />
                   <div>
                     <div className="text-white font-semibold text-sm">{item.label}</div>
-                    <div className="text-white/45 text-xs">{item.sub}</div>
+                    <div className="text-white/60 text-xs">{item.sub}</div>
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         </div>
       </div>

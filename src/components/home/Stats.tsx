@@ -1,6 +1,7 @@
 import { Building2, CheckCircle2, Star, MessageSquareText } from "lucide-react"
 import { getHomeStats } from "@/lib/home-data"
 import { getT } from "@/lib/i18n/server"
+import { Reveal } from "@/components/shared/Reveal"
 
 const MIN_STATS = 2
 
@@ -34,22 +35,22 @@ export async function Stats() {
       <div className="absolute bottom-0 right-1/4 w-[300px] h-[200px] bg-orange-500/8 rounded-full blur-[80px] pointer-events-none" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
+        <Reveal className="text-center mb-12">
           <span
             className="text-xs font-bold uppercase tracking-[0.15em] mb-3 inline-block"
             style={{ color: "#F97316" }}
           >
             {t("stats.badge")}
           </span>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-white">
+          <h2 className="font-display text-4xl md:text-5xl font-bold text-white">
             {t("stats.title")}
           </h2>
-        </div>
+        </Reveal>
 
         <div className="grid grid-cols-2 gap-5 lg:grid-cols-4">
           {stats.map((stat, index) => (
+            <Reveal key={index} delay={index * 70}>
             <div
-              key={index}
               className="text-center rounded-2xl p-4 sm:p-6 group transition-all duration-300 hover:-translate-y-1"
               style={{
                 background: "rgba(255,255,255,0.05)",
@@ -64,7 +65,7 @@ export async function Stats() {
                 <stat.icon className="h-6 w-6" style={{ color: stat.color }} />
               </div>
               <div
-                className="text-3xl sm:text-4xl font-black mb-1 tabular-nums"
+                className="font-display text-4xl sm:text-5xl font-bold mb-1 tabular-nums"
                 style={{ color: "#FFFFFF" }}
               >
                 {stat.value}
@@ -72,6 +73,7 @@ export async function Stats() {
               <div className="text-sm font-bold text-blue-100 mb-1">{stat.label}</div>
               <div className="text-xs text-blue-400">{stat.sub}</div>
             </div>
+            </Reveal>
           ))}
         </div>
       </div>
