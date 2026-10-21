@@ -4,6 +4,7 @@ import { roleHome, safeCallbackUrl, isAllowedForRole, postLoginPath } from "@/li
 describe("roleHome", () => {
   it("maps each role to its dashboard", () => {
     expect(roleHome("ADMIN")).toBe("/admin")
+    expect(roleHome("SUPER_ADMIN")).toBe("/admin")
     expect(roleHome("GARAGE")).toBe("/garage-dashboard")
     expect(roleHome("OWNER")).toBe("/dashboard")
   })
@@ -43,6 +44,9 @@ describe("isAllowedForRole", () => {
     expect(isAllowedForRole("OWNER", "/dashboard?quote=1")).toBe(true)
     expect(isAllowedForRole("OWNER", "/admin")).toBe(false)
     expect(isAllowedForRole("ADMIN", "/admin")).toBe(true)
+    expect(isAllowedForRole("SUPER_ADMIN", "/admin/settings")).toBe(true)
+    expect(isAllowedForRole("SUPER_ADMIN", "/garage-dashboard")).toBe(false)
+    expect(isAllowedForRole("GARAGE", "/admin/settings")).toBe(false)
   })
 
   it("allows unrestricted public paths for everyone", () => {

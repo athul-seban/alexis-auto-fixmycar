@@ -32,7 +32,7 @@ interface PortalShellProps {
   children: React.ReactNode
 }
 
-const ICONS = { garage: Store, admin: ShieldCheck, owner: UserRound } as const
+const ICONS = { garage: Store, admin: ShieldCheck, superAdmin: ShieldCheck, owner: UserRound } as const
 
 function StatusBanner({ status }: { status: string }) {
   if (status === "PENDING") {
@@ -84,7 +84,7 @@ export function PortalShell({ portal, user, identity, badges, garageStatus, chil
             collapsed ? "w-[72px]" : "w-64"
           )}
         >
-          <SidebarContent nav={nav} identity={who} badges={badges} collapsed={collapsed} onToggleCollapse={() => setCollapsed(!collapsed)} />
+          <SidebarContent nav={nav} identity={who} badges={badges} collapsed={collapsed} />
         </aside>
 
         <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -97,7 +97,7 @@ export function PortalShell({ portal, user, identity, badges, garageStatus, chil
         <ShortcutsDialog nav={nav} open={helpOpen} onOpenChange={setHelpOpen} />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar nav={nav} user={user} onOpenMenu={() => setMobileOpen(true)} />
+          <Topbar nav={nav} user={user} onOpenMenu={() => setMobileOpen(true)} sidebarCollapsed={collapsed} onToggleSidebar={() => setCollapsed(!collapsed)} />
           <main id="portal-main" tabIndex={-1} className="flex-1 overflow-y-auto focus:outline-none print:overflow-visible">
             <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
               {garageStatus && <StatusBanner status={garageStatus} />}

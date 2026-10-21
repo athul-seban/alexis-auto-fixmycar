@@ -98,14 +98,18 @@ Set the Twilio variables. UK senders should register an alphanumeric sender ID o
 
 Apply the schema first (see "Applying a schema change to production"). All changes are additive: new `Garage` columns
 (plan, Stripe customer/subscription, `featuredUntil`, `leadCredits`, response-time averages), `Vehicle.motHistory*`,
-`Review` dispute columns, and new tables `PushSubscription`, `LeadCreditTransaction`, `GarageDocument`, `Article`.
+`Review` dispute columns, and new tables `PushSubscription`, `LeadCreditTransaction`, `GarageDocument`, `Article`, and
+`PlatformSetting` (super-admin credentials; until it exists the app just uses the env vars). After the schema is
+applied, promote the first super admin with a single statement (back up first):
+`UPDATE "User" SET role = 'SUPER_ADMIN' WHERE email = '<their email>';`
 
 | Variable | Purpose |
 |---|---|
 | `STRIPE_PRICE_PRO`, `STRIPE_PRICE_PREMIUM` | Stripe recurring Price ids for the paid plans (plans are defined in `src/lib/portal/plans.ts`) |
 | `PLANS_ENFORCED` | `true` switches on plan limits and feature gates. Off by default: deploying changes nobody's experience |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push (generate with `npx web-push generate-vapid-keys`) |
-| `DVSA_CLIENT_ID`, `DVSA_CLIENT_SECRET`, `DVSA_TOKEN_URL`, `DVSA_API_KEY` | DVSA MOT history lookup (apply to DVSA for credentials) |
+| `DVSA_CLIENT_ID`, `DVSA_CLIENT_SECRET`, `DVSA_TOKEN_URL`, `DVSA_API_KEY` | DVSA MOT history lookup (apply to DVSA for credentials). Optional: a super admin can paste these at `/admin/settings` instead (encrypted in the `PlatformSetting` table; a saved value overrides the env var) |
+| `SETTINGS_ENCRYPTION_KEY` | Encrypts credentials saved at `/admin/settings`. Falls back to `NEXTAUTH_SECRET`. Don't change it once credentials are saved |
 | `BLOB_READ_WRITE_TOKEN` | already required for logos; also stores garage verification documents (as **private** blobs) |
 
 Stripe webhook: add `customer.subscription.created`, `customer.subscription.updated` and `customer.subscription.deleted`

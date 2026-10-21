@@ -1,4 +1,4 @@
-export type UserRole = "OWNER" | "GARAGE" | "ADMIN"
+export type UserRole = "OWNER" | "GARAGE" | "ADMIN" | "SUPER_ADMIN"
 export type GarageStatus = "PENDING" | "APPROVED" | "SUSPENDED"
 export type QuoteStatus = "PENDING" | "SENT" | "ACCEPTED" | "REJECTED" | "EXPIRED"
 export type BookingStatus = "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "NO_SHOW"

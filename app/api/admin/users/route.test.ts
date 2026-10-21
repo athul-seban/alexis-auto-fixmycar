@@ -183,3 +183,100 @@ describe("Admin users route — permission guards", () => {
     expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({ to: target.email }))
   })
 })
+
+describe("Admin users route — super admin", () => {
+  beforeEach(async () => {
+    vi.mocked(sendMail).mockClear()
+    await cleanup()
+  })
+  afterAll(cleanup)
+
+  const make = (name: string, role: string) => prisma.user.create({ data: { email: `${PREFIX}${name}@example.com`, role, password: "hashed-not-real" } })
+  const as = (u: { id: string }, role: string) => mockSession.mockResolvedValue({ user: { id: u.id, role } } as any)
+
+  it("lets a super admin make someone an admin", async () => {
+    const boss = await make("boss1", "SUPER_ADMIN")
+    const target = await make("t1", "OWNER")
+    as(boss, "SUPER_ADMIN")
+
+    expect((await PATCH(patchRequest({ userId: target.id, role: "ADMIN" }))).status).toBe(200)
+    expect((await prisma.user.findUnique({ where: { id: target.id } }))?.role).toBe("ADMIN")
+  })
+
+  it("lets a super admin create another super admin", async () => {
+    const boss = await make("boss2", "SUPER_ADMIN")
+    const target = await make("t2", "ADMIN")
+    as(boss, "SUPER_ADMIN")
+
+    expect((await PATCH(patchRequest({ userId: target.id, role: "SUPER_ADMIN" }))).status).toBe(200)
+    expect((await prisma.user.findUnique({ where: { id: target.id } }))?.role).toBe("SUPER_ADMIN")
+  })
+
+  it("stops an ordinary admin granting admin or super admin rights, even to themselves", async () => {
+    const admin = await make("admin-a", "ADMIN")
+    const target = await make("t3", "OWNER")
+    as(admin, "ADMIN")
+
+    for (const role of ["ADMIN", "SUPER_ADMIN"]) {
+      expect((await PATCH(patchRequest({ userId: target.id, role }))).status).toBe(403)
+    }
+    // Self-escalation: refused as "can't change your own role" (400), and re-granting ADMIN is still a grant (403).
+    expect((await PATCH(patchRequest({ userId: admin.id, role: "SUPER_ADMIN" }))).status).toBe(400)
+    expect((await PATCH(patchRequest({ userId: admin.id, role: "ADMIN" }))).status).toBe(403)
+    expect((await prisma.user.findUnique({ where: { id: target.id } }))?.role).toBe("OWNER")
+    expect((await prisma.user.findUnique({ where: { id: admin.id } }))?.role).toBe("ADMIN")
+  })
+
+  it("stops an ordinary admin touching other admin-level accounts", async () => {
+    const admin = await make("admin-b", "ADMIN")
+    const otherAdmin = await make("admin-c", "ADMIN")
+    const boss = await make("boss3", "SUPER_ADMIN")
+    as(admin, "ADMIN")
+
+    for (const t of [otherAdmin, boss]) {
+      expect((await PATCH(patchRequest({ userId: t.id, suspended: true }))).status).toBe(403)
+      expect((await PATCH(patchRequest({ userId: t.id, role: "OWNER" }))).status).toBe(403)
+      expect((await DELETE(deleteRequest(t.id))).status).toBe(403)
+      expect((await POST(postRequest({ userId: t.id, action: "send_password_reset" }))).status).toBe(403)
+    }
+    expect(sendMail).not.toHaveBeenCalled()
+    expect(await prisma.user.count({ where: { id: { in: [otherAdmin.id, boss.id] } } })).toBe(2)
+    expect((await prisma.user.findUnique({ where: { id: boss.id } }))?.suspendedAt).toBeNull()
+  })
+
+  it("still lets an ordinary admin manage customers and garages", async () => {
+    const admin = await make("admin-d", "ADMIN")
+    const owner = await make("t4", "OWNER")
+    as(admin, "ADMIN")
+
+    expect((await PATCH(patchRequest({ userId: owner.id, suspended: true }))).status).toBe(200)
+    expect((await PATCH(patchRequest({ userId: owner.id, role: "GARAGE" }))).status).toBe(200)
+  })
+
+  it("lets a super admin suspend, reset and delete an admin", async () => {
+    const boss = await make("boss4", "SUPER_ADMIN")
+    const admin = await make("admin-e", "ADMIN")
+    as(boss, "SUPER_ADMIN")
+
+    expect((await PATCH(patchRequest({ userId: admin.id, suspended: true }))).status).toBe(200)
+    expect((await POST(postRequest({ userId: admin.id, action: "send_password_reset" }))).status).toBe(200)
+    expect((await DELETE(deleteRequest(admin.id))).status).toBe(200)
+  })
+
+  it("never lets a super admin change, suspend or delete their own account (so the last one can't go)", async () => {
+    const boss = await make("boss5", "SUPER_ADMIN")
+    as(boss, "SUPER_ADMIN")
+
+    expect((await PATCH(patchRequest({ userId: boss.id, role: "ADMIN" }))).status).toBe(400)
+    expect((await PATCH(patchRequest({ userId: boss.id, suspended: true }))).status).toBe(400)
+    expect((await DELETE(deleteRequest(boss.id))).status).toBe(400)
+    expect((await prisma.user.findUnique({ where: { id: boss.id } }))?.role).toBe("SUPER_ADMIN")
+  })
+
+  it("rejects an unknown role", async () => {
+    const boss = await make("boss6", "SUPER_ADMIN")
+    const target = await make("t5", "OWNER")
+    as(boss, "SUPER_ADMIN")
+    expect((await PATCH(patchRequest({ userId: target.id, role: "ROOT" }))).status).toBe(400)
+  })
+})

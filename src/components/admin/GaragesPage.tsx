@@ -2,14 +2,17 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Check, ExternalLink, Minus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import type { DataColumn } from "@/components/ui/data-table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/components/ui/toast"
-import { sendJson } from "@/hooks/use-api"
-import { cn, formatDate } from "@/lib/utils"
+import { FieldLabel, TextInput } from "@/components/ui/form-controls"
+import { sendJson, useApi } from "@/hooks/use-api"
+import { cn, formatCurrency, formatDate } from "@/lib/utils"
+import { isSuperAdmin } from "@/lib/roles"
 import type { Readiness } from "@/lib/portal/readiness"
 import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
 import { ResourceList } from "@/components/admin/ResourceList"
@@ -30,8 +33,25 @@ interface AdminGarage {
   totalBookings: number
   widgetEnabled: boolean
   createdAt: string
-  owner: { name: string | null; email: string; phone: string | null }
+  owner: { name: string | null; email: string; phone: string | null; invitePending: boolean }
   readiness: Readiness
+}
+
+interface PriceRow {
+  serviceType: string
+  label: string
+  priceFrom: number | null
+  priceTo: number | null
+  fixedPrice: number | null
+  configured: boolean
+}
+
+function priceText(p: PriceRow): string {
+  if (!p.configured) return "Not set"
+  if (p.fixedPrice !== null) return formatCurrency(p.fixedPrice)
+  if (p.priceFrom !== null && p.priceTo !== null) return `${formatCurrency(p.priceFrom)} – ${formatCurrency(p.priceTo)}`
+  if (p.priceFrom !== null) return `From ${formatCurrency(p.priceFrom)}`
+  return "Quote on request"
 }
 
 const BADGES = [
@@ -69,6 +89,19 @@ function GarageDialog({ garage, onClose, onChanged }: { garage: AdminGarage | nu
   const [loadedId, setLoadedId] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<Pending>(null)
   const [overrideMissing, setOverrideMissing] = useState<string[] | null>(null)
+  const { data: session } = useSession()
+  const superAdmin = isSuperAdmin((session?.user as { role?: string } | undefined)?.role)
+  // Prices belong to the garage owner: shown here read-only, to compare listings and moderate them.
+  const { data: pricing, loading: pricingLoading } = useApi<{ services: PriceRow[] }>(garage ? `/api/admin/garages/${garage.id}/pricing` : null)
+
+  async function resendInvite() {
+    if (!garage) return
+    setBusy(true)
+    const res = await sendJson<{ emailSent: boolean }>("/api/admin/garages/invite", "PATCH", { garageId: garage.id })
+    setBusy(false)
+    if (!res.ok) return toast(res.error ?? "Couldn't send the invite", "error")
+    toast(res.data?.emailSent ? "Invite sent again" : "Invite created, but the email couldn't be sent", res.data?.emailSent ? undefined : "error")
+  }
 
   // Reset the editable badge state each time a different garage is opened.
   if (garage && garage.id !== loadedId) {
@@ -118,7 +151,7 @@ function GarageDialog({ garage, onClose, onChanged }: { garage: AdminGarage | nu
                   {g.name} <StatusPill status={g.status} />
                 </DialogTitle>
                 <DialogDescription>
-                  {g.city}, {g.postcode} · registered {formatDate(g.createdAt)}
+                  {[g.city, g.postcode].filter(Boolean).join(", ")} · registered {formatDate(g.createdAt)}
                 </DialogDescription>
               </DialogHeader>
 
@@ -143,10 +176,33 @@ function GarageDialog({ garage, onClose, onChanged }: { garage: AdminGarage | nu
                 </ul>
               </section>
 
+              <section aria-labelledby="prices-h" className="mb-5">
+                <h3 id="prices-h" className="mb-2 text-sm font-bold text-slate-900 dark:text-white">
+                  Prices <span className={cn("text-xs font-normal", muted)}>set by the garage, read-only</span>
+                </h3>
+                {pricingLoading && !pricing ? (
+                  <p className={cn("text-sm", muted)}>Loading…</p>
+                ) : pricing && pricing.services.length > 0 ? (
+                  <dl className="divide-y divide-slate-100 dark:divide-white/10">
+                    {pricing.services.map((p) => (
+                      <Row key={p.serviceType} label={p.label}>
+                        {priceText(p)}
+                      </Row>
+                    ))}
+                  </dl>
+                ) : (
+                  <p className={cn("text-sm", muted)}>No services listed yet.</p>
+                )}
+              </section>
+
               <dl className="mb-5 divide-y divide-slate-100 dark:divide-white/10">
-                <Row label="Owner">{g.owner.name ?? g.owner.email}</Row>
+                <Row label="Owner">
+                  {g.owner.name ?? g.owner.email}
+                  {g.owner.invitePending && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">Invite not accepted yet</span>}
+                </Row>
                 <Row label="Contact">
-                  <a className="underline-offset-2 hover:underline" href={`mailto:${g.email}`}>{g.email}</a> · {g.phone}
+                  <a className="underline-offset-2 hover:underline" href={`mailto:${g.email}`}>{g.email}</a>
+                  {g.phone && <> · {g.phone}</>}
                 </Row>
                 <Row label="Rating">{g.totalReviews ? `${g.averageRating.toFixed(1)} (${g.totalReviews})` : "No reviews yet"}</Row>
                 <Row label="Bookings received">{g.totalBookings}</Row>
@@ -176,6 +232,11 @@ function GarageDialog({ garage, onClose, onChanged }: { garage: AdminGarage | nu
               </fieldset>
 
               <DialogFooter className="mt-6 flex-wrap">
+                {superAdmin && g.owner.invitePending && (
+                  <Button variant="secondary" onClick={resendInvite} loading={busy}>
+                    Resend invite
+                  </Button>
+                )}
                 {g.status === "APPROVED" && (
                   <Link href={`/garage/${g.slug}`} target="_blank" className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-[#1E3A5F] hover:underline dark:text-blue-300 sm:mr-auto">
                     View listing <ExternalLink className="h-3.5 w-3.5" />
@@ -226,8 +287,77 @@ function GarageDialog({ garage, onClose, onChanged }: { garage: AdminGarage | nu
   )
 }
 
+function InviteDialog({ open, onClose, onInvited }: { open: boolean; onClose: () => void; onInvited: () => void }) {
+  const { toast } = useToast()
+  const [form, setForm] = useState({ garageName: "", ownerName: "", email: "", city: "" })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState("")
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const complete = Object.values(form).every((v) => v.trim() !== "")
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError("")
+    const res = await sendJson<{ emailSent: boolean }>("/api/admin/garages/invite", "POST", form)
+    setBusy(false)
+    if (!res.ok) return setError(res.error ?? "Couldn't send the invite")
+    toast(res.data?.emailSent ? "Invite sent" : "Garage added, but the invite email couldn't be sent. Use Resend invite.", res.data?.emailSent ? undefined : "error")
+    setForm({ garageName: "", ownerName: "", email: "", city: "" })
+    onClose()
+    onInvited()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Invite a garage</DialogTitle>
+          <DialogDescription>
+            The owner gets an email to choose their own password, then completes the profile and prices. The garage stays pending until you approve it.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <div>
+            <FieldLabel htmlFor="inv-garage">Garage name</FieldLabel>
+            <TextInput id="inv-garage" value={form.garageName} onChange={set("garageName")} autoComplete="off" />
+          </div>
+          <div>
+            <FieldLabel htmlFor="inv-owner">Owner&apos;s name</FieldLabel>
+            <TextInput id="inv-owner" value={form.ownerName} onChange={set("ownerName")} autoComplete="off" />
+          </div>
+          <div>
+            <FieldLabel htmlFor="inv-email">Owner&apos;s email</FieldLabel>
+            <TextInput id="inv-email" type="email" value={form.email} onChange={set("email")} autoComplete="off" />
+          </div>
+          <div>
+            <FieldLabel htmlFor="inv-city">City</FieldLabel>
+            <TextInput id="inv-city" value={form.city} onChange={set("city")} autoComplete="off" />
+          </div>
+          {error && (
+            <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+              {error}
+            </p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" loading={busy} disabled={!complete}>
+              Send invite
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function AdminGaragesPage() {
   const [open, setOpen] = useState<AdminGarage | null>(null)
+  const [inviting, setInviting] = useState(false)
+  const { data: session } = useSession()
+  const superAdmin = isSuperAdmin((session?.user as { role?: string } | undefined)?.role)
 
   const columns: DataColumn<AdminGarage>[] = [
     {
@@ -255,6 +385,13 @@ export function AdminGaragesPage() {
     <ResourceList<AdminGarage>
       title="Garages"
       description="Approve new garages, check their profile is ready, and manage verification badges."
+      actions={
+        superAdmin ? (
+          <Button variant="primary" onClick={() => setInviting(true)}>
+            Invite garage
+          </Button>
+        ) : undefined
+      }
       caption="Garages"
       endpoint="/api/admin/garages"
       itemsKey="garages"
@@ -275,7 +412,12 @@ export function AdminGaragesPage() {
       emptyTitle="No garages here"
       emptyDescription="Garages appear in this list as they register."
     >
-      {({ reload }) => <GarageDialog garage={open} onClose={() => setOpen(null)} onChanged={reload} />}
+      {({ reload }) => (
+        <>
+          <GarageDialog garage={open} onClose={() => setOpen(null)} onChanged={reload} />
+          {superAdmin && <InviteDialog open={inviting} onClose={() => setInviting(false)} onInvited={reload} />}
+        </>
+      )}
     </ResourceList>
   )
 }

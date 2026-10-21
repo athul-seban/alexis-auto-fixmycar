@@ -1,17 +1,34 @@
 // DVSA MOT history lookup (https://documentation.history.mot.api.gov.uk). Needs credentials DVSA issues to the
-// platform: DVSA_CLIENT_ID, DVSA_CLIENT_SECRET, DVSA_TOKEN_URL (contains the tenant id) and DVSA_API_KEY. With
-// none set, `motHistoryConfigured()` is false and lookups are simply unavailable; typing a vehicle in by hand still works.
+// platform: DVSA_CLIENT_ID, DVSA_CLIENT_SECRET, DVSA_TOKEN_URL (contains the tenant id) and DVSA_API_KEY. They come
+// from the super admin's Settings screen (encrypted in the database) or, failing that, the environment
+// (see platform-settings.ts). With none set, `motHistoryConfigured()` is false and lookups are simply unavailable;
+// typing a vehicle in by hand still works.
 //
 // NOTE: DVSA's response shape and lookup path were written from its published docs without a live key. The parser
 // below is deliberately tolerant (missing fields, several date formats) but confirm against a real response before launch.
 
 import { normaliseVrm } from "@/lib/portal/vrm"
+import { getSettings } from "@/lib/platform-settings"
 
 const SCOPE = "https://tapi.dvsa.gov.uk/.default"
 const DEFAULT_BASE = "https://history.mot.api.gov.uk/v1/trade/vehicles/registration"
 
-export const motHistoryConfigured = () =>
-  Boolean(process.env.DVSA_CLIENT_ID && process.env.DVSA_CLIENT_SECRET && process.env.DVSA_TOKEN_URL && process.env.DVSA_API_KEY)
+const DVSA_KEYS = ["DVSA_CLIENT_ID", "DVSA_CLIENT_SECRET", "DVSA_TOKEN_URL", "DVSA_API_KEY"] as const
+interface DvsaConfig {
+  clientId: string
+  clientSecret: string
+  tokenUrl: string
+  apiKey: string
+}
+
+/** The four credentials, or null unless all are set. */
+async function dvsaConfig(): Promise<DvsaConfig | null> {
+  const c = await getSettings(DVSA_KEYS)
+  if (!c.DVSA_CLIENT_ID || !c.DVSA_CLIENT_SECRET || !c.DVSA_TOKEN_URL || !c.DVSA_API_KEY) return null
+  return { clientId: c.DVSA_CLIENT_ID, clientSecret: c.DVSA_CLIENT_SECRET, tokenUrl: c.DVSA_TOKEN_URL, apiKey: c.DVSA_API_KEY }
+}
+
+export const motHistoryConfigured = async (): Promise<boolean> => (await dvsaConfig()) !== null
 
 export interface MotTest {
   /** ISO date (yyyy-mm-dd) the test was completed. */
@@ -98,17 +115,19 @@ export function normaliseMotHistory(raw: unknown, fallbackReg = ""): MotVehicle 
   }
 }
 
-let token: { value: string; expiresAt: number } | null = null
+// Cached per credential set, so saving new credentials never reuses a token issued for the old ones.
+let token: { forCredentials: string; value: string; expiresAt: number } | null = null
 
-async function accessToken(): Promise<string> {
-  if (token && token.expiresAt > Date.now() + 60_000) return token.value
-  const res = await fetch(process.env.DVSA_TOKEN_URL!, {
+async function accessToken(cfg: DvsaConfig): Promise<string> {
+  const forCredentials = `${cfg.tokenUrl}|${cfg.clientId}|${cfg.clientSecret}`
+  if (token && token.forCredentials === forCredentials && token.expiresAt > Date.now() + 60_000) return token.value
+  const res = await fetch(cfg.tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       grant_type: "client_credentials",
-      client_id: process.env.DVSA_CLIENT_ID!,
-      client_secret: process.env.DVSA_CLIENT_SECRET!,
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
       scope: SCOPE,
     }),
     signal: AbortSignal.timeout(8000),
@@ -116,7 +135,7 @@ async function accessToken(): Promise<string> {
   if (!res.ok) throw new Error(`DVSA token request failed (${res.status})`)
   const body = (await res.json()) as { access_token: string; expires_in?: number }
   // Tokens last 60 minutes; cache for the lifetime DVSA states.
-  token = { value: body.access_token, expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000 }
+  token = { forCredentials, value: body.access_token, expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000 }
   return token.value
 }
 
@@ -124,13 +143,14 @@ export type LookupResult = { ok: true; vehicle: MotVehicle } | { ok: false; reas
 
 /** Look a registration up at DVSA. Never throws: callers get a reason they can show. */
 export async function lookupMotHistory(registration: string): Promise<LookupResult> {
-  if (!motHistoryConfigured()) return { ok: false, reason: "UNAVAILABLE" }
+  const cfg = await dvsaConfig()
+  if (!cfg) return { ok: false, reason: "UNAVAILABLE" }
   const reg = normaliseVrm(registration)
   if (!reg) return { ok: false, reason: "NOT_FOUND" }
   try {
     const base = (process.env.DVSA_MOT_BASE_URL ?? DEFAULT_BASE).replace(/\/$/, "")
     const res = await fetch(`${base}/${encodeURIComponent(reg)}`, {
-      headers: { Authorization: `Bearer ${await accessToken()}`, "X-API-Key": process.env.DVSA_API_KEY!, Accept: "application/json" },
+      headers: { Authorization: `Bearer ${await accessToken(cfg)}`, "X-API-Key": cfg.apiKey, Accept: "application/json" },
       signal: AbortSignal.timeout(8000),
     })
     if (res.status === 404) return { ok: false, reason: "NOT_FOUND" }
@@ -140,6 +160,34 @@ export async function lookupMotHistory(registration: string): Promise<LookupResu
   } catch (err) {
     console.error("[mot-history] lookup failed:", (err as Error).message)
     return { ok: false, reason: "ERROR" }
+  }
+}
+
+/**
+ * "Test connection" for the Settings screen: gets a fresh token, then makes one lookup. DVSA answering 200 or 404
+ * ("no such vehicle") both prove the credentials work. Reports what failed, never a credential.
+ */
+export async function testMotConnection(): Promise<{ ok: boolean; message: string }> {
+  const cfg = await dvsaConfig()
+  if (!cfg) return { ok: false, message: "Not set up yet: all four DVSA values are needed." }
+  token = null
+  try {
+    await accessToken(cfg)
+  } catch (err) {
+    const status = /\((\d+)\)/.exec((err as Error).message)?.[1]
+    return { ok: false, message: `DVSA's login rejected the client ID, client secret or token URL${status ? ` (HTTP ${status})` : ""}.` }
+  }
+  try {
+    const base = (process.env.DVSA_MOT_BASE_URL ?? DEFAULT_BASE).replace(/\/$/, "")
+    const res = await fetch(`${base}/AB12CDE`, {
+      headers: { Authorization: `Bearer ${await accessToken(cfg)}`, "X-API-Key": cfg.apiKey, Accept: "application/json" },
+      signal: AbortSignal.timeout(8000),
+    })
+    if (res.ok || res.status === 404) return { ok: true, message: "Connected: DVSA accepted the credentials." }
+    if (res.status === 401 || res.status === 403) return { ok: false, message: `DVSA's login worked but it rejected the API key (HTTP ${res.status}). Check it was pasted exactly.` }
+    return { ok: false, message: `DVSA answered with an unexpected status (HTTP ${res.status}).` }
+  } catch {
+    return { ok: false, message: "Couldn't reach DVSA (network error or timeout). Try again." }
   }
 }
 

@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth"
 import { PLACEHOLDER_LEAD_MS, createBooking, transitionBooking, type Actor } from "@/lib/portal/booking-service"
 import { handleRouteError } from "@/lib/portal/route-errors"
 import { z } from "zod"
+import { isAdmin } from "@/lib/roles"
 
 const statusSchema = z.object({
   bookingId: z.string(),
@@ -60,7 +61,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ bookings })
     }
 
-    if (user.role === "ADMIN") {
+    if (isAdmin(user.role)) {
       const bookings = await prisma.booking.findMany({
         include: {
           vehicle: true,

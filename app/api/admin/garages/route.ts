@@ -8,6 +8,7 @@ import { garageLinks } from "@/lib/portal/links"
 import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { garageReadiness } from "@/lib/portal/readiness"
 import { z } from "zod"
+import { isAdmin } from "@/lib/roles"
 
 const actionSchema = z.object({
   garageId: z.string(),
@@ -36,7 +37,7 @@ const AUDIT_FOR = { approve: "GARAGE_APPROVED", reject: "GARAGE_REJECTED", suspe
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions)
-  return session && (session.user as any).role === "ADMIN" ? session : null
+  return session && isAdmin((session.user as any).role) ? session : null
 }
 
 export async function GET(req: Request) {
@@ -48,7 +49,8 @@ export async function GET(req: Request) {
   const page = Math.max(1, Number(searchParams.get("page")) || 1)
   const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || 10))
 
-  const include = { user: { select: { name: true, email: true, phone: true } } } as const
+  // `password` is selected only to learn whether the owner has set one yet (invite pending); the hash is never returned.
+  const include = { user: { select: { name: true, email: true, phone: true, password: true } } } as const
   const where = { status }
 
   // Text search is done in memory (SQLite and Postgres disagree on case-insensitive `contains`), so only
@@ -94,7 +96,7 @@ export async function GET(req: Request) {
       totalBookings: g.totalBookings,
       widgetEnabled: parsePortalSettings(g.portalSettings).widget.enabled,
       createdAt: g.createdAt,
-      owner: g.user,
+      owner: { name: g.user.name, email: g.user.email, phone: g.user.phone, invitePending: !g.user.password },
       readiness: garageReadiness({ ...g, priceCount: prices.get(g.id) ?? 0 }),
     })),
     total,

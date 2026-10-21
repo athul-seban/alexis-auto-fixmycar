@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
+import { isAdmin } from "@/lib/roles"
 
 /** Percentage change, or null when there was nothing before to compare against ("new" rather than a fake +100%). */
 function pctChange(current: number, previous: number): number | null {
@@ -11,7 +12,7 @@ function pctChange(current: number, previous: number): number | null {
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session || !isAdmin((session.user as any).role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

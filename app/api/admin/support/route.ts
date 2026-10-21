@@ -3,13 +3,14 @@ import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { audit } from "@/lib/audit"
+import { isAdmin } from "@/lib/roles"
 
 // Read-only support view: find a customer or garage and see what they see, without signing in as them.
 // Searching lists matching accounts; opening one (`userId`) returns their recent activity and is written to the audit log.
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as { role?: string }).role !== "ADMIN") {
+  if (!session || !isAdmin((session.user as { role?: string }).role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

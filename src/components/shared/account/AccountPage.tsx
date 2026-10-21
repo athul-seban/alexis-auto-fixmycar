@@ -14,6 +14,7 @@ import { sendJson, useApi } from "@/hooks/use-api"
 import { getInitials } from "@/lib/utils"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
 import { AppOnDeviceCard } from "@/components/shared/AppOnDeviceCard"
+import { isAdmin } from "@/lib/roles"
 
 export interface Account {
   name: string | null
@@ -221,7 +222,7 @@ function NotificationsPanel({ account, onSaved }: { account: Account; onSaved: (
     <Panel className="p-4 sm:p-6">
       <Heading>Notifications</Heading>
       <div className="space-y-4">
-        {account.role !== "ADMIN" && (
+        {!isAdmin(account.role) && (
           <ToggleRow
             checked={account.emailNotifications}
             onChange={(v) => set("emailNotifications", v)}

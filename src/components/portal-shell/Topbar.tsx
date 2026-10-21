@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
-import { ChevronDown, LogOut, Menu, Settings, UserRound } from "lucide-react"
+import { ArrowLeft, ChevronDown, LogOut, Menu, Settings, UserRound } from "lucide-react"
 import { cn, getInitials } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationBell } from "@/components/layout/NotificationBell"
@@ -14,23 +14,34 @@ import { isNavActive, pageTitle, type PortalNav } from "@/components/portal-shel
 interface TopbarProps {
   nav: PortalNav
   user: { name: string | null; email: string | null; image?: string | null }
+  /** Phones and tablets: opens the navigation drawer. */
   onOpenMenu: () => void
+  /** Desktop: the same hamburger collapses or expands the sidebar. */
+  sidebarCollapsed: boolean
+  onToggleSidebar: () => void
 }
+
+// No display class here: each button sets its own (`flex lg:hidden` / `hidden lg:flex`) so they can't override each other.
+const ICON_BUTTON = "h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
 
 const MENU_ITEM =
   "flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 outline-none data-[highlighted]:bg-slate-100 dark:text-slate-200 dark:data-[highlighted]:bg-slate-800"
 
-export function Topbar({ nav, user, onOpenMenu }: TopbarProps) {
+export function Topbar({ nav, user, onOpenMenu, sidebarCollapsed, onToggleSidebar }: TopbarProps) {
   const pathname = usePathname()
   const settingsActive = nav.settingsHref ? isNavActive(pathname, nav.settingsHref, nav.base) : false
 
   return (
     <header className="sticky top-0 z-30 print:hidden flex h-16 flex-shrink-0 items-center gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95 sm:gap-3 sm:px-6">
+      <button type="button" onClick={onOpenMenu} aria-label="Open navigation" className={cn("-ml-1 flex lg:hidden", ICON_BUTTON)}>
+        <Menu className="h-5 w-5" />
+      </button>
       <button
         type="button"
-        onClick={onOpenMenu}
-        aria-label="Open navigation"
-        className="-ml-1 flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10 lg:hidden"
+        onClick={onToggleSidebar}
+        aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-expanded={!sidebarCollapsed}
+        className={cn("-ml-1 hidden lg:flex", ICON_BUTTON)}
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -38,6 +49,14 @@ export function Topbar({ nav, user, onOpenMenu }: TopbarProps) {
       <h2 className="min-w-0 truncate text-lg font-bold tracking-tight text-slate-900 dark:text-white">{pageTitle(pathname, nav)}</h2>
 
       <div className="ml-auto flex items-center gap-0.5 sm:gap-2">
+        <Link
+          href="/"
+          aria-label="Back to site"
+          className="flex h-10 items-center gap-1.5 rounded-xl px-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          <ArrowLeft className="h-5 w-5" aria-hidden />
+          <span className="hidden sm:inline">Back to site</span>
+        </Link>
         {nav.settingsHref && (
           <Link
             href={nav.settingsHref}

@@ -21,6 +21,7 @@ import {
   ScrollText,
   PencilLine,
   LifeBuoy,
+  KeyRound,
   type LucideIcon,
 } from "lucide-react"
 
@@ -143,9 +144,17 @@ export const ADMIN_NAV: PortalNav = {
   ],
 }
 
+// Super admins get the whole admin sidebar plus the platform-only pages. Hiding the link isn't the protection: the
+// page and /api/admin/settings each check the role themselves.
+export const SUPER_ADMIN_NAV: PortalNav = {
+  ...ADMIN_NAV,
+  ariaLabel: "Super admin portal",
+  sections: [...ADMIN_NAV.sections, { label: "Platform", items: [{ href: `${A}/settings`, label: "Platform settings", icon: KeyRound }] }],
+}
+
 const O = "/dashboard"
 
-export type PortalId = "garage" | "admin" | "owner"
+export type PortalId = "garage" | "admin" | "superAdmin" | "owner"
 // Layouts are server components and can't pass a nav object (it holds icon functions) to the client
 // shell, so they pass an id and the shell looks it up here.
 
@@ -170,4 +179,4 @@ export const OWNER_NAV: PortalNav = {
   ],
 }
 
-export const PORTAL_NAVS: Record<PortalId, PortalNav> = { garage: GARAGE_NAV, admin: ADMIN_NAV, owner: OWNER_NAV }
+export const PORTAL_NAVS: Record<PortalId, PortalNav> = { garage: GARAGE_NAV, admin: ADMIN_NAV, superAdmin: SUPER_ADMIN_NAV, owner: OWNER_NAV }

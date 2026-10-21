@@ -7,6 +7,7 @@ import { ratingAfterRemove } from "@/lib/portal/ratings"
 import { notifyGarage } from "@/lib/notifications"
 import { garageLinks } from "@/lib/portal/links"
 import { z } from "zod"
+import { isAdmin } from "@/lib/roles"
 
 /** Reviews left through a booking link have no owner account; fall back to the name snapshot. */
 function reviewerName(r: { owner: { name: string | null; email: string } | null; customerName: string | null }) {
@@ -15,7 +16,7 @@ function reviewerName(r: { owner: { name: string | null; email: string } | null;
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session || !isAdmin((session.user as any).role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -84,7 +85,7 @@ const deleteSchema = z.object({ reviewId: z.string() })
 
 export async function DELETE(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session || !isAdmin((session.user as any).role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -122,7 +123,7 @@ const decisionSchema = z.object({
  */
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session || !isAdmin((session.user as any).role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 

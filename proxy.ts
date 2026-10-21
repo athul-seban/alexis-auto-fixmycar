@@ -6,6 +6,7 @@
 //     any other /fr/... path redirects to the English page so there is no duplicate content.
 import { withAuth, type NextRequestWithAuth } from "next-auth/middleware"
 import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server"
+import { isAdmin } from "@/lib/roles"
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale, isTranslatedPath, splitLocalePath } from "@/lib/i18n/config"
 
 const authProxy = withAuth(
@@ -14,7 +15,7 @@ const authProxy = withAuth(
     const pathname = req.nextUrl.pathname
 
     // Admin routes
-    if (pathname.startsWith("/admin") && token?.role !== "ADMIN") {
+    if (pathname.startsWith("/admin") && !isAdmin(token?.role as string | undefined)) {
       return NextResponse.redirect(new URL("/login?error=unauthorized", req.url))
     }
 

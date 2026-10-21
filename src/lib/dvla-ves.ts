@@ -1,26 +1,29 @@
 // DVLA Vehicle Enquiry Service (https://developer-portal.driver-vehicle-licensing.api.gov.uk). A free API key from DVLA
-// goes in VEHICLE_LOOKUP_API_KEY. It is the fallback when DVSA has no MOT history for a vehicle (e.g. a new car):
-// it gives make, fuel, colour and year but, unlike DVSA, no model. Never throws.
+// goes in the super admin's Settings screen or, failing that, VEHICLE_LOOKUP_API_KEY. It is the fallback when DVSA has
+// no MOT history for a vehicle (e.g. a new car): it gives make, fuel, colour and year but, unlike DVSA, no model.
+// Never throws.
 
 import { normaliseVrm } from "@/lib/portal/vrm"
 import type { LookupResult, MotVehicle } from "@/lib/mot-history"
 import { toIsoDate } from "@/lib/mot-history"
+import { getSetting } from "@/lib/platform-settings"
 
 const DEFAULT_URL = "https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles"
 
-export const dvlaConfigured = () => Boolean(process.env.VEHICLE_LOOKUP_API_KEY)
+export const dvlaConfigured = async (): Promise<boolean> => Boolean(await getSetting("VEHICLE_LOOKUP_API_KEY"))
 
 const titleCase = (s: unknown) =>
   typeof s === "string" && s.trim() ? s.trim().toLowerCase().replace(/(^|[\s-])\w/g, (c) => c.toUpperCase()) : null
 
 export async function lookupDvla(registration: string): Promise<LookupResult> {
-  if (!dvlaConfigured()) return { ok: false, reason: "UNAVAILABLE" }
+  const apiKey = await getSetting("VEHICLE_LOOKUP_API_KEY")
+  if (!apiKey) return { ok: false, reason: "UNAVAILABLE" }
   const reg = normaliseVrm(registration)
   if (!reg) return { ok: false, reason: "NOT_FOUND" }
   try {
     const res = await fetch(process.env.DVLA_VES_URL ?? DEFAULT_URL, {
       method: "POST",
-      headers: { "x-api-key": process.env.VEHICLE_LOOKUP_API_KEY!, "Content-Type": "application/json", Accept: "application/json" },
+      headers: { "x-api-key": apiKey, "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ registrationNumber: reg }),
       signal: AbortSignal.timeout(8000),
     })

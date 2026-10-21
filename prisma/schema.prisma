@@ -636,6 +636,15 @@ model ContentEntry {
   @@unique([key, locale])
 }
 
+// Platform-wide secrets a super admin pastes in at /admin/settings (DVSA MOT history, DVLA). `value` is AES-256-GCM
+// encrypted (src/lib/platform-settings.ts) and never sent back to the browser. A saved value overrides the env var.
+model PlatformSetting {
+  key         String   @id
+  value       String
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
 // Addresses that must not get marketing-type email (review requests, reminders, offers). scope = "ALL" or a garage id.
 model EmailSuppression {
   id        String   @id @default(cuid())

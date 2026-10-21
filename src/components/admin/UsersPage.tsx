@@ -11,6 +11,7 @@ import { FieldLabel, NativeSelect } from "@/components/ui/form-controls"
 import { useToast } from "@/components/ui/toast"
 import { sendJson } from "@/hooks/use-api"
 import { cn, formatDate, getStatusColor } from "@/lib/utils"
+import { isAdmin, isSuperAdmin } from "@/lib/roles"
 import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
 import { ResourceList } from "@/components/admin/ResourceList"
 
@@ -25,7 +26,7 @@ interface AdminUser {
 }
 
 const muted = "text-slate-500 dark:text-slate-400"
-const ROLE_LABELS: Record<string, string> = { OWNER: "Customer", GARAGE: "Garage", ADMIN: "Admin" }
+const ROLE_LABELS: Record<string, string> = { OWNER: "Customer", GARAGE: "Garage", ADMIN: "Admin", SUPER_ADMIN: "Super admin" }
 
 type Confirm = "delete" | "suspend" | "unsuspend" | "reset" | null
 
@@ -42,7 +43,12 @@ function UserDialog({ user, onClose, onChanged }: { user: AdminUser | null; onCl
     setRole(user.role)
   }
 
-  const isSelf = user !== null && (session?.user as { id?: string } | undefined)?.id === user.id
+  const me = session?.user as { id?: string; role?: string } | undefined
+  const isSelf = user !== null && me?.id === user.id
+  // Admin-level accounts, and granting those roles, are for super admins only (the API enforces it too).
+  const canManageAdmins = isSuperAdmin(me?.role)
+  const locked = !canManageAdmins && user !== null && isAdmin(user.role)
+  const roleOptions = Object.entries(ROLE_LABELS).filter(([value]) => canManageAdmins || !isAdmin(value) || value === user?.role)
 
   async function call(promise: ReturnType<typeof sendJson>, success: string) {
     setBusy(true)
@@ -86,13 +92,14 @@ function UserDialog({ user, onClose, onChanged }: { user: AdminUser | null; onCl
               </DialogHeader>
 
               {isSelf && <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">This is your own account, so its role can&apos;t be changed and it can&apos;t be suspended or deleted.</p>}
+              {locked && <p className="mb-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700 dark:bg-white/5 dark:text-slate-200">Admin accounts can only be managed by a super admin.</p>}
 
               <div className="mb-5">
                 <FieldLabel htmlFor="user-role">Role</FieldLabel>
                 <div className="flex gap-2">
                   <div className="min-w-0 flex-1">
-                    <NativeSelect id="user-role" value={role} onChange={(e) => setRole(e.target.value)} disabled={isSelf}>
-                      {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                    <NativeSelect id="user-role" value={role} onChange={(e) => setRole(e.target.value)} disabled={isSelf || locked}>
+                      {roleOptions.map(([value, label]) => (
                         <option key={value} value={value}>
                           {label}
                         </option>
@@ -101,7 +108,7 @@ function UserDialog({ user, onClose, onChanged }: { user: AdminUser | null; onCl
                   </div>
                   <Button
                     variant="primary"
-                    disabled={isSelf || role === user.role}
+                    disabled={isSelf || locked || role === user.role}
                     loading={busy}
                     onClick={() => call(sendJson("/api/admin/users", "PATCH", { userId: user.id, role }), "Role updated")}
                   >
@@ -111,13 +118,13 @@ function UserDialog({ user, onClose, onChanged }: { user: AdminUser | null; onCl
               </div>
 
               <div className="flex flex-col gap-2 border-t border-slate-100 pt-4 dark:border-white/10">
-                <Button variant="secondary" className="justify-start gap-2" onClick={() => setConfirm("reset")}>
+                <Button variant="secondary" className="justify-start gap-2" disabled={locked} onClick={() => setConfirm("reset")}>
                   <KeyRound className="h-4 w-4" /> Send password reset
                 </Button>
-                <Button variant="secondary" className="justify-start" disabled={isSelf} onClick={() => setConfirm(user.suspended ? "unsuspend" : "suspend")}>
+                <Button variant="secondary" className="justify-start" disabled={isSelf || locked} onClick={() => setConfirm(user.suspended ? "unsuspend" : "suspend")}>
                   {user.suspended ? "Reinstate user" : "Suspend user"}
                 </Button>
-                <Button variant="secondary" className="justify-start gap-2 text-red-700 dark:text-red-400" disabled={isSelf} onClick={() => setConfirm("delete")}>
+                <Button variant="secondary" className="justify-start gap-2 text-red-700 dark:text-red-400" disabled={isSelf || locked} onClick={() => setConfirm("delete")}>
                   <Trash2 className="h-4 w-4" /> Delete user
                 </Button>
               </div>
@@ -180,6 +187,7 @@ export function AdminUsersPage() {
           { value: "OWNER", label: "Customers" },
           { value: "GARAGE", label: "Garages" },
           { value: "ADMIN", label: "Admins" },
+          { value: "SUPER_ADMIN", label: "Super admins" },
         ],
       }}
       searchPlaceholder="Search name or email…"

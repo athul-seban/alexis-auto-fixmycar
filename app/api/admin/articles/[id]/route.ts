@@ -4,23 +4,24 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { articleInputSchema } from "@/lib/article-input"
+import { isAdmin } from "@/lib/roles"
 
 type Ctx = { params: Promise<{ id: string }> }
 
-async function isAdmin() {
+async function requireAdmin() {
   const session = await getServerSession(authOptions)
-  return (session?.user as { role?: string } | undefined)?.role === "ADMIN"
+  return isAdmin((session?.user as { role?: string } | undefined)?.role)
 }
 
 export async function GET(_req: Request, { params }: Ctx) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const article = await prisma.article.findUnique({ where: { id: (await params).id } })
   if (!article) return NextResponse.json({ error: "Article not found" }, { status: 404 })
   return NextResponse.json({ article })
 }
 
 export async function PATCH(req: Request, { params }: Ctx) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { id } = await params
 
   try {
@@ -42,7 +43,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
 }
 
 export async function DELETE(_req: Request, { params }: Ctx) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const res = await prisma.article.deleteMany({ where: { id: (await params).id } })
   if (res.count === 0) return NextResponse.json({ error: "Article not found" }, { status: 404 })
   return NextResponse.json({ success: true })

@@ -3,7 +3,7 @@
 import { DevelopedBy } from "@/components/layout/DevelopedBy"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ArrowLeft, ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isNavActive, type PortalNav } from "@/components/portal-shell/nav"
 
@@ -20,7 +20,6 @@ interface SidebarContentProps {
   identity: PortalIdentity
   badges?: Record<string, number>
   collapsed?: boolean
-  onToggleCollapse?: () => void
   onNavigate?: () => void
 }
 
@@ -41,7 +40,7 @@ function Badge({ count, collapsed }: { count: number; collapsed: boolean }) {
 }
 
 /** Shared by the desktop sidebar and the mobile drawer. `collapsed` only applies on desktop. */
-export function SidebarContent({ nav, identity, badges = {}, collapsed = false, onToggleCollapse, onNavigate }: SidebarContentProps) {
+export function SidebarContent({ nav, identity, badges = {}, collapsed = false, onNavigate }: SidebarContentProps) {
   const pathname = usePathname()
   const Icon = identity.icon
 
@@ -108,40 +107,12 @@ export function SidebarContent({ nav, identity, badges = {}, collapsed = false, 
         ))}
       </nav>
 
-      <div className="flex-shrink-0 space-y-1 border-t border-slate-100 p-3 dark:border-white/10">
-        <Link
-          href="/"
-          title={collapsed ? "Back to marketplace" : undefined}
-          aria-label={collapsed ? "Back to marketplace" : undefined}
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white",
-            collapsed && "justify-center px-0"
-          )}
-        >
-          <ArrowLeft className="h-5 w-5 flex-shrink-0" />
-          {!collapsed && "Back to marketplace"}
-        </Link>
-        {onToggleCollapse && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={cn(
-              "flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white",
-              collapsed && "justify-center px-0"
-            )}
-          >
-            {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-            {!collapsed && "Collapse"}
-          </button>
-        )}
-        {!collapsed && (
-          <div className="space-y-0.5 px-3 pt-2 text-center text-[11px] text-slate-500 dark:text-slate-400">
-            <p>© {new Date().getFullYear()} Quote My Garage</p>
-            <DevelopedBy linkClassName="text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white" />
-          </div>
-        )}
-      </div>
+      {!collapsed && (
+        <div className="flex-shrink-0 space-y-0.5 border-t border-slate-100 p-3 text-center text-[11px] text-slate-500 dark:border-white/10 dark:text-slate-400">
+          <p>© {new Date().getFullYear()} Quote My Garage</p>
+          <DevelopedBy linkClassName="text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white" />
+        </div>
+      )}
     </div>
   )
 }

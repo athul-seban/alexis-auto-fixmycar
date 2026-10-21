@@ -4,11 +4,12 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { articleInputSchema } from "@/lib/article-input"
+import { isAdmin } from "@/lib/roles"
 
 async function adminId() {
   const session = await getServerSession(authOptions)
   const user = session?.user as { id?: string; role?: string } | undefined
-  return user?.role === "ADMIN" ? (user.id ?? null) : null
+  return isAdmin(user?.role) ? (user?.id ?? null) : null
 }
 
 export async function GET(req: Request) {

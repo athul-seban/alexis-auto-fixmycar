@@ -3,15 +3,16 @@ import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { getServiceLabel } from "@/lib/utils"
+import { isAdmin } from "@/lib/roles"
 
 export async function GET() {
   const session = await getServerSession(authOptions)
   const userId = (session?.user as { id?: string } | undefined)?.id
-  if (!session || (session.user as any).role !== "ADMIN" || !userId) {
+  if (!session || !isAdmin((session.user as any).role) || !userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   const admin = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, suspendedAt: true } })
-  if (admin?.role !== "ADMIN" || admin.suspendedAt) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!isAdmin(admin?.role) || admin?.suspendedAt) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const now = new Date()
   const trendStart = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000)

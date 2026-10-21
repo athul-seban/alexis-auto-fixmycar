@@ -7,12 +7,13 @@ import { audit } from "@/lib/audit"
 import { notifyGarage } from "@/lib/notifications"
 import { garageLinks } from "@/lib/portal/links"
 import { DOCUMENT_KIND_LABELS, isDocumentKind } from "@/lib/garage-documents"
+import { isAdmin } from "@/lib/roles"
 
 const STATUSES = ["PENDING", "APPROVED", "REJECTED"]
 
 async function adminSession() {
   const session = await getServerSession(authOptions)
-  return session && (session.user as { role?: string }).role === "ADMIN" ? session : null
+  return session && isAdmin((session.user as { role?: string }).role) ? session : null
 }
 
 export async function GET(req: Request) {

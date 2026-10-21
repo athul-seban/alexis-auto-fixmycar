@@ -6,12 +6,25 @@ import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { sendMail } from "@/lib/mail"
 import { z } from "zod"
+import { ROLES, isAdmin, isSuperAdmin } from "@/lib/roles"
 
 const updateSchema = z.object({
   userId: z.string(),
-  role: z.enum(["OWNER", "GARAGE", "ADMIN"]).optional(),
+  role: z.enum(ROLES).optional(),
   suspended: z.boolean().optional(),
 })
+
+const SUPER_ONLY = "Only a super admin can manage admin accounts"
+
+// Admin-level accounts (ADMIN, SUPER_ADMIN) can only be created, changed, suspended, reset or deleted by a super
+// admin. Together with "nobody edits themselves" this also means the last super admin can never be removed: whoever
+// is acting on a super admin is another super admin, who stays.
+async function touchesAdminAccount(actorRole: string | undefined, userId: string, newRole?: string): Promise<boolean> {
+  if (isSuperAdmin(actorRole)) return false
+  if (isAdmin(newRole)) return true
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
+  return isAdmin(target?.role)
+}
 
 const actionSchema = z.object({
   userId: z.string(),
@@ -20,7 +33,7 @@ const actionSchema = z.object({
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session || !isAdmin((session.user as any).role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -76,22 +89,27 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session || !isAdmin((session.user as any).role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   const adminId = (session.user as any).id
+  const actorRole = (session.user as any).role as string
 
   try {
     const body = await req.json()
     const data = updateSchema.parse(body)
 
     if (data.userId === adminId) {
-      if (data.role && data.role !== "ADMIN") {
+      if (data.role && data.role !== actorRole) {
         return NextResponse.json({ error: "You can't change your own role" }, { status: 400 })
       }
       if (data.suspended) {
         return NextResponse.json({ error: "You can't suspend your own account" }, { status: 400 })
       }
+    }
+
+    if (await touchesAdminAccount(actorRole, data.userId, data.role)) {
+      return NextResponse.json({ error: SUPER_ONLY }, { status: 403 })
     }
 
     const user = await prisma.user.update({
@@ -118,13 +136,17 @@ export async function PATCH(req: Request) {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session || !isAdmin((session.user as any).role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   try {
     const body = await req.json()
     const { userId } = actionSchema.parse(body)
+
+    if (await touchesAdminAccount((session.user as any).role, userId)) {
+      return NextResponse.json({ error: SUPER_ONLY }, { status: 403 })
+    }
 
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user || !user.password) {
@@ -160,7 +182,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const session = await getServerSession(authOptions)
-  if (!session || (session.user as any).role !== "ADMIN") {
+  if (!session || !isAdmin((session.user as any).role)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   const adminId = (session.user as any).id
@@ -171,6 +193,9 @@ export async function DELETE(req: Request) {
 
   if (userId === adminId) {
     return NextResponse.json({ error: "You can't delete your own account" }, { status: 400 })
+  }
+  if (await touchesAdminAccount((session.user as any).role, userId)) {
+    return NextResponse.json({ error: SUPER_ONLY }, { status: 403 })
   }
 
   try {

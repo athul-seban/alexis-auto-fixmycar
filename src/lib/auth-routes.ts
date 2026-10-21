@@ -1,7 +1,8 @@
 // Role-aware landing + callback-URL safety. Shared by the login flow, /post-login and the Header.
+import { isAdmin } from "@/lib/roles"
 
 export function roleHome(role?: string | null): string {
-  if (role === "ADMIN") return "/admin"
+  if (isAdmin(role)) return "/admin"
   if (role === "GARAGE") return "/garage-dashboard"
   return "/dashboard"
 }
@@ -24,6 +25,7 @@ const ROLE_PREFIXES: { prefix: string; role: string }[] = [
 export function isAllowedForRole(role: string | null | undefined, path: string): boolean {
   const restricted = ROLE_PREFIXES.find(({ prefix }) => path.startsWith(prefix))
   if (!restricted) return true
+  if (restricted.role === "ADMIN") return isAdmin(role)
   return restricted.role === role
 }
 

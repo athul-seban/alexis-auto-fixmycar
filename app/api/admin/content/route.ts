@@ -8,11 +8,12 @@ import { audit } from "@/lib/audit"
 import { LOCALES, isLocale } from "@/lib/i18n/config"
 import { MESSAGE_KEYS, defaultFor, isEnglishOnlyKey, isMessageKey } from "@/lib/i18n/messages"
 import { isBodyKey, sectionLabel, validateContent, validateForPublish } from "@/lib/i18n/content-rules"
+import { isAdmin } from "@/lib/roles"
 
 async function admin() {
   const session = await getServerSession(authOptions)
   const user = session?.user as { id?: string; role?: string } | undefined
-  return user?.role === "ADMIN" && user.id ? { session, id: user.id } : null
+  return isAdmin(user?.role) && user?.id ? { session, id: user.id } : null
 }
 
 /** Every editable string for a language: built-in text, the live override and any unpublished draft. */

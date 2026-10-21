@@ -1,33 +1,11 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withGarage } from "@/lib/garage-auth"
-import { SERVICE_TYPES } from "@/lib/constants"
 import { parseServiceList } from "@/lib/garage-mapper"
 import { BookingError } from "@/lib/portal/booking-error"
-import { DEFAULT_SERVICE_DURATION, pricingSchema } from "@/lib/portal/service-defaults"
+import { loadPricing } from "@/lib/portal/pricing-read"
+import { pricingSchema } from "@/lib/portal/service-defaults"
 import { getServiceLabel } from "@/lib/utils"
-
-async function loadPricing(garageId: string, servicesJson: string) {
-  const offered = new Set<string>(parseServiceList(servicesJson))
-  const rows = await prisma.servicePrice.findMany({ where: { garageId } })
-  const byService = new Map(rows.map((r) => [r.serviceType, r]))
-  return SERVICE_TYPES.map((serviceType) => {
-    const r = byService.get(serviceType)
-    return {
-      serviceType,
-      label: getServiceLabel(serviceType),
-      offered: offered.has(serviceType),
-      priceFrom: r?.priceFrom ?? null,
-      priceTo: r?.priceTo ?? null,
-      fixedPrice: r?.fixedPrice ?? null,
-      autoQuote: r?.autoQuote ?? false,
-      durationMins: r?.durationMins ?? DEFAULT_SERVICE_DURATION[serviceType],
-      notes: r?.notes ?? null,
-      isActive: r?.isActive ?? true,
-      configured: !!r,
-    }
-  })
-}
 
 export const GET = withGarage("Garage pricing GET", async (_req, { garage }) => {
   return NextResponse.json({ services: await loadPricing(garage.id, garage.services) })

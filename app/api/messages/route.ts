@@ -12,6 +12,7 @@ import { messageReceivedEmail } from "@/lib/email-templates"
 import { isFirstUnreadFromSender, markThreadRead } from "@/lib/messaging"
 import { getServiceLabel } from "@/lib/utils"
 import { z } from "zod"
+import { isAdmin } from "@/lib/roles"
 
 const querySchema = z.object({
   quoteId: z.string().optional(),
@@ -104,7 +105,7 @@ export async function GET(req: Request) {
     const garage = user.role === "GARAGE" ? await prisma.garage.findUnique({ where: { userId: user.id } }) : null
     const isOwnerParty = user.role === "OWNER" && user.id === thread.ownerId
     const isGarageParty = user.role === "GARAGE" && garage?.id === thread.garageId
-    if (!isOwnerParty && !isGarageParty && user.role !== "ADMIN") {
+    if (!isOwnerParty && !isGarageParty && !isAdmin(user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -114,7 +115,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "asc" },
     })
     // Opening the thread reads it (an admin looking in doesn't count as the recipient reading it).
-    if (user.role !== "ADMIN") await markThreadRead(user.id, parsed.quoteId ? { quoteId: parsed.quoteId } : { bookingId: parsed.bookingId! })
+    if (!isAdmin(user.role)) await markThreadRead(user.id, parsed.quoteId ? { quoteId: parsed.quoteId } : { bookingId: parsed.bookingId! })
 
     return NextResponse.json({ messages })
   } catch (err) {
