@@ -695,6 +695,7 @@ model Organisation {
   roles       Role[]
   memberships Membership[]
   invites     StaffInvite[]
+  site        OrganisationSite?
 }
 
 // A named set of permissions inside one business. System roles (owner, manager, staff) are created with the business;
@@ -773,6 +774,66 @@ model StaffInvite {
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
 
   @@index([organisationId, email])
+}
+
+// A business's one-page website (shown on its own subdomain). `content` / `theme` are what visitors see; edits go to the
+// draft copies and are copied across on publish. Validated by src/lib/site/*; never trusted as HTML.
+model OrganisationSite {
+  id              String    @id @default(cuid())
+  organisationId  String    @unique
+  status          String    @default("DRAFT") // DRAFT | PENDING_REVIEW | PUBLISHED | UNPUBLISHED | REJECTED
+  theme           String    @default("{}") // JSON, the published theme
+  content         String    @default("{}") // JSON, the published content
+  draftTheme      String? // JSON edits not yet published (null = same as published)
+  draftContent    String?
+  logo            String? // our own storage URL under orgs/<organisationId>/
+  version         Int       @default(1) // bumped on every save; a stale editor is refused instead of overwriting
+  submittedAt     DateTime? // when the first publish was requested
+  approvedAt      DateTime? // a platform admin approved the first publish (later edits publish freely)
+  approvedById    String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  publishedAt     DateTime?
+  disabledAt      DateTime? // platform kill switch: takes the site down whatever its status
+  disabledReason  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organisation Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  domains      SiteDomain[]
+  revisions    SiteRevision[]
+}
+
+// An address a site answers on. Today only subdomains (host = the label, e.g. "acme" for acme.<root domain>); `kind`
+// leaves room for custom domains. A label is never deleted or reused: when a site changes label the old one becomes a
+// REDIRECT to the new, so links keep working and nobody else can claim it.
+model SiteDomain {
+  id        String   @id @default(cuid())
+  siteId    String
+  host      String   @unique
+  kind      String   @default("SUBDOMAIN") // SUBDOMAIN | CUSTOM
+  status    String   @default("ACTIVE") // ACTIVE | REDIRECT
+  createdAt DateTime @default(now())
+
+  site OrganisationSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+}
+
+// A saved copy of what was published (the last 20 are kept) so a bad edit can be rolled back.
+model SiteRevision {
+  id          String   @id @default(cuid())
+  siteId      String
+  version     Int
+  theme       String
+  content     String
+  createdById String?
+  note        String?
+  createdAt   DateTime @default(now())
+
+  site OrganisationSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, createdAt])
 }
 
 // Addresses that must not get marketing-type email (review requests, reminders, offers). scope = "ALL" or a garage id.

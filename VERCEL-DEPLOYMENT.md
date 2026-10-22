@@ -186,3 +186,44 @@ Order:
 Rollback: unset `ORG_FEATURES`. Reverting to phase 1 code is also safe while every business has one location, because every
 billing write is mirrored onto the garage columns the older code reads; once a business has several locations or staff,
 turn the flag off rather than reverting code.
+
+## Business websites on subdomains (phase 3)
+
+Each business can publish a one-page website at `<name>.<your domain>`. It is **off until you do all of the following**, so
+deploying the code changes nothing for anyone. Unlike phases 1 and 2 this needs things only you can arrange:
+
+**Prerequisites (verify each in the Vercel dashboard, they decide whether this can work at all)**
+
+- A production domain you control, and its DNS. A wildcard (`*.yourdomain.com`) needs a wildcard certificate; on Vercel that
+  means the domain uses **Vercel's nameservers** (a wildcard cert can't be issued for a domain on external DNS).
+- **Before moving nameservers, recreate every existing record at Vercel** (MX, SPF, DKIM, DMARC and anything else), or email
+  stops. Check the mail the platform sends (booking emails, invites) still arrives afterwards.
+- A Vercel **Pro** plan on the team that owns this project: Hobby is non-commercial and this platform takes subscriptions.
+- The app already sends `Strict-Transport-Security: ... includeSubDomains`, so once a browser has visited the main site it
+  expects HTTPS on **every** subdomain: don't point the domain at the project until the wildcard certificate is active.
+- Add `*.yourdomain.com` and `yourdomain.com` to the project's domains. (`NEXTAUTH_URL` and `NEXT_PUBLIC_APP_URL` stay on the
+  main address.)
+
+**Schema (both files, a third push, after phases 1 and 2):** three new tables, `OrganisationSite`, `SiteDomain` and
+`SiteRevision`, each cascading from `Organisation`. Purely additive (`CREATE TABLE` / `CREATE INDEX`); `prisma migrate diff`
+must show nothing else. Back up first (Neon branch or snapshot), rehearse on a branch, then
+`npx prisma db push --schema=prisma/schema.prod.prisma` (never `--accept-data-loss`), then deploy.
+
+**Order**
+
+1. Back up, rehearse and push the schema as above, then deploy the code. Nothing changes yet.
+2. Set `NEXT_PUBLIC_ROOT_DOMAIN=yourdomain.com` (hostname only, no scheme or port; it is read at **build** time, so redeploy
+   after setting it) and add `sites` to `ORG_FEATURES` (e.g. `staff,locations,sites`), with `ORG_BETA_IDS=<organisation id>`
+   to limit it to one business first.
+3. As that business's owner: Website in the portal, choose an address, write a little, **Send for review**. As super admin:
+   Websites in the admin menu, preview the draft, **Approve and publish**. The first publish is always reviewed; later edits go
+   live straight away.
+4. Check `https://<name>.yourdomain.com` (page, `/robots.txt`, `/sitemap.xml`, the share image), that `/login` there redirects
+   to the main site, that an unknown name shows "This website isn't available" with a real 404, and that the main site is
+   unchanged. Submit the site's own sitemap in Google Search Console if you want it indexed quickly.
+
+Do not set a cookie `Domain` anywhere (the sign-in cookies are host-only on purpose): a Domain cookie would be sent to every
+business's website.
+
+Rollback: remove `sites` from `ORG_FEATURES` (or unset `NEXT_PUBLIC_ROOT_DOMAIN` and redeploy). Websites stop being served,
+the builder disappears, and all content stays in the database. The three tables are harmless to keep.

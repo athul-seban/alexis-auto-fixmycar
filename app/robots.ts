@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         // Private areas and APIs; the portals also send noindex, this just saves crawl budget.
-        disallow: ["/api/", "/admin", "/dashboard", "/garage-dashboard", "/widget/", "/post-login", "/post-job/track/", "/booking/", "/reset-password"],
+        disallow: ["/api/", "/admin", "/dashboard", "/garage-dashboard", "/widget/", "/post-login", "/post-job/track/", "/booking/", "/reset-password", "/site-preview", "/sites/", "/join/"],
       },
     ],
     sitemap: absoluteUrl("/sitemap.xml"),

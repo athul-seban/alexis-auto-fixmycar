@@ -25,7 +25,7 @@ describe("filterNav", () => {
 
   it("shows an owner every page", () => {
     const nav = filterNav(GARAGE_NAV, access(PERMISSION_KEYS))
-    expect(labels(nav)).toEqual(GARAGE_NAV.sections.flatMap((s) => s.items.map((i) => i.label)))
+    expect(nav.sections.flatMap((s) => s.items.map((i) => i.href))).toEqual(GARAGE_NAV.sections.flatMap((s) => s.items.map((i) => i.href)))
     expect(nav.settingsHref).toBe(`${G}/settings`)
   })
 
@@ -57,6 +57,23 @@ describe("filterNav", () => {
     const rolesOnly = labels(filterNav(GARAGE_NAV, access(["roles.manage"])))
     expect(rolesOnly).toContain("Roles")
     expect(rolesOnly).not.toContain("Team")
+  })
+
+  it("renames the old Website page to Online booking, and adds the site builder, once websites are on", () => {
+    const withSites = labels(filterNav(GARAGE_NAV, access(PERMISSION_KEYS)))
+    expect(withSites).toContain("Online booking")
+    expect(withSites.filter((l) => l === "Website")).toHaveLength(1)
+    // With the feature off nothing changes for anyone: one "Website", no builder.
+    const without = labels(filterNav(GARAGE_NAV, access(PERMISSION_KEYS, { staff: true, locations: true, sites: false })))
+    expect(without).toContain("Website")
+    expect(without).not.toContain("Online booking")
+    expect(without.filter((l) => l === "Website")).toHaveLength(1)
+  })
+
+  it("shows the builder only to people who can edit the website, at every location", () => {
+    expect(labels(filterNav(GARAGE_NAV, access(["settings.edit"])))).toEqual(expect.arrayContaining(["Online booking"]))
+    expect(filterNav(GARAGE_NAV, access(["settings.edit"])).sections.flatMap((s) => s.items).some((i) => i.href.endsWith("/site"))).toBe(false)
+    expect(filterNav(GARAGE_NAV, access(["website.edit"])).sections.flatMap((s) => s.items).some((i) => i.href.endsWith("/site"))).toBe(true)
   })
 
   it("does not change the original nav", () => {

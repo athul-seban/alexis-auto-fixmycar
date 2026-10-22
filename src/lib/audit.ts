@@ -42,8 +42,19 @@ export type AuditAction =
   | "LOCATION_ARCHIVED"
   | "LOCATION_RESTORED"
   | "BUSINESS_UPDATED"
+  // the business's website
+  | "SITE_ADDRESS_CHANGED"
+  | "SITE_SUBMITTED"
+  | "SITE_PUBLISHED"
+  | "SITE_UNPUBLISHED"
+  | "SITE_ROLLED_BACK"
+  // a platform admin's decisions about a website, filed under the business too
+  | "SITE_APPROVED"
+  | "SITE_REJECTED"
+  | "SITE_DISABLED"
+  | "SITE_ENABLED"
 
-export type AuditTarget = "GARAGE" | "USER" | "REVIEW" | "DOCUMENT" | "CONTENT" | "SETTING" | "ROLE" | "MEMBER" | "LOCATION" | "ORGANISATION"
+export type AuditTarget = "GARAGE" | "USER" | "REVIEW" | "DOCUMENT" | "CONTENT" | "SETTING" | "ROLE" | "MEMBER" | "LOCATION" | "ORGANISATION" | "SITE"
 
 /** Who did it: a NextAuth session, or just an id and email (a service that only has the signed-in user's context). */
 export type AuditActor = Session | { user?: { id?: string; email?: string | null } } | null

@@ -89,6 +89,12 @@ const EXPECTED: Record<string, string> = {
   "app/api/garage/enquiries/[kind]/[id]/route.ts PATCH": '"enquiries.respond"',
   "app/api/garage/me/route.ts GET": '"member"',
   "app/api/garage/audit/route.ts GET": '"audit.view"',
+  "app/api/garage/site/route.ts GET": '"website.edit"',
+  "app/api/garage/site/route.ts PATCH": '"website.edit"',
+  "app/api/garage/site/address/route.ts GET": '"website.edit"',
+  "app/api/garage/site/address/route.ts PUT": '"website.edit"',
+  "app/api/garage/site/publish/route.ts POST": '"website.edit"',
+  "app/api/garage/site/upload/route.ts POST": '"website.edit"',
   "app/api/garage/business/route.ts GET": '"organisation.edit"',
   "app/api/garage/business/route.ts PATCH": '"organisation.edit"',
   "app/api/garage/location/route.ts POST": '"member"',
@@ -157,6 +163,52 @@ describe("permission on every garage route", () => {
     for (const [file, keys] of Object.entries(MIXED)) {
       const src = read(path.join(ROOT, file))
       for (const k of keys) expect(src, `${file} should check ${k}`).toContain(`"${k}"`)
+    }
+  })
+})
+
+describe("tests that share the database", () => {
+  it("each file has its own fixture prefix (cleanupPrefix deletes every row under it, so a shared one wipes another file's data mid-run)", () => {
+    const testFiles = [...walk(path.join(ROOT, "app")), ...walk(path.join(ROOT, "src"))].filter((f) => /\.test\.ts$/.test(f))
+    const prefixes = testFiles.flatMap((f) => {
+      const m = read(f).match(/const PREFIX = "([^"]+)"/)
+      return m ? [{ file: rel(f), prefix: m[1] }] : []
+    })
+    expect(prefixes.length).toBeGreaterThan(50)
+    // Two files sharing a prefix, or one prefix starting with another (startsWith matches both), would clean each other up.
+    const clashes = prefixes.flatMap((a) => prefixes.filter((b) => b.file > a.file && (a.prefix.startsWith(b.prefix) || b.prefix.startsWith(a.prefix))).map((b) => `${a.file} and ${b.file} (${a.prefix} / ${b.prefix})`))
+    expect(clashes).toEqual([])
+  })
+})
+
+describe("business websites share the root domain with the marketplace", () => {
+  it("no cookie is ever scoped to the root domain (a Domain cookie would be sent to every business's website)", () => {
+    // Business sites are sibling subdomains of the marketplace. Host-only cookies (no Domain attribute) stay on the exact host
+    // that set them, so a session or CSRF cookie can never reach <label>.<root domain>.
+    const offenders = [...sourceFiles, path.join(ROOT, "proxy.ts")]
+      .filter((f) => /\bdomain\s*:|Domain=/.test(read(f).replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")))
+      .map(rel)
+    expect(offenders).toEqual([])
+  })
+
+  it("the sign-in cookie settings don't override NextAuth's host-only defaults", () => {
+    const auth = read(path.join(ROOT, "src/lib/auth.ts"))
+    expect(auth).not.toMatch(/\bcookies\s*:\s*\{/)
+    expect(auth).not.toMatch(/useSecureCookies\s*:\s*false/)
+  })
+
+  it("every route handler under /sites is explicitly dynamic (a handler that never reads the request is built static and cached forever)", () => {
+    // Found in the production build: the sitemap was prerendered with no revalidation, so an offline site would keep serving it.
+    const handlers = walk(path.join(ROOT, "app/sites")).filter((f) => /route\.ts$/.test(f))
+    expect(handlers.length).toBeGreaterThanOrEqual(2)
+    for (const f of handlers) expect(read(f), rel(f)).toMatch(/export const dynamic = "force-dynamic"/)
+  })
+
+  it("the page that renders a business website never reads the visitor's cookies or session", () => {
+    // It is cached and shared between visitors; reading cookies would make it per-visitor (and slow) or leak one visitor's data.
+    for (const f of ["app/sites/[label]/page.tsx", "src/lib/site/public.ts", "src/lib/site/public-cached.ts", "src/components/site/SiteRenderer.tsx"]) {
+      const src = read(path.join(ROOT, f))
+      expect(src, f).not.toMatch(/next\/headers|next-auth|getServerSession|cookies\(/)
     }
   })
 })

@@ -11,6 +11,10 @@ export type OrgErrorCode =
   | "FEATURE_OFF"
   | "SIGN_IN_REQUIRED"
   | "CONFIRM_CONVERT"
+  /** Someone else saved first: the editor's copy is out of date. */
+  | "STALE"
+  /** Not ready yet (a website that is missing something it needs to go live). */
+  | "NOT_READY"
 
 const STATUS: Record<OrgErrorCode, number> = {
   NOT_FOUND: 404,
@@ -23,6 +27,8 @@ const STATUS: Record<OrgErrorCode, number> = {
   FEATURE_OFF: 404,
   SIGN_IN_REQUIRED: 401,
   CONFIRM_CONVERT: 409,
+  STALE: 409,
+  NOT_READY: 409,
 }
 
 export class OrgError extends Error {

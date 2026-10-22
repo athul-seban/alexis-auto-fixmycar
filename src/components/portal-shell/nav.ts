@@ -26,6 +26,7 @@ import {
   Briefcase,
   History,
   LockKeyhole,
+  Monitor,
   UserCog,
   type LucideIcon,
 } from "lucide-react"
@@ -47,6 +48,8 @@ export interface NavItem {
   permission?: NavRequirement
   /** Garage portal: hidden while this feature is switched off for the business (see src/lib/org/features.ts). */
   feature?: OrgFeature
+  /** Garage portal: shown under this name once the feature is on (the existing "Website" page becomes "Online booking" when a real website builder arrives). */
+  labelWhenFeature?: { feature: OrgFeature; label: string }
 }
 
 export interface NavSection {
@@ -111,7 +114,8 @@ export const GARAGE_NAV: PortalNav = {
       label: "Listing & Website",
       items: [
         { href: `${G}/profile`, label: "Profile", icon: Store, shortcut: "p", permission: "profile.edit" },
-        { href: `${G}/website`, label: "Website", icon: Globe, shortcut: "w", permission: "settings.edit" },
+        { href: `${G}/website`, label: "Website", labelWhenFeature: { feature: "sites", label: "Online booking" }, icon: Globe, shortcut: "w", permission: "settings.edit" },
+        { href: `${G}/site`, label: "Website", icon: Monitor, shortcut: "s", permission: "website.edit", feature: "sites" },
         { href: `${G}/pricing`, label: "Pricing", icon: PoundSterling, shortcut: "c", permission: { anyOf: ["pricing.view", "pricing.edit"] } },
         { href: `${G}/enquiries`, label: "Enquiries", icon: Inbox, badge: "newEnquiries", shortcut: "e", permission: "enquiries.view" },
         { href: `${G}/billing`, label: "Plan & billing", icon: CreditCard, shortcut: "m", permission: "billing.view" },
@@ -145,6 +149,7 @@ export const ADMIN_NAV: PortalNav = {
       label: "Marketplace",
       items: [
         { href: `${A}/garages`, label: "Garages", icon: Wrench, badge: "pendingGarages" },
+        { href: `${A}/sites`, label: "Websites", icon: Monitor, badge: "pendingSites" },
         { href: `${A}/users`, label: "Users", icon: Users },
         { href: `${A}/reviews`, label: "Reviews", icon: Star, badge: "openDisputes" },
         { href: `${A}/documents`, label: "Documents", icon: FileCheck2, badge: "pendingDocuments" },

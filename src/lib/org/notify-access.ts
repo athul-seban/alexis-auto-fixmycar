@@ -22,7 +22,7 @@ export const NOTIFICATION_PERMISSION: Record<NotificationType, readonly Permissi
   REVIEW_RECEIVED: ["reviews.view"],
   REVIEW_REPLY: ["reviews.view"],
   // Listing status, documents verified, lead credits, featured placement: for whoever looks after the profile or billing.
-  GARAGE_STATUS_CHANGED: ["profile.edit", "documents.manage", "billing.view"],
+  GARAGE_STATUS_CHANGED: ["profile.edit", "documents.manage", "billing.view", "website.edit"],
   VEHICLE_REMINDER: ["bookings.view"], // customer-facing; never sent to a garage
 }
 

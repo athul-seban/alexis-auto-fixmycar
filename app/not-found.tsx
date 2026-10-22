@@ -1,9 +1,25 @@
 import Link from "next/link"
+import { headers } from "next/headers"
 import { Wrench, Search, Home } from "lucide-react"
 import { Header } from "@/components/layout/Header"
 import { Footer } from "@/components/layout/Footer"
 
-export default function NotFound() {
+export default async function NotFound() {
+  // On a business website's address (no marketplace providers there) show a plain page that doesn't pretend to be the
+  // marketplace: the site isn't there, and that's all a visitor needs to know.
+  if ((await headers()).has("x-qmg-site")) {
+    const home = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/+$/, "")
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-white px-4 text-center">
+        <h1 className="mb-2 text-3xl font-bold text-slate-900">This website isn&apos;t available</h1>
+        <p className="mb-6 max-w-md text-slate-600">The address may have been mistyped, or the website is offline at the moment.</p>
+        <a href={home} className="rounded-lg bg-[#1E3A5F] px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90">
+          Find a garage on Quote My Garage
+        </a>
+      </main>
+    )
+  }
+
   return (
     <>
       <Header />

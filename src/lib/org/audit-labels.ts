@@ -19,6 +19,15 @@ const LABELS: Record<string, string> = {
   LOCATION_ARCHIVED: "Archived a location",
   LOCATION_RESTORED: "Restored a location",
   BUSINESS_UPDATED: "Updated the business details",
+  SITE_ADDRESS_CHANGED: "Changed the website address",
+  SITE_SUBMITTED: "Sent the website for review",
+  SITE_PUBLISHED: "Published the website",
+  SITE_UNPUBLISHED: "Took the website offline",
+  SITE_ROLLED_BACK: "Rolled the website back",
+  SITE_APPROVED: "Website approved by Quote My Garage",
+  SITE_REJECTED: "Website needs changes",
+  SITE_DISABLED: "Website switched off by Quote My Garage",
+  SITE_ENABLED: "Website switched back on by Quote My Garage",
 }
 
 export function auditLabel(action: string): string {

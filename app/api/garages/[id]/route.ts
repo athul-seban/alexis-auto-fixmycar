@@ -10,6 +10,7 @@ import { getPublicGarage } from "@/lib/public-garage"
 import { isOwnGarageImageUrl } from "@/lib/image-sniff"
 import { can } from "@/lib/org/access"
 import { readOnlyReason } from "@/lib/org/location-status"
+import { invalidateSiteForGarage } from "@/lib/site/cache"
 import { accessToLocation } from "@/lib/org/resolve"
 import { z } from "zod"
 
@@ -90,6 +91,9 @@ export async function PATCH(req: Request, props: Params) {
         logo: data.logo,
       },
     })
+
+    // The business's website shows this location's address, hours and services live.
+    await invalidateSiteForGarage(updated.id)
 
     const verificationBadges = parseServiceList(updated.verificationBadges)
     return NextResponse.json({ garage: { ...toGarageProfile(updated), verificationBadges } })

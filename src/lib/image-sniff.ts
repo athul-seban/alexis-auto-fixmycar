@@ -29,3 +29,6 @@ export const isOwnAvatarUrl = (url: string, userId: string): boolean => isOwnBlo
 
 /** True for a Vercel Blob URL under garages/<id>/ — where a garage's logo and gallery images are stored. */
 export const isOwnGarageImageUrl = (url: string, garageId: string): boolean => isOwnBlobUrl(url, `garages/${garageId}/`)
+
+/** True for a Vercel Blob URL under orgs/<id>/ — where a business's website logo and gallery images are stored. */
+export const isOwnOrgImageUrl = (url: string, organisationId: string): boolean => isOwnBlobUrl(url, `orgs/${organisationId}/`)

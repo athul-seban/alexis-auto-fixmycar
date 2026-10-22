@@ -21,10 +21,13 @@ export function meets(permissions: readonly string[], requirement: NavRequiremen
 
 const itemAllowed = (item: NavItem, access: PortalAccess): boolean => (!item.feature || access.features[item.feature]) && meets(access.permissions, item.permission)
 
+/** An item as this business sees it: some items change their name once a feature is on. */
+const named = (item: NavItem, access: PortalAccess): NavItem => (item.labelWhenFeature && access.features[item.labelWhenFeature.feature] ? { ...item, label: item.labelWhenFeature.label } : item)
+
 /** The nav with the items this person can't use removed, then any section left empty. Unchanged without access info. */
 export function filterNav(nav: PortalNav, access: PortalAccess | undefined): PortalNav {
   if (!access) return nav
-  const sections = nav.sections.map((s) => ({ ...s, items: s.items.filter((i) => itemAllowed(i, access)) })).filter((s) => s.items.length > 0)
+  const sections = nav.sections.map((s) => ({ ...s, items: s.items.filter((i) => itemAllowed(i, access)).map((i) => named(i, access)) })).filter((s) => s.items.length > 0)
   const settingsHref = nav.settingsHref && meets(access.permissions, nav.settingsPermission) ? nav.settingsHref : undefined
   return { ...nav, sections, settingsHref }
 }

@@ -13,6 +13,13 @@ describe("safeHref", () => {
     expect(safeHref("//evil.example.com")).toBeNull()
     expect(safeHref("JaVaScRiPt:alert(1)")).toBeNull()
   })
+  it("rejects backslash paths that a browser reads as another site (regression)", () => {
+    // Browsers treat "\" as "/", so these would otherwise leave the site for evil.example.com.
+    for (const bad of ["/\\evil.example.com", "/\\/evil.example.com", "/\\\\evil.example.com", "/path\\..\\evil", "\\\\evil.example.com", "/%5Cevil.example.com".replace("%5C", "\\")]) {
+      expect(safeHref(bad), bad).toBeNull()
+    }
+    expect(safeHref("/search?q=a%5Cb")).toBe("/search?q=a%5Cb") // an encoded backslash in a query is just data
+  })
 })
 
 describe("parseInline", () => {

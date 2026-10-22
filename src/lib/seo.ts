@@ -39,9 +39,22 @@ export function snippet(text: string, max = 155): string {
   return clean.slice(0, max - 1).replace(/\s+\S*$/, "") + "…"
 }
 
+/** schema.org opening hours for a location's stored hours JSON; an empty object when none are set. */
+export function openingHoursJsonLd(openingHours: string | null) {
+  const hours = parseOpeningHours(openingHours)
+  if (!hours) return {}
+  return {
+    openingHoursSpecification: DAYS.filter((d) => hours[d]?.open).map((d) => ({
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: SCHEMA_DAY[d],
+      opens: hours[d].from,
+      closes: hours[d].to,
+    })),
+  }
+}
+
 /** schema.org AutoRepair (a LocalBusiness) for a garage's public page. Only emits what is actually known. */
 export function garageJsonLd(g: SeoGarage, images: string[]) {
-  const hours = parseOpeningHours(g.openingHours)
   return {
     "@context": "https://schema.org",
     "@type": "AutoRepair",
@@ -52,16 +65,7 @@ export function garageJsonLd(g: SeoGarage, images: string[]) {
     ...(g.logo || images[0] ? { image: [g.logo, ...images].filter(Boolean) } : {}),
     address: { "@type": "PostalAddress", streetAddress: g.address, addressLocality: g.city, postalCode: g.postcode, addressCountry: "GB" },
     ...(g.latitude !== null && g.longitude !== null ? { geo: { "@type": "GeoCoordinates", latitude: g.latitude, longitude: g.longitude } } : {}),
-    ...(hours
-      ? {
-          openingHoursSpecification: DAYS.filter((d) => hours[d]?.open).map((d) => ({
-            "@type": "OpeningHoursSpecification",
-            dayOfWeek: SCHEMA_DAY[d],
-            opens: hours[d].from,
-            closes: hours[d].to,
-          })),
-        }
-      : {}),
+    ...openingHoursJsonLd(g.openingHours),
     ...(g.totalReviews > 0
       ? { aggregateRating: { "@type": "AggregateRating", ratingValue: Number(g.averageRating.toFixed(1)), reviewCount: g.totalReviews, bestRating: 5, worstRating: 1 } }
       : {}),

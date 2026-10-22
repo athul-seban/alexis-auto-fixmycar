@@ -12,11 +12,14 @@ export type Block =
   | { type: "ul"; items: Inline[][] }
   | { type: "ol"; items: Inline[][] }
 
-/** Only web links and site-relative paths: no `javascript:`, `data:` and friends. */
+/**
+ * Only web links and site-relative paths: no `javascript:`, `data:` and friends. A path may not start `//` or `/\`
+ * (browsers treat a backslash as a slash, so `/\evil.com` would leave the site) and may contain no backslash at all.
+ */
 export function safeHref(href: string): string | null {
   const h = href.trim()
   if (/^https?:\/\/[^\s]+$/i.test(h)) return h
-  if (/^\/(?!\/)[^\s]*$/.test(h)) return h
+  if (/^\/(?![\/\\])[^\s\\]*$/.test(h)) return h
   if (/^mailto:[^\s@]+@[^\s@]+$/i.test(h)) return h
   return null
 }

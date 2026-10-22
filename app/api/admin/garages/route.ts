@@ -8,6 +8,7 @@ import { garageLinks } from "@/lib/portal/links"
 import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { garageReadiness } from "@/lib/portal/readiness"
 import { OWNER_SELECT, pickOwner } from "@/lib/org/owners"
+import { invalidateSiteForGarage } from "@/lib/site/cache"
 import { z } from "zod"
 import { isAdmin } from "@/lib/roles"
 
@@ -153,6 +154,7 @@ export async function POST(req: Request) {
     })
 
     await audit(session, { action: AUDIT_FOR[action], targetType: "GARAGE", targetId: garageId, detail: [garage.name, force ? "approved despite missing profile items" : null, reason].filter(Boolean).join(" · ") })
+    await invalidateSiteForGarage(garageId) // approving or suspending a location changes what its business's website shows
 
     // Tell the garage what happened (only when it actually changed).
     if (existing.status !== garage.status) {

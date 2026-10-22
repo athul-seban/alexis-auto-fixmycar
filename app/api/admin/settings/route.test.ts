@@ -11,7 +11,7 @@ vi.mock("@/lib/mot-history", () => ({ testMotConnection: vi.fn() }))
 
 const mockSession = vi.mocked(getServerSession)
 const mockTest = vi.mocked(testMotConnection)
-const PREFIX = "settingstest-"
+const PREFIX = "adminsettings-"
 const SECRET = "SuperSecretApiKey0123456789wxyz"
 
 let superId: string

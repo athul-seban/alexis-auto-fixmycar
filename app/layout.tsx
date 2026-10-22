@@ -17,7 +17,17 @@ const display = Barlow_Semi_Condensed({ subsets: ["latin"], weight: ["600", "700
 
 export const viewport: Viewport = { themeColor: "#1E3A5F" }
 
+/**
+ * Business websites (<label>.<root domain>) are rendered by app/sites/[label]. proxy.ts marks those requests with a header it
+ * alone can set (a forged one is refused). They get none of the marketplace's furniture: no providers, language machinery,
+ * compare bar or service worker, and their own metadata.
+ */
+const isSiteRequest = async () => (await headers()).has("x-qmg-site")
+
 export async function generateMetadata(): Promise<Metadata> {
+  // The marketplace's titles, icons and social tags would be wrong for a business's own website; the page supplies its own.
+  if (await isSiteRequest()) return {}
+
   const locale = await getLocale()
   const t = makeTranslator(await getMessages(locale))
   const path = (await headers()).get("x-qmg-path") ?? "/"
@@ -56,6 +66,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  if (await isSiteRequest()) {
+    return (
+      <html lang="en-GB">
+        <body>{children}</body>
+      </html>
+    )
+  }
+
   const locale = await getLocale()
   const messages = await getMessages(locale)
   const legalLinks = (await liveLegalPages(locale)).map((p) => ({ slug: p.slug, title: p.title }))

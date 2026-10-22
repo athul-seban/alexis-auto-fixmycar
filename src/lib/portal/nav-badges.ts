@@ -37,14 +37,15 @@ export async function garageNavBadges(garage: Garage, viewer?: BadgeViewer, now 
   return { needsOutcome, unrepliedReviews, newEnquiries, unreadMessages }
 }
 
-/** Garages waiting for an approval decision. */
+/** Garages, documents, reviews and business websites waiting for an admin's decision. */
 export async function adminNavBadges(): Promise<NavBadges> {
-  const [pendingGarages, pendingDocuments, openDisputes] = await Promise.all([
+  const [pendingGarages, pendingDocuments, openDisputes, pendingSites] = await Promise.all([
     prisma.garage.count({ where: { status: "PENDING" } }),
     prisma.garageDocument.count({ where: { status: "PENDING" } }),
     prisma.review.count({ where: { disputeStatus: "OPEN" } }),
+    prisma.organisationSite.count({ where: { status: "PENDING_REVIEW" } }),
   ])
-  return { pendingGarages, pendingDocuments, openDisputes }
+  return { pendingGarages, pendingDocuments, openDisputes, pendingSites }
 }
 
 /** Quotes a garage has answered and the customer hasn't acted on, and vehicles with a MOT/service due within 30 days. */

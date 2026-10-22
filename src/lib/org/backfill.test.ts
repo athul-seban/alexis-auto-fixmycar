@@ -7,7 +7,7 @@ import { cleanupPrefix, makeGarage, makeLocation, makeOwner, makeWalkInBooking }
 // Every call is scoped to this file's own garages (garageIds): other test files run in parallel against the same
 // database and create legacy garages of their own, which a global backfill would convert under their feet.
 
-const PREFIX = "backfilltest-"
+const PREFIX = "orgbackfill-" // unique across test files: cleanupPrefix deletes everything under it, even another file's rows
 beforeEach(() => cleanupPrefix(PREFIX))
 afterAll(() => cleanupPrefix(PREFIX))
 

@@ -21,6 +21,16 @@ export function formatDate(date: Date | string): string {
   }).format(new Date(date))
 }
 
+export function formatDateTime(date: Date | string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(date))
+}
+
 export function formatDateShort(date: Date | string): string {
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",

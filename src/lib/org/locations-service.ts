@@ -7,6 +7,7 @@ import { slugify } from "@/lib/utils"
 import type { GarageContext } from "@/lib/garage-auth"
 import { ALL_LOCATIONS } from "@/lib/org/access"
 import { OrgError } from "@/lib/org/org-error"
+import { invalidateSite } from "@/lib/site/cache"
 
 // The locations (branches) of a garage business: list them, add one, close one and bring it back. A new location starts
 // PENDING like any garage and goes live only when the platform approves it. A location is never deleted: closing one
@@ -142,6 +143,7 @@ export async function addLocation(ctx: Ctx, input: NewLocationInput) {
   }
 
   await audit({ user: ctx.actor }, { action: "LOCATION_ADDED", targetType: "LOCATION", targetId: created.id, organisationId: org.id, detail: `${created.name}, ${created.city}` })
+  await invalidateSite(org.id)
   return created
 }
 
@@ -174,6 +176,7 @@ export async function setLocationArchived(ctx: Ctx, locationId: string, action: 
 
     const updated = await prisma.garage.update({ where: { id: location.id }, data: { status: "ARCHIVED" } })
     await audit({ user: ctx.actor }, { action: "LOCATION_ARCHIVED", targetType: "LOCATION", targetId: location.id, organisationId: org.id, detail: `${location.name}, ${location.city}` })
+    await invalidateSite(org.id) // a closed branch comes off the website
     return updated
   }
 
@@ -183,5 +186,6 @@ export async function setLocationArchived(ctx: Ctx, locationId: string, action: 
 
   const updated = await prisma.garage.update({ where: { id: location.id }, data: { status: location.isVerified ? "APPROVED" : "PENDING" } })
   await audit({ user: ctx.actor }, { action: "LOCATION_RESTORED", targetType: "LOCATION", targetId: location.id, organisationId: org.id, detail: `${location.name}, ${location.city}` })
+  await invalidateSite(org.id)
   return updated
 }

@@ -12,7 +12,7 @@ vi.mock("@vercel/blob", () => ({ put: vi.fn(), del: vi.fn(), get: vi.fn() }))
 const mockSession = vi.mocked(getServerSession)
 const mockPut = vi.mocked(put)
 const mockDel = vi.mocked(del)
-const PREFIX = "doctest-"
+const PREFIX = "garagedocs-"
 
 const PDF = Array.from(new TextEncoder().encode("%PDF-1.7\n1 0 obj\n"))
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]
