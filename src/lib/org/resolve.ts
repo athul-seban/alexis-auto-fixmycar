@@ -28,6 +28,10 @@ export interface GarageAccess {
   organisation: Organisation | null
   membershipId: string | null
   access: Access
+  /** What they hold, kept so services can work out what they may grant or change (see rules.ts). Empty on the legacy path. */
+  assignments: AssignmentLike[]
+  /** Every role of the business (needed to read the assignments). Empty on the legacy path. */
+  roles: RoleLike[]
   /** Every location this user can open, for the switcher. */
   locations: LocationSummary[]
   legacy: boolean
@@ -48,16 +52,18 @@ export const garageFailureResponse = (f: ResolveFailure) => NextResponse.json(f.
 const summary = (g: Garage): LocationSummary => ({ id: g.id, name: g.name, city: g.city, status: g.status, slug: g.slug })
 
 /**
- * Picks the location to act on: the one asked for if the user may open it, else the garage this login originally owned,
- * else the first by creation date. Deterministic, so a refresh never jumps location.
+ * Picks the location to act on: the one asked for if the user may open it (archived ones included, to look at their
+ * history), else the garage this login originally owned, else the first by creation date. By default an archived
+ * location is passed over, so signing in never lands on a closed branch while a working one exists. Deterministic, so a
+ * refresh never jumps location.
  */
 export function pickActiveLocation(garages: readonly Garage[], userId: string, requested: string | null | undefined): Garage | null {
   if (garages.length === 0) return null
-  return (
-    (requested ? garages.find((g) => g.id === requested) : undefined) ??
-    garages.find((g) => g.userId === userId) ??
-    [...garages].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id))[0]
-  )
+  const requestedGarage = requested ? garages.find((g) => g.id === requested) : undefined
+  if (requestedGarage) return requestedGarage
+  const working = garages.filter((g) => g.status !== "ARCHIVED")
+  const pool = working.length > 0 ? working : garages
+  return pool.find((g) => g.userId === userId) ?? [...pool].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id))[0]
 }
 
 export async function resolveGarageAccess(userId: string, requested?: string | null): Promise<ResolveResult> {
@@ -117,6 +123,8 @@ async function fromMembership(
       organisation,
       membershipId: membership.id,
       access: computeAccess(assignments, roles, garage.id),
+      assignments,
+      roles,
       locations: garages.map(summary),
       legacy: false,
     },
@@ -138,6 +146,8 @@ async function fromLegacyGarage(userId: string): Promise<ResolveResult> {
       organisation: null,
       membershipId: null,
       access: { isOwner: true, locations: [garage.id], permissions: LEGACY_OWNER_PERMISSIONS },
+      assignments: [],
+      roles: [],
       locations: [summary(garage)],
       legacy: true,
     },

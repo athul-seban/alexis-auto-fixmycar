@@ -3,9 +3,10 @@ import { getServerSession } from "next-auth"
 import type { Garage, Organisation } from "@prisma/client"
 import { authOptions } from "@/lib/auth"
 import { handleRouteError } from "@/lib/portal/route-errors"
-import { can as hasPermission, canAny, type Access } from "@/lib/org/access"
+import { can as hasPermission, canAny, type Access, type AssignmentLike, type RoleLike } from "@/lib/org/access"
 import { requestedLocationId } from "@/lib/org/active-location"
 import type { PermissionKey } from "@/lib/org/permissions"
+import { readOnlyReason } from "@/lib/org/location-status"
 import { garageFailureResponse, resolveGarageAccess, type LocationSummary } from "@/lib/org/resolve"
 
 /**
@@ -19,19 +20,24 @@ import { garageFailureResponse, resolveGarageAccess, type LocationSummary } from
 export type GaragePermission = PermissionKey | { anyOf: readonly PermissionKey[] } | "member"
 
 export interface GarageRouteOptions {
-  /** A write: refused with 403 GARAGE_SUSPENDED while the location is suspended (reads and exports still work). */
+  /** A write: refused with 403 while the location is suspended or archived (reads and exports still work). */
   write?: boolean
   permission: GaragePermission
 }
 
 export interface GarageContext {
   userId: string
+  /** Who is acting, for the audit log. */
+  actor: { id: string; email: string | null }
   /** The location this request is about. */
   garage: Garage
   /** The business; null only for a legacy garage that hasn't been backfilled yet. */
   organisation: Organisation | null
   membershipId: string | null
   access: Access
+  /** What the caller holds and the business's roles: what services need to work out what they may grant (rules.ts). */
+  assignments: AssignmentLike[]
+  roles: RoleLike[]
   /** Every location the caller can open. */
   locations: LocationSummary[]
   legacy: boolean
@@ -63,12 +69,13 @@ function allowed(access: Access, permission: GaragePermission): boolean {
  *  - no garage / no access to one        -> 404 NO_GARAGE / 403 NO_ACCESS
  *  - missing the required permission     -> 403 FORBIDDEN
  *  - write on a SUSPENDED location       -> 403 GARAGE_SUSPENDED (reads and exports still work)
+ *  - write on an ARCHIVED location       -> 403 LOCATION_ARCHIVED
  *
  * `req` lets the caller's chosen location (x-qmg-location header) take effect; without it the cookie or default is used.
  */
 export async function requireGarage(opts: { write?: boolean; permission?: GaragePermission } = {}, req?: Request): Promise<GarageAuthResult> {
   const session = await getServerSession(authOptions)
-  const sessionUser = session?.user as { id?: string; role?: string } | undefined
+  const sessionUser = session?.user as { id?: string; role?: string; email?: string | null } | undefined
   if (!sessionUser?.id) return fail(401, "Unauthorized")
   if (sessionUser.role !== "GARAGE") return fail(403, "Forbidden")
 
@@ -79,12 +86,13 @@ export async function requireGarage(opts: { write?: boolean; permission?: Garage
   if (opts.permission && !allowed(access, opts.permission)) {
     return { ok: false, response: forbidden() }
   }
-  if (opts.write && garage.status === "SUSPENDED") {
-    return fail(403, "Your garage is suspended — the portal is read-only", "GARAGE_SUSPENDED")
+  if (opts.write) {
+    const readOnly = readOnlyReason(garage.status)
+    if (readOnly) return fail(403, readOnly.message, readOnly.code)
   }
 
   const v = resolved.value
-  return { ok: true, ctx: { ...v, can: (key) => hasPermission(v.access, key) } }
+  return { ok: true, ctx: { ...v, actor: { id: v.userId, email: sessionUser.email ?? null }, can: (key) => hasPermission(v.access, key) } }
 }
 
 type RouteContext<P> = { params: Promise<P> }

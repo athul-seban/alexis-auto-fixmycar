@@ -3,6 +3,7 @@ import { generateReference } from "@/lib/portal/booking-ref"
 import { createBusiness } from "@/lib/org/create"
 import { ALL_LOCATIONS } from "@/lib/org/access"
 import { permissionsToJson, type PermissionKey } from "@/lib/org/permissions"
+import { updateBilling, type BillingFields } from "@/lib/org/billing"
 import type { Garage, Membership, Organisation, Role, User } from "@prisma/client"
 
 // Shared fixtures for route/service tests. Every row is tagged with a per-file PREFIX
@@ -75,16 +76,14 @@ export async function makeGarage(
 }
 
 /**
- * A further location (a Garage row) in an existing business. In this schema a Garage still needs a login, so it gets a
- * placeholder one that isn't a member of anything; the people who work there are added with makeStaff.
+ * A further location (a Garage row) in an existing business. It has no login of its own (userId null): the people who
+ * work there are added with makeStaff.
  */
-export async function makeLocation(prefix: string, organisationId: string, opts: { key?: string; status?: string; city?: string; services?: string[] } = {}): Promise<Garage> {
+export async function makeLocation(prefix: string, organisationId: string, opts: { key?: string; status?: string; city?: string; postcode?: string; services?: string[]; averageRating?: number } = {}): Promise<Garage> {
   const key = opts.key ?? "loc"
   const id = uniq()
-  const login = await prisma.user.create({ data: { email: `${prefix}${key}-login-${id}@example.com`, role: "GARAGE", name: `${key} placeholder login` } })
   return prisma.garage.create({
     data: {
-      userId: login.id,
       organisationId,
       name: `${prefix}${key}-${id}`,
       slug: `${prefix}${key}-${id}`,
@@ -92,9 +91,10 @@ export async function makeLocation(prefix: string, organisationId: string, opts:
       email: `${prefix}${key}-${id}@garage.example.com`,
       address: "2 Test St",
       city: opts.city ?? areaFor(prefix).city,
-      postcode: areaFor(prefix).postcode,
+      postcode: opts.postcode ?? areaFor(prefix).postcode,
       status: opts.status ?? "APPROVED",
       services: JSON.stringify(opts.services ?? ["MOT", "FULL_SERVICE"]),
+      ...(opts.averageRating !== undefined ? { averageRating: opts.averageRating } : {}),
     },
   })
 }
@@ -126,6 +126,15 @@ export async function makeStaff(
     },
   })
   return { user, membership, role }
+}
+
+/**
+ * Sets a garage's billing the way the app does: on its business (mirrored to the locations), or on the garage itself for
+ * a legacy fixture. Tests must use this instead of writing plan/credits/Stripe columns on a Garage row, because the
+ * business is what the app reads.
+ */
+export async function setBilling(garageId: string, patch: Partial<BillingFields>): Promise<void> {
+  await updateBilling(garageId, patch)
 }
 
 export async function makeOwner(prefix: string, key = "owner") {
@@ -167,10 +176,15 @@ export async function makeWalkInBooking(
 
 /** Removes everything tagged with `prefix`, children before parents. */
 export async function cleanupPrefix(prefix: string) {
-  const garages = await prisma.garage.findMany({ where: { name: { startsWith: prefix } }, select: { id: true } })
-  const gIds = garages.map((g) => g.id)
   const users = await prisma.user.findMany({ where: { email: { startsWith: prefix } }, select: { id: true } })
   const uIds = users.map((u) => u.id)
+  // A garage outlives its login (Garage.userId is SetNull) and a test may rename it, so find garages by name, by owner
+  // login and by business, not just by name.
+  const garages = await prisma.garage.findMany({
+    where: { OR: [{ name: { startsWith: prefix } }, { userId: { in: uIds } }, { organisation: { name: { startsWith: prefix } } }] },
+    select: { id: true },
+  })
+  const gIds = garages.map((g) => g.id)
 
   await prisma.message.deleteMany({ where: { OR: [{ garageId: { in: gIds } }, { senderId: { in: uIds } }] } })
   await prisma.review.deleteMany({ where: { OR: [{ garageId: { in: gIds } }, { ownerId: { in: uIds } }] } })

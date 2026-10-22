@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterAll } from "vitest"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { DELETE, GET, POST } from "./route"
-import { cleanupPrefix, makeGarage, makeOwner } from "@/test/fixtures"
+import { cleanupPrefix, makeGarage, makeOwner, makeStaff } from "@/test/fixtures"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
 vi.mock("@/lib/auth", () => ({ authOptions: {} }))
@@ -44,11 +44,27 @@ describe("/api/push/subscribe", () => {
     expect(await prisma.pushSubscription.findUniqueOrThrow({ where: { endpoint: ENDPOINT } })).toMatchObject({ userId: user.id, garageId: null })
   })
 
-  it("saves a garage's device against the garage, so its pushes follow the business not the login", async () => {
-    const { user, garage } = await makeGarage(PREFIX)
+  it("saves a garage member's device against the person, so what it receives follows their access", async () => {
+    const { user } = await makeGarage(PREFIX)
     mockSession.mockResolvedValue({ user: { id: user.id, role: "GARAGE" } } as any)
     expect((await call(POST, sub())).status).toBe(201)
-    expect(await prisma.pushSubscription.findUniqueOrThrow({ where: { endpoint: ENDPOINT } })).toMatchObject({ garageId: garage.id, userId: null })
+    expect(await prisma.pushSubscription.findUniqueOrThrow({ where: { endpoint: ENDPOINT } })).toMatchObject({ userId: user.id, garageId: null })
+  })
+
+  it("won't register a device for a member whose access has been switched off", async () => {
+    const { organisation } = await makeGarage(PREFIX)
+    const gone = await makeStaff(PREFIX, organisation!.id, { status: "SUSPENDED" })
+    mockSession.mockResolvedValue({ user: { id: gone.user.id, role: "GARAGE" } } as any)
+    expect((await call(POST, sub())).status).toBe(403)
+    expect(await prisma.pushSubscription.count({ where: { endpoint: ENDPOINT } })).toBe(0)
+  })
+
+  it("lets a garage login remove a device registered against its location before subscriptions followed the person", async () => {
+    const { user, garage } = await makeGarage(PREFIX)
+    await prisma.pushSubscription.create({ data: { endpoint: ENDPOINT, p256dh: "x".repeat(20), auth: "y".repeat(20), garageId: garage.id } })
+    mockSession.mockResolvedValue({ user: { id: user.id, role: "GARAGE" } } as any)
+    await call(DELETE, { endpoint: ENDPOINT })
+    expect(await prisma.pushSubscription.count({ where: { endpoint: ENDPOINT } })).toBe(0)
   })
 
   it("moves a shared browser's subscription to whoever signs in next, without duplicating it", async () => {

@@ -23,6 +23,7 @@ const LISTING = {
   APPROVED: { label: "Active Listing", icon: CheckCircle2, cls: "bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300" },
   PENDING: { label: "Awaiting approval", icon: Clock, cls: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" },
   SUSPENDED: { label: "Suspended", icon: ShieldAlert, cls: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300" },
+  ARCHIVED: { label: "Archived", icon: Clock, cls: "bg-slate-200 text-slate-800 dark:bg-white/10 dark:text-slate-300" },
 } as const
 
 function CountPill({ label, value, href }: { label: string; value: number | null; href: string }) {

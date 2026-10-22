@@ -11,6 +11,7 @@ const PREFIX = "admpricetest-"
 const call = (id: string) => GET(new Request(`http://localhost/api/admin/garages/${id}/pricing`), { params: Promise.resolve({ id }) })
 
 async function cleanup() {
+  await prisma.garage.deleteMany({ where: { name: { startsWith: PREFIX } } }) // a garage outlives its login (SetNull)
   await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } })
 }
 

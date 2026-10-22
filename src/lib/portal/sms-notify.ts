@@ -4,6 +4,7 @@ import { recordBookingEvent } from "@/lib/portal/booking-events"
 import { manageUrl } from "@/lib/portal/links"
 import { toE164Mobile } from "@/lib/portal/phone"
 import { hasFeature } from "@/lib/portal/plans"
+import { getBilling } from "@/lib/org/billing"
 import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { formatLondonDateTime, londonParts } from "@/lib/portal/tz"
 import { getServiceLabel } from "@/lib/utils"
@@ -54,13 +55,13 @@ export async function notifyCustomerSms(bookingId: string, kind: SmsKind, now: D
   try {
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
-      include: { garage: { select: { name: true, phone: true, portalSettings: true, plan: true, subscriptionStatus: true } }, owner: { select: { smsOptIn: true, phone: true } } },
+      include: { garage: { select: { name: true, phone: true, portalSettings: true } }, owner: { select: { smsOptIn: true, phone: true } } },
     })
     if (!booking) return "skipped:not-found"
 
     if (!(booking.smsOptIn || booking.owner?.smsOptIn)) return "skipped:no-consent"
     if (!parsePortalSettings(booking.garage.portalSettings).notifications.smsCustomer) return "skipped:garage-off"
-    if (!hasFeature(booking.garage, "sms")) return "skipped:garage-off" // texting isn't part of the garage's plan
+    if (!hasFeature(await getBilling(booking.garageId), "sms")) return "skipped:garage-off" // texting isn't part of the business's plan
     const to = toE164Mobile(booking.customerPhone) ?? toE164Mobile(booking.owner?.phone)
     if (!to) return "skipped:no-mobile"
     if ((kind === "REMINDER" || kind === "REVIEW_REQUEST") && inQuietHours(now)) return "skipped:quiet-hours"

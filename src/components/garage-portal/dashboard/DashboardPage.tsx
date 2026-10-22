@@ -17,6 +17,7 @@ import { LineAreaChart } from "@/components/garage-portal/insights/charts"
 import { GreetingHeader, greetingFor, type OverviewGarage } from "@/components/garage-portal/dashboard/GreetingHeader"
 import { KpiGrid } from "@/components/garage-portal/dashboard/KpiGrid"
 import { RangePicker } from "@/components/garage-portal/dashboard/RangePicker"
+import { useCan } from "@/components/portal-shell/access-context"
 
 interface Overview {
   garage: OverviewGarage
@@ -37,7 +38,11 @@ interface Overview {
   unreadMessages: number
   todayBookings: { id: string; time: string | null; status: string; serviceType: string; customer: string | null; vehicle: string | null }[]
   readiness: { ready: boolean; missing: { label: string; required: boolean }[] }
+  /** Which parts of the dashboard this role may see (the API already leaves out what they can't). */
+  sees?: { bookings: boolean; enquiries: boolean; reviews: boolean; messages: boolean; billing: boolean; profile: boolean; insights: boolean }
 }
+
+const SEES_ALL = { bookings: true, enquiries: true, reviews: true, messages: true, billing: true, profile: true, insights: true }
 
 function responseLabel(mins: number | null) {
   if (mins === null) return "–"
@@ -73,6 +78,8 @@ export function DashboardPage() {
 
   const query = hasCustom ? new URLSearchParams({ from: range.from, to: range.to }).toString() : ""
   const { data, loading, error } = useApi<Overview>(`/api/garage/overview${query ? `?${query}` : ""}`)
+  const sees = data?.sees ?? SEES_ALL
+  const can = useCan()
 
   // Rendered from API data only, so the server-rendered HTML never depends on the visitor's clock.
   const greeting = data ? greetingFor(new Date()) : "Welcome"
@@ -122,52 +129,65 @@ export function DashboardPage() {
       {data && (
         <>
           <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatTile icon={CalendarDays} tone="blue" label="Booked, next 7 days" value={data.weekAhead} href={`${garageLinks.dashboard}/diary`} />
-            <StatTile
-              icon={Star}
-              tone="yellow"
-              label={data.rating.reviews ? `Rating · ${data.rating.reviews} review${data.rating.reviews === 1 ? "" : "s"}` : "Rating"}
-              value={data.rating.reviews ? data.rating.average.toFixed(1) : "–"}
-              href={`${garageLinks.dashboard}/reviews`}
-            />
-            <StatTile
-              icon={Timer}
-              tone="purple"
-              label="Avg. time to quote"
-              value={responseLabel(data.avgResponseMins)}
-              hint="How long garages like yours take, on average, to answer a customer's request. Quick replies rank higher in search."
-              href={garageLinks.enquiries}
-            />
-            <StatTile icon={Inbox} tone="orange" label="New enquiries" value={data.pendingEnquiries} href={garageLinks.enquiries} />
+            {sees.bookings && <StatTile icon={CalendarDays} tone="blue" label="Booked, next 7 days" value={data.weekAhead} href={can({ anyOf: ["diary.view", "diary.viewOwn"] }) ? `${garageLinks.dashboard}/diary` : undefined} />}
+            {sees.reviews && (
+              <StatTile
+                icon={Star}
+                tone="yellow"
+                label={data.rating.reviews ? `Rating · ${data.rating.reviews} review${data.rating.reviews === 1 ? "" : "s"}` : "Rating"}
+                value={data.rating.reviews ? data.rating.average.toFixed(1) : "–"}
+                href={`${garageLinks.dashboard}/reviews`}
+              />
+            )}
+            {sees.enquiries && (
+              <StatTile
+                icon={Timer}
+                tone="purple"
+                label="Avg. time to quote"
+                value={responseLabel(data.avgResponseMins)}
+                hint="How long garages like yours take, on average, to answer a customer's request. Quick replies rank higher in search."
+                href={garageLinks.enquiries}
+              />
+            )}
+            {sees.enquiries && <StatTile icon={Inbox} tone="orange" label="New enquiries" value={data.pendingEnquiries} href={garageLinks.enquiries} />}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button asChild variant="default" size="sm">
-              <Link href={`${garageLinks.bookings}?new=1`}>
-                <Plus className="mr-1.5 h-4 w-4" /> New booking
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href={`${garageLinks.dashboard}/diary`}>
-                <CalendarDays className="mr-1.5 h-4 w-4" /> Diary
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href={`${garageLinks.dashboard}/website`}>
-                <Globe className="mr-1.5 h-4 w-4" /> Booking widget
-              </Link>
-            </Button>
+            {can("bookings.manage") && (
+              <Button asChild variant="default" size="sm">
+                <Link href={`${garageLinks.bookings}?new=1`}>
+                  <Plus className="mr-1.5 h-4 w-4" /> New booking
+                </Link>
+              </Button>
+            )}
+            {can({ anyOf: ["diary.view", "diary.viewOwn"] }) && (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`${garageLinks.dashboard}/diary`}>
+                  <CalendarDays className="mr-1.5 h-4 w-4" /> Diary
+                </Link>
+              </Button>
+            )}
+            {can("settings.edit") && (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`${garageLinks.dashboard}/website`}>
+                  <Globe className="mr-1.5 h-4 w-4" /> Booking widget
+                </Link>
+              </Button>
+            )}
           </div>
         </>
       )}
 
       {data && (
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {sees.bookings && (
           <Panel className="p-4 sm:p-6">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Today&apos;s bookings</h2>
-              <Link href={`${garageLinks.dashboard}/diary`} className="inline-flex items-center gap-1 text-sm font-medium text-[#1E3A5F] hover:underline dark:text-blue-300">
-                Open diary <ArrowRight aria-hidden className="h-3.5 w-3.5" />
-              </Link>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">{can("bookings.view") ? "Today’s bookings" : "Your jobs today"}</h2>
+              {can({ anyOf: ["diary.view", "diary.viewOwn"] }) && (
+                <Link href={`${garageLinks.dashboard}/diary`} className="inline-flex items-center gap-1 text-sm font-medium text-[#1E3A5F] hover:underline dark:text-blue-300">
+                  Open diary <ArrowRight aria-hidden className="h-3.5 w-3.5" />
+                </Link>
+              )}
             </div>
             {data.todayBookings.length === 0 ? (
               <p className="text-sm text-slate-500 dark:text-slate-400">Nothing booked for today.</p>
@@ -188,8 +208,10 @@ export function DashboardPage() {
               </ul>
             )}
           </Panel>
+          )}
 
           <div className="space-y-6">
+          {sees.profile && (
           <Panel className="p-4 sm:p-6">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">Profile checklist</h2>
@@ -215,6 +237,8 @@ export function DashboardPage() {
               </>
             )}
           </Panel>
+          )}
+          {sees.billing && (
           <Panel className="p-4 sm:p-6">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">Your plan</h2>
@@ -236,10 +260,12 @@ export function DashboardPage() {
               {data.plan.enforced ? "Extra leads cost a credit once you reach your monthly allowance." : "Plan limits aren't being applied yet."}
             </p>
           </Panel>
+          )}
           </div>
         </div>
       )}
 
+      {sees.bookings && (
       <section aria-labelledby="perf-heading" className="mt-8">
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -254,7 +280,7 @@ export function DashboardPage() {
         {error && !data ? (
           <Panel className="p-6 text-center text-sm text-red-700 dark:text-red-400" role="alert">{error}</Panel>
         ) : (
-          <KpiGrid loading={loading && !data} marketplace={data?.marketplace ?? null} widget={data?.widget ?? null} noShowRate={data?.noShowRate ?? null} previous={data?.previous ?? null} />
+          <KpiGrid loading={loading && !data} marketplace={data?.marketplace ?? null} widget={data?.widget ?? null} noShowRate={data?.noShowRate ?? null} previous={data?.previous ?? null} showMoney={sees.insights} />
         )}
 
         {data && data.trend.points.length > 1 && (
@@ -272,11 +298,14 @@ export function DashboardPage() {
           </p>
         )}
 
-        <Link href={garageLinks.dashboard + "/insights"} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-[#1E3A5F] dark:text-slate-300 dark:hover:text-white">
-          Full insights and booking trends
-          <ArrowRight className="h-4 w-4" />
-        </Link>
+        {sees.insights && (
+          <Link href={garageLinks.dashboard + "/insights"} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-[#1E3A5F] dark:text-slate-300 dark:hover:text-white">
+            Full insights and booking trends
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        )}
       </section>
+      )}
     </>
   )
 }

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { createBooking, rescheduleBooking, transitionBooking } from "@/lib/portal/booking-service"
 import { inQuietHours, MAX_SMS_PER_BOOKING, notifyCustomerSms, smsText } from "@/lib/portal/sms-notify"
 import { sendDueSmsReminders } from "@/lib/portal/reminders"
-import { cleanupPrefix, makeGarage, makeOwner } from "@/test/fixtures"
+import { cleanupPrefix, makeGarage, makeOwner, setBilling } from "@/test/fixtures"
 
 const sendSms = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/sms", () => ({ sendSms }))
@@ -163,7 +163,7 @@ describe("notifyCustomerSms — plan gating", () => {
     expect(await notifyCustomerSms(booking.id, "CONFIRMED", noon)).toBe("skipped:garage-off")
     expect(sendSms).not.toHaveBeenCalled()
 
-    await prisma.garage.update({ where: { id: garage.id }, data: { plan: "PRO", subscriptionStatus: "active" } })
+    await setBilling(garage.id, { plan: "PRO", subscriptionStatus: "active" })
     expect(await notifyCustomerSms(booking.id, "CONFIRMED", noon)).toBe("sent")
   })
 })

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { withGarage } from "@/lib/garage-auth"
+import { forbidden, withGarage } from "@/lib/garage-auth"
+import { jobScope } from "@/lib/org/own-jobs"
 import { parseOpeningHours } from "@/lib/garage-mapper"
 import { garageCapacity } from "@/lib/portal/availability"
 import { BOOKING_ROW_SELECT, toBookingRow } from "@/lib/portal/booking-rows"
@@ -11,7 +12,12 @@ import { TECHNICIAN_SELECT } from "@/lib/portal/technician-schema"
 
 const MAX_DIARY_DAYS = 42
 
-export const GET = withGarage("Garage diary GET", async (req, { garage }) => {
+export const GET = withGarage("Garage diary GET", async (req, ctx) => {
+  const { garage } = ctx
+  // diary.view shows the whole location; diary.viewOwn only the caller's own appointments (as a linked technician).
+  const scope = await jobScope(ctx, "diary")
+  if (!scope) return forbidden()
+  const own = scope.kind === "own"
   const sp = new URL(req.url).searchParams
   const now = new Date()
   const weekStart = startOfWeek(todayLondon(now))
@@ -23,10 +29,11 @@ export const GET = withGarage("Garage diary GET", async (req, { garage }) => {
   if (diffDays(from, to) + 1 > MAX_DIARY_DAYS) {
     return NextResponse.json({ error: `The diary can show at most ${MAX_DIARY_DAYS} days at a time` }, { status: 400 })
   }
-  const technicianId = sp.get("technicianId") || undefined
+  // An own-jobs caller is always looking at their own column, whatever they ask for.
+  const technicianId = own ? (scope.technicianId ?? "__no_technician__") : sp.get("technicianId") || undefined
   const { gte, lt } = londonDayRange(from, to)
 
-  const [bookingRows, blockRows, technicians] = await Promise.all([
+  const [bookingRows, blockRows, allTechnicians] = await Promise.all([
     prisma.booking.findMany({
       where: {
         garageId: garage.id,
@@ -52,6 +59,9 @@ export const GET = withGarage("Garage diary GET", async (req, { garage }) => {
     prisma.technician.findMany({ where: { garageId: garage.id }, orderBy: [{ isActive: "desc" }, { sortOrder: "asc" }, { name: "asc" }], select: TECHNICIAN_SELECT }),
   ])
 
+  // Capacity counts everyone who works here; an own-jobs caller is only shown themselves.
+  const technicians = own ? allTechnicians.filter((t) => t.id === scope.technicianId) : allTechnicians
+
   // Drop earlier-starting bookings that ended before the window opens.
   const bookings = bookingRows
     .map((b) => toBookingRow(b, now))
@@ -71,6 +81,6 @@ export const GET = withGarage("Garage diary GET", async (req, { garage }) => {
     })),
     openingHours: parseOpeningHours(garage.openingHours),
     technicians,
-    capacity: garageCapacity(technicians.filter((t) => t.isActive).length, settings.bays),
+    capacity: garageCapacity(allTechnicians.filter((t) => t.isActive).length, settings.bays),
   })
-}, { permission: "diary.view" })
+}, { permission: { anyOf: ["diary.view", "diary.viewOwn"] } })

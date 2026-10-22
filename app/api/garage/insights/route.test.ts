@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterAll, afterEach } from "vites
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { GET } from "./route"
-import { cleanupPrefix, makeGarage, makeOwner, makeWalkInBooking } from "@/test/fixtures"
+import { cleanupPrefix, makeGarage, makeOwner, makeWalkInBooking, setBilling } from "@/test/fixtures"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
 vi.mock("@/lib/auth", () => ({ authOptions: {} }))
@@ -103,7 +103,7 @@ describe("GET /api/garage/insights — plan gating", () => {
     expect((await res.json()).code).toBe("PLAN_REQUIRED")
 
     const paid = await makeGarage(PREFIX, { key: "paid" })
-    await prisma.garage.update({ where: { id: paid.garage.id }, data: { plan: "PRO", subscriptionStatus: "active" } })
+    await setBilling(paid.garage.id, { plan: "PRO", subscriptionStatus: "active" })
     asUser(paid.user.id)
     expect((await get(RANGE)).status).toBe(200)
   })

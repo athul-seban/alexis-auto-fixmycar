@@ -22,6 +22,8 @@ interface BookingsTableProps {
   selectedId?: string | null
   selected: ReadonlySet<string>
   onSelectedChange: (next: Set<string>) => void
+  /** Row checkboxes for bulk actions; off for roles that can't manage bookings. */
+  selectable?: boolean
 }
 
 const muted = "text-slate-500 dark:text-slate-400"
@@ -110,7 +112,7 @@ const COLUMNS: DataColumn<BookingRow, SortKey>[] = [
   },
 ]
 
-export function BookingsTable({ rows, loading, sort, dir, onSort, onOpen, selectedId, selected, onSelectedChange }: BookingsTableProps) {
+export function BookingsTable({ rows, loading, sort, dir, onSort, onOpen, selectedId, selected, onSelectedChange, selectable = true }: BookingsTableProps) {
   return (
     <DataTable
       caption="Bookings"
@@ -125,7 +127,7 @@ export function BookingsTable({ rows, loading, sort, dir, onSort, onOpen, select
       rowLabel={(r) => `Open booking ${r.reference ?? ""} for ${r.customerName ?? "customer"}`}
       selectedKey={selectedId}
       skeletonRows={6}
-      selectable
+      selectable={selectable}
       selected={selected}
       onSelectedChange={onSelectedChange}
     />

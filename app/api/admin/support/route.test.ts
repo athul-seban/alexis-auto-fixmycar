@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterAll } from "vitest"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { GET } from "./route"
-import { cleanupPrefix, makeGarage, makeOwner, makeWalkInBooking } from "@/test/fixtures"
+import { cleanupPrefix, makeGarage, makeLocation, makeOwner, makeStaff, makeWalkInBooking, setBilling } from "@/test/fixtures"
 import { createBooking } from "@/lib/portal/booking-service"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
@@ -61,10 +61,28 @@ describe("GET /api/admin/support — account view", () => {
   it("shows a garage its own bookings, plan and credits", async () => {
     const { user, garage } = await makeGarage(PREFIX)
     await makeWalkInBooking(garage.id)
-    await prisma.garage.update({ where: { id: garage.id }, data: { leadCredits: 4 } })
+    await setBilling(garage.id, { leadCredits: 4 })
     const body = await (await get(`userId=${user.id}`)).json()
     expect(body.garage).toMatchObject({ name: garage.name, leadCredits: 4, plan: "FREE" })
     expect(body.bookings).toHaveLength(1)
+  })
+
+  it("finds a member of staff through their business, and shows what they can open and the activity there", async () => {
+    const { garage, organisation } = await makeGarage(PREFIX, { key: "chain" })
+    const second = await makeLocation(PREFIX, organisation!.id, { key: "branch" })
+    const staff = await makeStaff(PREFIX, organisation!.id, { key: "branchmgr", role: "manager", locations: [second.id] })
+    await makeWalkInBooking(second.id)
+    await makeWalkInBooking(garage.id) // the other branch: not theirs to see
+
+    const found = (await (await get(`q=${encodeURIComponent(organisation!.name.toUpperCase())}`)).json()).users
+    expect(found.find((u: any) => u.id === staff.user.id)?.business).toBe(organisation!.name)
+
+    const body = await (await get(`userId=${staff.user.id}`)).json()
+    expect(body.business).toMatchObject({ name: organisation!.name, locationCount: 2, status: "ACTIVE", suspended: false })
+    expect(body.business.access).toEqual([{ role: "Manager", where: second.name }])
+    expect(body.garage).toMatchObject({ name: second.name })
+    expect(body.bookings).toHaveLength(1)
+    expect(body.bookings[0].garage.name).toBe(second.name)
   })
 
   it("404s for an unknown user without writing an audit entry", async () => {

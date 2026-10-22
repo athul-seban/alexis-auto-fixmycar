@@ -6,6 +6,7 @@ import { PLACEHOLDER_LEAD_MS, createBooking, transitionBooking, type Actor } fro
 import { handleRouteError } from "@/lib/portal/route-errors"
 import { forbidden } from "@/lib/garage-auth"
 import { can } from "@/lib/org/access"
+import { readOnlyReason } from "@/lib/org/location-status"
 import { accessToLocation, garageFailureResponse, resolveActiveGarage } from "@/lib/org/resolve"
 import { z } from "zod"
 import { isAdmin } from "@/lib/roles"
@@ -137,10 +138,9 @@ export async function PATCH(req: Request) {
       const here = await accessToLocation(user.id, booking.garageId)
       if (!here || !can(here.access, "bookings.manage")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       const garage = here.garage
-      // Suspended garages are read-only (same rule as the portal's { write: true } routes).
-      if (garage.status === "SUSPENDED") {
-        return NextResponse.json({ error: "Your garage is suspended — the portal is read-only", code: "GARAGE_SUSPENDED" }, { status: 403 })
-      }
+      // Suspended and archived locations are read-only (same rule as the portal's { write: true } routes).
+      const readOnly = readOnlyReason(garage.status)
+      if (readOnly) return NextResponse.json({ error: readOnly.message, code: readOnly.code }, { status: 403 })
       actor = { role: "GARAGE", garageId: garage.id }
     } else if (user.role === "OWNER") {
       if (user.id !== booking.ownerId || data.status !== "CANCELLED") {

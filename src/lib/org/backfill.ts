@@ -52,7 +52,8 @@ export async function backfillGarage(tx: Prisma.TransactionClient, garage: Garag
     },
   })
   const { ownerRoleId } = await ensureSystemRoles(tx, organisation.id)
-  await ensureOwnerMembership(tx, garage.userId, organisation.id, ownerRoleId)
+  // A garage with no login has no one to make Owner; `--verify` reports such a business so it can be fixed by hand.
+  if (garage.userId) await ensureOwnerMembership(tx, garage.userId, organisation.id, ownerRoleId)
   await tx.garage.update({ where: { id: garage.id }, data: { organisationId: organisation.id } })
   return { organisationId: organisation.id }
 }
@@ -76,7 +77,7 @@ export async function backfillOrganisations(opts: BackfillOptions = {}): Promise
   if (opts.dryRun) {
     result.created = pending.length
     for (const g of await db.garage.findMany({ where: scope, select: { id: true, userId: true } })) {
-      result.messagesFlagged += await db.message.count({ where: { garageId: g.id, senderId: g.userId, fromGarage: false } })
+      if (g.userId) result.messagesFlagged += await db.message.count({ where: { garageId: g.id, senderId: g.userId, fromGarage: false } })
     }
     return result
   }
@@ -92,8 +93,10 @@ export async function backfillOrganisations(opts: BackfillOptions = {}): Promise
   // wrote in the meantime (a message sent by the owner login, a credit purchase).
   const garages = await db.garage.findMany({ where: { organisationId: { not: null }, ...scope }, select: { id: true, userId: true, organisationId: true } })
   for (const g of garages) {
-    const flagged = await db.message.updateMany({ where: { garageId: g.id, senderId: g.userId, fromGarage: false }, data: { fromGarage: true } })
-    result.messagesFlagged += flagged.count
+    if (g.userId) {
+      const flagged = await db.message.updateMany({ where: { garageId: g.id, senderId: g.userId, fromGarage: false }, data: { fromGarage: true } })
+      result.messagesFlagged += flagged.count
+    }
     const linked = await db.leadCreditTransaction.updateMany({ where: { garageId: g.id, organisationId: null }, data: { organisationId: g.organisationId } })
     result.creditRowsLinked += linked.count
   }
@@ -155,7 +158,7 @@ export async function verifyOrganisations(db: PrismaClient = prisma, opts: { gar
   // converted customer account has genuine customer messages that must stay unflagged.)
   let unflagged = 0
   for (const g of await db.garage.findMany({ where: scope, select: { id: true, userId: true } })) {
-    unflagged += await db.message.count({ where: { garageId: g.id, senderId: g.userId, fromGarage: false } })
+    if (g.userId) unflagged += await db.message.count({ where: { garageId: g.id, senderId: g.userId, fromGarage: false } })
   }
   if (unflagged) problems.push(`${unflagged} message(s) from garage logins aren't flagged as sent by the garage (run the backfill)`)
 

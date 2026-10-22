@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterAll } from "vitest"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { GET, PATCH, POST } from "./route"
-import { cleanupPrefix, makeGarage } from "@/test/fixtures"
+import { cleanupPrefix, makeGarage, makeLocation } from "@/test/fixtures"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
 vi.mock("@/lib/auth", () => ({ authOptions: {} }))
@@ -41,6 +41,25 @@ describe("GET /api/admin/garages", () => {
     expect(byId.get(bare.id).readiness.ready).toBe(false)
     expect(byId.get(bare.id).readiness.missingRequired).toContain("Opening hours")
     expect(byId.get(bare.id).owner.email).toContain(PREFIX)
+  })
+
+  it("names each garage's business and flags a branch added later, so admins can tell a new location from a new customer", async () => {
+    const first = await makeGarage(PREFIX, { key: "chain" })
+    const branch = await makeLocation(PREFIX, first.organisation!.id, { key: "branch", status: "PENDING" })
+    const solo = await makeGarage(PREFIX, { key: "solo", status: "PENDING" })
+    const body = await (await GET(new Request(`http://x?status=PENDING&q=${PREFIX}&pageSize=50`))).json()
+    const byId = new Map<string, any>(body.garages.map((g: any) => [g.id, g]))
+    expect(byId.get(branch.id).business).toMatchObject({ id: first.organisation!.id, locationCount: 2, position: 2, additionalLocation: true })
+    expect(byId.get(solo.garage.id).business).toMatchObject({ locationCount: 1, position: 1, additionalLocation: false })
+    expect(byId.get(branch.id).owner.email).toBe(first.user.email) // a branch has no login of its own: the business's owner
+  })
+
+  it("counts archived locations in their own tab", async () => {
+    const first = await makeGarage(PREFIX, { key: "chain" })
+    const closed = await makeLocation(PREFIX, first.organisation!.id, { key: "closed", status: "ARCHIVED" })
+    const body = await (await GET(new Request(`http://x?status=ARCHIVED&q=${PREFIX}&pageSize=50`))).json()
+    expect(body.garages.map((g: any) => g.id)).toEqual([closed.id])
+    expect(body.counts.ARCHIVED).toBeGreaterThanOrEqual(1)
   })
 
   it("rejects non-admins", async () => {
@@ -101,6 +120,18 @@ describe("POST /api/admin/garages", () => {
 
   it("404s for an unknown garage", async () => {
     expect((await POST(json("POST", { garageId: "nope", action: "suspend" }))).status).toBe(404)
+  })
+
+  it("won't approve or suspend a location its business archived", async () => {
+    const first = await makeGarage(PREFIX, { key: "chain" })
+    const closed = await makeLocation(PREFIX, first.organisation!.id, { key: "closed", status: "ARCHIVED" })
+    for (const action of ["approve", "suspend", "reject"] as const) {
+      const res = await POST(json("POST", { garageId: closed.id, action, force: true }))
+      expect(res.status, action).toBe(409)
+      expect((await res.json()).code).toBe("ARCHIVED")
+    }
+    expect((await prisma.garage.findUniqueOrThrow({ where: { id: closed.id } })).status).toBe("ARCHIVED")
+    expect(await prisma.auditLog.count({ where: { targetId: closed.id } })).toBe(0)
   })
 })
 

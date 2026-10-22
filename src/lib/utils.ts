@@ -84,6 +84,7 @@ export function getStatusColor(status: string): string {
     EXPIRED: "bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-slate-300",
     APPROVED: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",
     SUSPENDED: "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300",
+    ARCHIVED: "bg-slate-200 text-slate-800 dark:bg-white/10 dark:text-slate-300",
     OPEN: "bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300",
     QUOTED: "bg-purple-100 text-purple-800 dark:bg-purple-500/15 dark:text-purple-300",
     BOOKED: "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300",

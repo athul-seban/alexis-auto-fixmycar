@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { outwardPostcode } from "@/lib/portal/redact"
 import { parseServiceList } from "@/lib/garage-mapper"
 import { MAX_MATCHED_GARAGES } from "@/lib/constants"
+import { approvedSiblings, dedupeByBusiness, pickLocation } from "@/lib/org/lead-routing"
 import type { Garage, JobRequest } from "@prisma/client"
 
 interface MatchGaragesParams {
@@ -35,10 +36,12 @@ export async function findMatchingGaragesForJob({
     orderBy: { averageRating: "desc" },
   })
 
-  return candidates
+  const matching = candidates
     .filter((g) => (parseServiceList(g.services) as string[]).includes(serviceType))
     .filter((g) => (mobileOnly ? g.isMobile : true))
-    .slice(0, MAX_MATCHED_GARAGES)
+  // One lead per business: a business with several matching locations is told once, about the location that should
+  // handle it, and the cap on how many garages hear about a job counts businesses, not locations.
+  return dedupeByBusiness({ city, postcode }, matching).slice(0, MAX_MATCHED_GARAGES)
 }
 
 type JobRequestWithResponses = JobRequest & {
@@ -99,10 +102,25 @@ export async function findMatchingJobRequestsForGarage(
     orderBy: { createdAt: "desc" },
   })
 
-  return jobs.filter((job) => {
+  const mine = jobs.filter((job) => {
     const servicesMatch = (parseServiceList(garage.services) as string[]).includes(job.serviceType)
     // The customer chose this garage, so their mobile preference doesn't exclude it.
     const mobileMatch = job.targetGarageId || !job.isMobilePreferred ? true : garage.isMobile
     return servicesMatch && mobileMatch
+  })
+
+  // One lead per business: of a business's matching locations only the one that should handle a job lists it, and once
+  // any location has answered the others stop listing it. A location that already answered keeps seeing its own job.
+  if (garage.status !== "APPROVED") return mine
+  const siblings = await approvedSiblings(garage)
+  if (siblings.length <= 1) return mine
+
+  const open = mine.filter((j) => !j.targetGarageId && j.responses.length === 0)
+  const answers = await prisma.jobResponse.findMany({ where: { jobRequestId: { in: open.map((j) => j.id) }, garageId: { in: siblings.map((s) => s.id) } }, select: { jobRequestId: true } })
+  const answered = new Set(answers.map((a) => a.jobRequestId))
+  return mine.filter((job) => {
+    if (job.targetGarageId || job.responses.length > 0) return true
+    if (answered.has(job.id)) return false
+    return pickLocation(job, siblings.filter((s) => jobMatchesGarage(job, s)))?.id === garage.id
   })
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { activeLocationHeaders } from "@/lib/org/active-location-client"
 
 interface Result<T> {
   url: string | null
@@ -28,7 +29,7 @@ export function useApi<T>(url: string | null): ApiState<T> {
   useEffect(() => {
     if (!url) return
     const ctrl = new AbortController()
-    fetch(url, { signal: ctrl.signal })
+    fetch(url, { signal: ctrl.signal, headers: activeLocationHeaders(url) })
       .then(async (res) => {
         const body = await res.json().catch(() => null)
         if (!res.ok) throw new Error(body?.error ?? `Request failed (${res.status})`)
@@ -55,7 +56,7 @@ export async function sendJson<T = unknown>(
   try {
     const res = await fetch(url, {
       method,
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      headers: { ...(body === undefined ? {} : { "Content-Type": "application/json" }), ...activeLocationHeaders(url) },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
     const data = (await res.json().catch(() => null)) as (T & { error?: string }) | null

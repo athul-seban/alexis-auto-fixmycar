@@ -2,7 +2,8 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { prisma } from "@/lib/prisma"
 import { createBooking, transitionBooking } from "@/lib/portal/booking-service"
 import { createDepositCheckout, handleStripeEvent, refundOnCancel } from "@/lib/portal/payment-service"
-import { cleanupPrefix, makeGarage } from "@/test/fixtures"
+import { getBilling } from "@/lib/org/billing"
+import { cleanupPrefix, makeGarage, setBilling } from "@/test/fixtures"
 
 const stripe = {
   checkout: { sessions: { create: vi.fn() } },
@@ -33,8 +34,8 @@ afterAll(async () => {
 
 async function setup(opts: { payments?: object; widget?: object; price?: number; startInDays?: number; connected?: boolean } = {}) {
   const { garage } = await makeGarage(PREFIX, { portalSettings: settings(opts.payments ?? {}, opts.widget) })
-  // Deposits are paid to the garage's own Stripe account, so a garage taking them has finished connecting one.
-  if (opts.connected !== false) await prisma.garage.update({ where: { id: garage.id }, data: { stripeAccountId: `acct_${PREFIX}${garage.id}`, stripeChargesEnabled: true } })
+  // Deposits are paid to the business's own Stripe account, so a business taking them has finished connecting one.
+  if (opts.connected !== false) await setBilling(garage.id, { stripeAccountId: `acct_${PREFIX}${garage.id}`, stripeChargesEnabled: true })
   const booking = await createBooking({
     garageId: garage.id, source: "WIDGET", customerName: "Pat", customerEmail: `pat@${PREFIX}x.com`, vrm: "AB12CDE",
     serviceType: "MOT", scheduledAt: new Date(Date.now() + (opts.startInDays ?? 5) * DAY), totalPrice: opts.price ?? 200, notify: false,
@@ -89,22 +90,23 @@ describe("Stripe Connect", () => {
 
   it("won't take a deposit while the connected account can't take payments yet", async () => {
     const { booking, garage } = await setup()
-    await prisma.garage.update({ where: { id: garage.id }, data: { stripeChargesEnabled: false } })
+    await setBilling(garage.id, { stripeChargesEnabled: false })
     expect(await createDepositCheckout(booking.id)).toBeNull()
   })
 
   it("updates a garage's payment state when Stripe sends account.updated", async () => {
     const { garage } = await setup({ connected: false })
     const acct = `acct_${PREFIX}upd${Date.now()}`
-    await prisma.garage.update({ where: { id: garage.id }, data: { stripeAccountId: acct } })
+    await setBilling(garage.id, { stripeAccountId: acct })
     const fire = (id: string, flags: object) => handleStripeEvent({ id: `evt_paysvc_${id}`, type: "account.updated", data: { object: { id: acct, charges_enabled: true, payouts_enabled: true, details_submitted: true, ...flags } } } as any)
 
+    const enabled = async () => (await getBilling(garage.id)).stripeChargesEnabled
     await fire("acc1", { details_submitted: false })
-    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).stripeChargesEnabled).toBe(false)
+    expect(await enabled()).toBe(false)
     await fire("acc2", {})
-    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).stripeChargesEnabled).toBe(true)
+    expect(await enabled()).toBe(true)
     await fire("acc3", { payouts_enabled: false }) // Stripe later restricts the account
-    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).stripeChargesEnabled).toBe(false)
+    expect(await enabled()).toBe(false)
   })
 })
 

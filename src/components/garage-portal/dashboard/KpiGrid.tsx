@@ -10,11 +10,13 @@ interface KpiGridProps {
   /** Same metrics for the period of equal length before the selected range. */
   previous?: { marketplace: ChannelKpis; widget: ChannelKpis } | null
   loading: boolean
+  /** Roles without the insights permission don't see takings (the API sends zeros), so the money tiles are left out. */
+  showMoney?: boolean
 }
 
 const money = (n: number) => formatCurrency(n).replace(/\.00$/, "")
 
-export function KpiGrid({ marketplace, widget, noShowRate, previous, loading }: KpiGridProps) {
+export function KpiGrid({ marketplace, widget, noShowRate, previous, loading, showMoney = true }: KpiGridProps) {
   const d = (now: number | undefined, before: number | undefined) => (previous && now !== undefined && before !== undefined ? { change: now - before, label: "vs previous period" } : null)
   const FIV = "Final invoice value: the amount invoiced on completed bookings in this period (your final invoice value if you entered one, otherwise the booked price)."
   return (
@@ -23,13 +25,13 @@ export function KpiGrid({ marketplace, widget, noShowRate, previous, loading }: 
         hint="Bookings that arrived through Quote My Garage (searches, quotes and job posts) and were created in this period." />
       <StatTile loading={loading} icon={CalendarCheck} tone="green" value={marketplace?.attended ?? 0} delta={d(marketplace?.attended, previous?.marketplace.attended)} label="Marketplace Bookings Attended"
         hint="Marketplace bookings scheduled in this period where the customer attended (completed or in progress)." />
-      <StatTile loading={loading} icon={PoundSterling} tone="purple" value={money(marketplace?.fiv ?? 0)} label="Marketplace FIV Total (Est.)" hint={FIV} />
+      {showMoney && <StatTile loading={loading} icon={PoundSterling} tone="purple" value={money(marketplace?.fiv ?? 0)} label="Marketplace FIV Total (Est.)" hint={FIV} />}
       <StatTile loading={loading} icon={Globe} tone="orange" value={widget?.created ?? 0} delta={d(widget?.created, previous?.widget.created)} label="Widget Bookings Created"
         hint="Bookings made through the booking widget on your own website and created in this period." />
 
       <StatTile loading={loading} icon={CalendarPlus} tone="green" value={widget?.attended ?? 0} delta={d(widget?.attended, previous?.widget.attended)} label="Widget Bookings Attended"
         hint="Widget bookings scheduled in this period where the customer attended." />
-      <StatTile loading={loading} icon={PoundSterling} tone="purple" value={money(widget?.fiv ?? 0)} label="Widget FIV Total (Est.)" hint={FIV} />
+      {showMoney && <StatTile loading={loading} icon={PoundSterling} tone="purple" value={money(widget?.fiv ?? 0)} label="Widget FIV Total (Est.)" hint={FIV} />}
       <StatTile loading={loading} icon={UserX} tone="red" value={noShowRate === null ? "–" : `${noShowRate}%`} label="No Show Rate"
         hint="No-shows as a share of customers who were due: no-shows ÷ (attended + no-shows), across every booking source." />
     </div>

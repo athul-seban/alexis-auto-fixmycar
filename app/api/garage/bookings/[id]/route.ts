@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { withGarage } from "@/lib/garage-auth"
+import { forbidden, withGarage } from "@/lib/garage-auth"
+import { disallowedOwnJobFields, jobScope, scopeWhere, type JobScope } from "@/lib/org/own-jobs"
 import { BookingError } from "@/lib/portal/booking-error"
 import { rescheduleBooking, transitionBooking } from "@/lib/portal/booking-service"
 import { BOOKING_STATUSES, canTransition } from "@/lib/portal/booking-status"
@@ -11,15 +12,18 @@ import type { BookingStatus } from "@/types"
 
 type Params = { id: string }
 
-async function loadDetail(id: string, garageId: string) {
-  const row = await prisma.booking.findFirst({ where: { id, garageId }, select: BOOKING_DETAIL_SELECT })
+/** A booking of this location that the caller's scope reaches. A technician asking for someone else's job gets "not found". */
+async function loadDetail(id: string, garageId: string, scope: JobScope = { kind: "all" }) {
+  const row = await prisma.booking.findFirst({ where: { AND: [{ id, garageId }, scopeWhere(scope)] }, select: BOOKING_DETAIL_SELECT })
   if (!row) throw new BookingError("NOT_FOUND", "Booking not found")
   return row
 }
 
-export const GET = withGarage<Params>("Garage booking GET", async (_req, { garage }, { id }) => {
-  return NextResponse.json({ booking: toBookingDetail(await loadDetail(id, garage.id)) })
-}, { permission: "bookings.view" })
+export const GET = withGarage<Params>("Garage booking GET", async (_req, ctx, { id }) => {
+  const scope = await jobScope(ctx, "bookings")
+  if (!scope) return forbidden()
+  return NextResponse.json({ booking: toBookingDetail(await loadDetail(id, ctx.garage.id, scope)) })
+}, { permission: { anyOf: ["bookings.view", "bookings.viewOwn"] } })
 
 const patchSchema = z
   .object({
@@ -38,10 +42,17 @@ const patchSchema = z
 
 export const PATCH = withGarage<Params>(
   "Garage booking PATCH",
-  async (req, { garage }, { id }) => {
-    const data = patchSchema.parse(await req.json())
-    const booking = await prisma.booking.findFirst({ where: { id, garageId: garage.id } })
+  async (req, ctx, { id }) => {
+    const { garage } = ctx
+    const raw = await req.json()
+    const data = patchSchema.parse(raw)
+    // bookings.manage changes anything at the location; bookings.updateOwn only the caller's own jobs, and only to record
+    // that work started, finished or didn't happen, plus notes.
+    const scope = await jobScope(ctx, "bookings", "update")
+    if (!scope) return forbidden()
+    const booking = await prisma.booking.findFirst({ where: { AND: [{ id, garageId: garage.id }, scopeWhere(scope)] } })
     if (!booking) throw new BookingError("NOT_FOUND", "Booking not found")
+    if (scope.kind === "own" && disallowedOwnJobFields(data).length > 0) return forbidden()
     const now = new Date()
 
     // Validate the status change up front so a rejected transition can't leave a half-applied update.
@@ -92,7 +103,7 @@ export const PATCH = withGarage<Params>(
       })
     }
 
-    return NextResponse.json({ booking: toBookingDetail(await loadDetail(id, garage.id)) })
+    return NextResponse.json({ booking: toBookingDetail(await loadDetail(id, garage.id, scope)) })
   },
-  { permission: "bookings.manage", write: true }
+  { permission: { anyOf: ["bookings.manage", "bookings.updateOwn"] }, write: true }
 )

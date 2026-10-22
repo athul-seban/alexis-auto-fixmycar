@@ -23,7 +23,9 @@ const valid = (n: string, over: Record<string, unknown> = {}) => ({ garageName: 
 
 async function cleanup() {
   await prisma.verificationToken.deleteMany({ where: { identifier: { startsWith: PREFIX } } })
-  await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } }) // the garage and membership go with its owner
+  // Deleting a person never deletes a location (Garage.userId is SetNull), so remove the garages themselves first.
+  await prisma.garage.deleteMany({ where: { name: { startsWith: PREFIX } } })
+  await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } })
   await prisma.organisation.deleteMany({ where: { name: { startsWith: PREFIX } } })
   await prisma.auditLog.deleteMany({ where: { action: { in: ["GARAGE_INVITED", "GARAGE_INVITE_RESENT"] }, detail: { contains: PREFIX } } })
 }

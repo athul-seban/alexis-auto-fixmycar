@@ -22,8 +22,18 @@ import {
   PencilLine,
   LifeBuoy,
   KeyRound,
+  Building2,
+  Briefcase,
+  History,
+  LockKeyhole,
+  UserCog,
   type LucideIcon,
 } from "lucide-react"
+import type { PermissionKey } from "@/lib/org/permissions"
+import type { OrgFeature } from "@/lib/org/features"
+
+/** What a person must hold to see a page: one permission, or any of several. */
+export type NavRequirement = PermissionKey | { anyOf: readonly PermissionKey[] }
 
 export interface NavItem {
   href: string
@@ -33,6 +43,10 @@ export interface NavItem {
   badge?: string
   /** Second key of a `g` then <key> navigation shortcut. */
   shortcut?: string
+  /** Garage portal: hidden (and the page redirected away from) unless the person holds this at the active location. Hiding is a courtesy; every API route checks again. */
+  permission?: NavRequirement
+  /** Garage portal: hidden while this feature is switched off for the business (see src/lib/org/features.ts). */
+  feature?: OrgFeature
 }
 
 export interface NavSection {
@@ -52,6 +66,10 @@ export interface PortalNav {
   /** The signed-in user's own account page (profile, password), linked from the user menu. */
   accountHref: string
   defaultTitle: string
+  /** What the settings page (the gear icon) needs. */
+  settingsPermission?: NavRequirement
+  /** Permissions for pages that aren't sidebar items (matched by path prefix). */
+  extraPermissions?: Record<string, NavRequirement>
 }
 
 export function isNavActive(pathname: string, href: string, base: string): boolean {
@@ -74,27 +92,39 @@ export const GARAGE_NAV: PortalNav = {
   base: G,
   defaultTitle: "Dashboard",
   settingsHref: `${G}/settings`,
+  settingsPermission: "settings.edit",
   accountHref: `${G}/account`,
   extraTitles: { [`${G}/insights`]: "Insights", [`${G}/settings`]: "Settings", [`${G}/account`]: "Account" },
+  extraPermissions: { [`${G}/insights`]: "insights.view", [`${G}/settings`]: "settings.edit" },
   sections: [
     {
       items: [
         { href: G, label: "Dashboard", icon: LayoutDashboard, shortcut: "h" },
-        { href: `${G}/diary`, label: "Diary", icon: CalendarDays, shortcut: "d" },
-        { href: `${G}/bookings`, label: "Bookings", icon: ClipboardCheck, badge: "needsOutcome", shortcut: "b" },
-        { href: `${G}/customers`, label: "Customers", icon: Contact, shortcut: "u" },
-        { href: `${G}/messages`, label: "Messages", icon: MessageSquare, badge: "unreadMessages", shortcut: "i" },
-        { href: `${G}/reviews`, label: "Reviews", icon: Star, badge: "unrepliedReviews", shortcut: "r" },
+        { href: `${G}/diary`, label: "Diary", icon: CalendarDays, shortcut: "d", permission: { anyOf: ["diary.view", "diary.viewOwn"] } },
+        { href: `${G}/bookings`, label: "Bookings", icon: ClipboardCheck, badge: "needsOutcome", shortcut: "b", permission: { anyOf: ["bookings.view", "bookings.viewOwn"] } },
+        { href: `${G}/customers`, label: "Customers", icon: Contact, shortcut: "u", permission: "customers.view" },
+        { href: `${G}/messages`, label: "Messages", icon: MessageSquare, badge: "unreadMessages", shortcut: "i", permission: "messages.view" },
+        { href: `${G}/reviews`, label: "Reviews", icon: Star, badge: "unrepliedReviews", shortcut: "r", permission: "reviews.view" },
       ],
     },
     {
       label: "Listing & Website",
       items: [
-        { href: `${G}/profile`, label: "Profile", icon: Store, shortcut: "p" },
-        { href: `${G}/website`, label: "Website", icon: Globe, shortcut: "w" },
-        { href: `${G}/pricing`, label: "Pricing", icon: PoundSterling, shortcut: "c" },
-        { href: `${G}/enquiries`, label: "Enquiries", icon: Inbox, badge: "newEnquiries", shortcut: "e" },
-        { href: `${G}/billing`, label: "Plan & billing", icon: CreditCard, shortcut: "m" },
+        { href: `${G}/profile`, label: "Profile", icon: Store, shortcut: "p", permission: "profile.edit" },
+        { href: `${G}/website`, label: "Website", icon: Globe, shortcut: "w", permission: "settings.edit" },
+        { href: `${G}/pricing`, label: "Pricing", icon: PoundSterling, shortcut: "c", permission: { anyOf: ["pricing.view", "pricing.edit"] } },
+        { href: `${G}/enquiries`, label: "Enquiries", icon: Inbox, badge: "newEnquiries", shortcut: "e", permission: "enquiries.view" },
+        { href: `${G}/billing`, label: "Plan & billing", icon: CreditCard, shortcut: "m", permission: "billing.view" },
+      ],
+    },
+    {
+      label: "Business",
+      items: [
+        { href: `${G}/team`, label: "Team", icon: UserCog, shortcut: "t", permission: "staff.manage", feature: "staff" },
+        { href: `${G}/roles`, label: "Roles", icon: LockKeyhole, shortcut: "o", permission: { anyOf: ["roles.manage", "staff.manage"] }, feature: "staff" },
+        { href: `${G}/locations`, label: "Locations", icon: Building2, shortcut: "l", permission: "locations.manage", feature: "locations" },
+        { href: `${G}/business`, label: "Business details", icon: Briefcase, shortcut: "y", permission: "organisation.edit", feature: "staff" },
+        { href: `${G}/activity`, label: "Activity", icon: History, shortcut: "a", permission: "audit.view", feature: "staff" },
       ],
     },
   ],

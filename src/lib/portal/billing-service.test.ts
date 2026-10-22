@@ -1,7 +1,8 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest"
 import type Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
-import { cleanupPrefix, makeGarage } from "@/test/fixtures"
+import { getBilling } from "@/lib/org/billing"
+import { cleanupPrefix, makeGarage, makeLocation, setBilling } from "@/test/fixtures"
 import { applySubscription, fulfilCheckout, planForPriceId, refundLeadCredit, spendLeadCredit } from "./billing-service"
 import { CREDIT_PACK } from "./plans"
 
@@ -40,19 +41,30 @@ describe("applySubscription", () => {
   it("puts the garage on the plan its price belongs to, with the renewal date", async () => {
     const { garage } = await makeGarage(PREFIX)
     await applySubscription(subscription(garage.id))
-    const g = await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })
-    expect(g).toMatchObject({ plan: "PRO", subscriptionStatus: "active", stripeSubscriptionId: "sub_1", stripeCustomerId: "cus_1" })
-    expect(g.subscriptionPeriodEnd?.getTime()).toBe(1_800_000_000 * 1000)
+    const b = await getBilling(garage.id)
+    expect(b).toMatchObject({ plan: "PRO", subscriptionStatus: "active", stripeSubscriptionId: "sub_1", stripeCustomerId: "cus_1" })
+    expect(b.subscriptionPeriodEnd?.getTime()).toBe(1_800_000_000 * 1000)
   })
 
   it("keeps the plan through a failed payment (past_due) but drops to FREE when cancelled", async () => {
     const { garage } = await makeGarage(PREFIX)
     await applySubscription(subscription(garage.id))
     await applySubscription(subscription(garage.id, { status: "past_due" }))
-    expect(await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).toMatchObject({ plan: "PRO", subscriptionStatus: "past_due" })
+    expect(await getBilling(garage.id)).toMatchObject({ plan: "PRO", subscriptionStatus: "past_due" })
 
     await applySubscription(subscription(garage.id, { status: "canceled" }))
-    expect(await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).toMatchObject({ plan: "FREE", subscriptionStatus: null, stripeSubscriptionId: null, subscriptionPeriodEnd: null })
+    expect(await getBilling(garage.id)).toMatchObject({ plan: "FREE", subscriptionStatus: null, stripeSubscriptionId: null, subscriptionPeriodEnd: null })
+  })
+
+  it("puts the whole business on the plan, whichever of its locations the subscription names", async () => {
+    const { garage, organisation } = await makeGarage(PREFIX)
+    const second = await makeLocation(PREFIX, organisation!.id)
+    await applySubscription(subscription(second.id))
+    for (const id of [garage.id, second.id]) expect(await getBilling(id)).toMatchObject({ plan: "PRO", subscriptionStatus: "active" })
+    // The unique Stripe ids are carried by the oldest location only; both locations still show the plan.
+    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).stripeSubscriptionId).toBe("sub_1")
+    expect((await prisma.garage.findUniqueOrThrow({ where: { id: second.id } })).stripeSubscriptionId).toBeNull()
+    expect((await prisma.garage.findUniqueOrThrow({ where: { id: second.id } })).plan).toBe("PRO")
   })
 
   it("ignores a subscription that belongs to no garage", async () => {
@@ -66,9 +78,17 @@ describe("fulfilCheckout", () => {
     const s = session({ metadata: { kind: "credits", garageId: garage.id } })
     await fulfilCheckout(s)
     await fulfilCheckout(s)
-    const g = await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })
-    expect(g.leadCredits).toBe(CREDIT_PACK.credits)
+    expect((await getBilling(garage.id)).leadCredits).toBe(CREDIT_PACK.credits)
     expect(await prisma.leadCreditTransaction.count({ where: { garageId: garage.id, reason: "PURCHASE" } })).toBe(1)
+  })
+
+  it("pays a credit pack into the business's pool, so every location can spend it", async () => {
+    const { garage, organisation } = await makeGarage(PREFIX)
+    const second = await makeLocation(PREFIX, organisation!.id)
+    await fulfilCheckout(session({ metadata: { kind: "credits", garageId: second.id } }))
+    expect((await getBilling(garage.id)).leadCredits).toBe(CREDIT_PACK.credits)
+    expect(await spendLeadCredit(garage.id, "job-a")).toBe(true)
+    expect((await getBilling(second.id)).leadCredits).toBe(CREDIT_PACK.credits - 1)
   })
 
   it("starts a featured placement, and a second purchase extends it", async () => {
@@ -87,26 +107,26 @@ describe("fulfilCheckout", () => {
     const { garage } = await makeGarage(PREFIX)
     await fulfilCheckout(session({ payment_status: "unpaid", metadata: { kind: "credits", garageId: garage.id } }))
     await fulfilCheckout(session({ metadata: { kind: "credits" } }))
-    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).leadCredits).toBe(0)
+    expect((await getBilling(garage.id)).leadCredits).toBe(0)
   })
 })
 
 describe("lead credits", () => {
   it("spends one credit at a time and never goes below zero", async () => {
     const { garage } = await makeGarage(PREFIX)
-    await prisma.garage.update({ where: { id: garage.id }, data: { leadCredits: 1 } })
+    await setBilling(garage.id, { leadCredits: 1 })
     // Two answers racing for the last credit: exactly one wins.
     const results = await Promise.all([spendLeadCredit(garage.id, "job-a"), spendLeadCredit(garage.id, "job-b")])
     expect(results.filter(Boolean)).toHaveLength(1)
-    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).leadCredits).toBe(0)
+    expect((await getBilling(garage.id)).leadCredits).toBe(0)
   })
 
   it("gives a credit back when the answer failed to save", async () => {
     const { garage } = await makeGarage(PREFIX)
-    await prisma.garage.update({ where: { id: garage.id }, data: { leadCredits: 2 } })
+    await setBilling(garage.id, { leadCredits: 2 })
     await spendLeadCredit(garage.id, "job-a")
     await refundLeadCredit(garage.id, "job-a")
-    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).leadCredits).toBe(2)
+    expect((await getBilling(garage.id)).leadCredits).toBe(2)
     const log = await prisma.leadCreditTransaction.findMany({ where: { garageId: garage.id }, orderBy: { createdAt: "asc" } })
     expect(log.map((t) => t.reason).sort()).toEqual(["LEAD", "REFUND"])
   })

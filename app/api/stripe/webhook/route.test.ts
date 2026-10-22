@@ -2,7 +2,7 @@ import Stripe from "stripe"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { createBooking } from "@/lib/portal/booking-service"
-import { cleanupPrefix, makeGarage } from "@/test/fixtures"
+import { cleanupPrefix, makeGarage, setBilling } from "@/test/fixtures"
 
 const SECRET = "whsec_test_secret"
 const PREFIX = "stripehook-"
@@ -66,7 +66,7 @@ describe("POST /api/stripe/webhook", () => {
     process.env.STRIPE_CONNECT_WEBHOOK_SECRET = CONNECT_SECRET
     try {
       const { garage } = await makeGarage(PREFIX, { key: "conn" })
-      await prisma.garage.update({ where: { id: garage.id }, data: { stripeAccountId: "acct_hook_conn" } })
+      await setBilling(garage.id, { stripeAccountId: "acct_hook_conn" })
       const body = JSON.stringify({ id: "evt_stripehook_conn", object: "event", type: "account.updated", data: { object: { id: "acct_hook_conn", object: "account", charges_enabled: true, payouts_enabled: true, details_submitted: true } } })
       const res = await POST(signed(body, CONNECT_SECRET))
       expect(res.status).toBe(200)

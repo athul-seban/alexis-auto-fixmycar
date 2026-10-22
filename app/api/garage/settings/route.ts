@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { withGarage } from "@/lib/garage-auth"
 import { smsConfigured } from "@/lib/sms"
 import { stripeConfigured } from "@/lib/stripe"
+import { getBilling } from "@/lib/org/billing"
 import {
   mergePortalSettings,
   notificationSettingsSchema,
@@ -15,14 +16,15 @@ import {
 } from "@/lib/portal/portal-settings"
 
 export const GET = withGarage("Garage settings GET", async (_req, { userId, garage }) => {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true, password: true } })
+  const [user, billing] = await Promise.all([prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true, password: true } }), getBilling(garage.id)])
   return NextResponse.json({
     settings: parsePortalSettings(garage.portalSettings),
     account: { name: user?.name ?? null, email: user?.email ?? null, hasPassword: !!user?.password },
     garage: { status: garage.status, slug: garage.slug },
     // Whether the platform has Stripe keys; the payments toggle is disabled in the UI when it doesn't.
     paymentsAvailable: stripeConfigured(),
-    stripe: { connected: Boolean(garage.stripeAccountId), enabled: garage.stripeChargesEnabled },
+    // The payout account belongs to the business: every location's deposits go to it.
+    stripe: { connected: Boolean(billing.stripeAccountId), enabled: billing.stripeChargesEnabled },
     smsAvailable: smsConfigured(),
   })
 }, { permission: "member" })
@@ -45,8 +47,8 @@ export const PATCH = withGarage(
     if (data.payments?.enabled && !stripeConfigured()) {
       return NextResponse.json({ error: "Online payments aren't set up on this platform yet.", code: "PAYMENTS_UNAVAILABLE" }, { status: 409 })
     }
-    // Deposits are paid to the garage, so it must have finished connecting its Stripe account first.
-    if (data.payments?.enabled && !garage.stripeChargesEnabled) {
+    // Deposits are paid to the business, so it must have finished connecting its Stripe account first.
+    if (data.payments?.enabled && !(await getBilling(garage.id)).stripeChargesEnabled) {
       return NextResponse.json({ error: "Connect your Stripe account before taking deposits.", code: "STRIPE_NOT_CONNECTED" }, { status: 409 })
     }
     if (data.notifications?.smsCustomer && !smsConfigured()) {

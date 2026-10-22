@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireSession } from "@/lib/session"
 import { resolveActiveGarage } from "@/lib/org/resolve"
+import { visibleNotificationTypes } from "@/lib/org/notify-access"
 import { z } from "zod"
 
 const markReadSchema = z.object({
@@ -11,12 +12,14 @@ const markReadSchema = z.object({
 
 /**
  * Whose notifications to read or mark: a customer's are their own; a garage login sees the ACTIVE location's (shared by
- * everyone who works there). With no usable location the filter matches nothing, never everything.
+ * everyone who works there), limited to the kinds their role may see (a receptionist doesn't see billing notices). With
+ * no usable location the filter matches nothing, never everything.
  */
 async function ownerFilter(user: { id: string; role: string }, req?: Request) {
   if (user.role !== "GARAGE") return { userId: user.id }
   const resolved = await resolveActiveGarage(user.id, req)
-  return { garageId: resolved.ok ? resolved.value.garage.id : "__none__" }
+  if (!resolved.ok) return { garageId: "__none__" }
+  return { garageId: resolved.value.garage.id, type: { in: visibleNotificationTypes(resolved.value.access) } }
 }
 
 export async function GET(req?: Request) {

@@ -9,6 +9,7 @@ import { handleRouteError } from "@/lib/portal/route-errors"
 import { getPublicGarage } from "@/lib/public-garage"
 import { isOwnGarageImageUrl } from "@/lib/image-sniff"
 import { can } from "@/lib/org/access"
+import { readOnlyReason } from "@/lib/org/location-status"
 import { accessToLocation } from "@/lib/org/resolve"
 import { z } from "zod"
 
@@ -63,9 +64,8 @@ export async function PATCH(req: Request, props: Params) {
       return NextResponse.json({ error: "Garage not found or unauthorized" }, { status: 403 })
     }
     const garage = here.garage
-    if (garage.status === "SUSPENDED") {
-      return NextResponse.json({ error: "Your garage is suspended — the portal is read-only", code: "GARAGE_SUSPENDED" }, { status: 403 })
-    }
+    const readOnly = readOnlyReason(garage.status)
+    if (readOnly) return NextResponse.json({ error: readOnly.message, code: readOnly.code }, { status: 403 })
 
     const data = patchSchema.parse(await req.json())
     // The logo is uploaded through /api/upload, which stores it under the garage's own folder; an arbitrary URL here would

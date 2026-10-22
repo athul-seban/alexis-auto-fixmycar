@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterAll, afterEach } from "vites
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
 import { POST } from "./route"
-import { areaFor, cleanupPrefix, makeGarage } from "@/test/fixtures"
+import { areaFor, cleanupPrefix, makeGarage, makeLocation, makeStaff, setBilling } from "@/test/fixtures"
+import { getBilling } from "@/lib/org/billing"
 import { PLANS } from "@/lib/portal/plans"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
@@ -102,19 +103,48 @@ describe("POST /api/job-requests/[id]/respond — plan limits", () => {
   it("spends one credit to answer past the allowance, and records it", async () => {
     process.env.PLANS_ENFORCED = "true"
     const { user, garage } = await makeGarage(PREFIX)
-    await prisma.garage.update({ where: { id: garage.id }, data: { leadCredits: 2 } })
+    await setBilling(garage.id, { leadCredits: 2 })
     await exhaust(garage.id)
     asUser(user.id)
     const job = await makeJob()
     expect((await respond(job.id)).status).toBe(201)
-    expect((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).leadCredits).toBe(1)
+    expect((await getBilling(garage.id)).leadCredits).toBe(1)
     expect(await prisma.leadCreditTransaction.count({ where: { garageId: garage.id, reason: "LEAD", jobRequestId: job.id } })).toBe(1)
+  })
+
+  it("counts every location's answers towards the business's one monthly allowance", async () => {
+    process.env.PLANS_ENFORCED = "true"
+    const { garage, organisation } = await makeGarage(PREFIX)
+    // The second location is the one that handles new jobs (better rated), and its manager is the one answering.
+    const second = await makeLocation(PREFIX, organisation!.id, { averageRating: 5 })
+    const manager = await makeStaff(PREFIX, organisation!.id, { role: "manager", locations: [second.id] })
+    await exhaust(garage.id) // the first location used the whole allowance
+    asUser(manager.user.id)
+    const job = await makeJob()
+    const res = await respond(job.id)
+    expect(res.status).toBe(402)
+    expect((await res.json()).code).toBe("LEAD_LIMIT")
+  })
+
+  it("spends the business's pooled credits when another location answers", async () => {
+    process.env.PLANS_ENFORCED = "true"
+    const { garage, organisation } = await makeGarage(PREFIX)
+    const second = await makeLocation(PREFIX, organisation!.id, { averageRating: 5 })
+    const manager = await makeStaff(PREFIX, organisation!.id, { role: "manager", locations: [second.id] })
+    await setBilling(garage.id, { leadCredits: 2 }) // bought through the first location
+    await exhaust(garage.id)
+    asUser(manager.user.id)
+    const job = await makeJob()
+    expect((await respond(job.id)).status).toBe(201)
+    expect((await getBilling(garage.id)).leadCredits).toBe(1)
+    expect((await getBilling(second.id)).leadCredits).toBe(1)
+    expect(await prisma.leadCreditTransaction.count({ where: { garageId: second.id, reason: "LEAD", jobRequestId: job.id } })).toBe(1)
   })
 
   it("lets a paid plan answer without spending anything", async () => {
     process.env.PLANS_ENFORCED = "true"
     const { user, garage } = await makeGarage(PREFIX)
-    await prisma.garage.update({ where: { id: garage.id }, data: { plan: "PREMIUM", subscriptionStatus: "active" } })
+    await setBilling(garage.id, { plan: "PREMIUM", subscriptionStatus: "active" })
     await exhaust(garage.id)
     asUser(user.id)
     expect((await respond((await makeJob()).id)).status).toBe(201)

@@ -1,6 +1,9 @@
 import webpush from "web-push"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { absoluteUrl } from "@/lib/portal/links"
+import { recipientsForLocation } from "@/lib/org/notify-access"
+import type { NotificationType } from "@/lib/notifications"
 
 // Web Push to installed/opted-in browsers. Like mail.ts and sms.ts it is optional: with no VAPID keys configured
 // nothing is sent and nothing breaks. It also never throws, because a push failing must not fail the action that
@@ -44,7 +47,9 @@ export const isGone = (err: unknown) => {
   return code === 404 || code === 410
 }
 
-async function sendTo(where: { userId: string } | { garageId: string }, payload: PushPayload): Promise<number> {
+type SubscriptionWhere = Prisma.PushSubscriptionWhereInput
+
+async function sendTo(where: SubscriptionWhere, payload: PushPayload): Promise<number> {
   if (!pushConfigured()) return 0
   try {
     const subs = await prisma.pushSubscription.findMany({ where })
@@ -71,4 +76,19 @@ async function sendTo(where: { userId: string } | { garageId: string }, payload:
 }
 
 export const pushToUser = (userId: string, payload: PushPayload) => sendTo({ userId }, payload)
-export const pushToGarage = (garageId: string, payload: PushPayload) => sendTo({ garageId }, payload)
+
+/**
+ * Push to the people who work at a location and are allowed to see this kind of notification (see notify-access.ts).
+ * Devices are keyed by the person, so a member who is removed, suspended or loses the permission stops receiving at once.
+ * Subscriptions made before staff existed are keyed by the location and still get it.
+ */
+export async function pushToGarage(garageId: string, payload: PushPayload, type: NotificationType): Promise<number> {
+  if (!pushConfigured()) return 0
+  try {
+    const recipients = await recipientsForLocation(garageId, type)
+    return sendTo({ OR: [{ garageId }, ...(recipients.length > 0 ? [{ userId: { in: recipients } }] : [])] }, payload)
+  } catch (err) {
+    console.error("[push] couldn't work out who to tell:", err)
+    return 0
+  }
+}

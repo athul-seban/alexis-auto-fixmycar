@@ -1,7 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib"
 import { prisma } from "@/lib/prisma"
 import { BookingError } from "@/lib/portal/booking-error"
-import { syncOrganisationBilling } from "@/lib/org/billing"
+import { mirrorBillingToLocations, nextInvoiceCounter, organisationIdOf } from "@/lib/org/billing"
 import { formatPhone } from "@/lib/portal/phone"
 import { formatLondonDate, londonDateString } from "@/lib/portal/tz"
 import { formatCurrency, getServiceLabel } from "@/lib/utils"
@@ -94,13 +94,15 @@ export async function ensureInvoiceNumber(bookingId: string, garageId: string): 
       throw new BookingError("CONFLICT", "This invoice is being created — try again in a moment")
     }
 
-    const { invoiceCounter } = await tx.garage.update({ where: { id: garageId }, data: { invoiceCounter: { increment: 1 } }, select: { invoiceCounter: true } })
+    // One sequence per BUSINESS, shared by all its locations, so invoice numbers never repeat under one VAT number.
+    const invoiceCounter = await nextInvoiceCounter(garageId, tx)
     const number = formatInvoiceNumber(invoiceCounter)
     await tx.booking.update({ where: { id: bookingId }, data: { invoiceNumber: number } })
     return { number, issuedAt }
   })
-  // The counter moved on the garage; keep the business's copy of it in step (it takes over as the single sequence later).
-  await syncOrganisationBilling(garageId)
+  // The counter moved on the business; keep the locations' display copies in step.
+  const orgId = await organisationIdOf(garageId)
+  if (orgId) await mirrorBillingToLocations(orgId)
   return result
 }
 

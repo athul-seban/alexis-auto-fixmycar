@@ -7,6 +7,7 @@ import { notifyGarage } from "@/lib/notifications"
 import { garageLinks } from "@/lib/portal/links"
 import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { garageReadiness } from "@/lib/portal/readiness"
+import { OWNER_SELECT, pickOwner } from "@/lib/org/owners"
 import { z } from "zod"
 import { isAdmin } from "@/lib/roles"
 
@@ -49,8 +50,9 @@ export async function GET(req: Request) {
   const page = Math.max(1, Number(searchParams.get("page")) || 1)
   const pageSize = Math.min(50, Math.max(1, Number(searchParams.get("pageSize")) || 10))
 
-  // `password` is selected only to learn whether the owner has set one yet (invite pending); the hash is never returned.
-  const include = { user: { select: { name: true, email: true, phone: true, password: true } } } as const
+  // The owner comes from the business's Owner membership (falling back to the legacy login). `password` is selected only
+  // to learn whether they have set one yet (invite pending); the hash is never returned.
+  const include = OWNER_SELECT
   const where = { status }
 
   // Text search is done in memory (SQLite and Postgres disagree on case-insensitive `contains`), so only
@@ -70,13 +72,17 @@ export async function GET(req: Request) {
   }
 
   const ids = pageRows.map((g) => g.id)
-  const [statusCounts, priceCounts] = await Promise.all([
+  const orgIds = [...new Set(pageRows.map((g) => g.organisationId).filter((id): id is string => !!id))]
+  const [statusCounts, priceCounts, businesses] = await Promise.all([
     prisma.garage.groupBy({ by: ["status"], _count: { status: true } }),
     prisma.servicePrice.groupBy({ by: ["garageId"], where: { garageId: { in: ids }, isActive: true }, _count: { _all: true } }),
+    // Each garage's business and where it sits in it: the 2nd location of a chain is a new branch, not a new customer.
+    prisma.organisation.findMany({ where: { id: { in: orgIds } }, select: { id: true, name: true, locations: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true } } } }),
   ])
   const prices = new Map(priceCounts.map((p) => [p.garageId, p._count._all]))
+  const businessById = new Map(businesses.map((b) => [b.id, b]))
 
-  const counts = { PENDING: 0, APPROVED: 0, SUSPENDED: 0 } as Record<string, number>
+  const counts = { PENDING: 0, APPROVED: 0, SUSPENDED: 0, ARCHIVED: 0 } as Record<string, number>
   for (const row of statusCounts) counts[row.status] = row._count.status
 
   return NextResponse.json({
@@ -96,7 +102,13 @@ export async function GET(req: Request) {
       totalBookings: g.totalBookings,
       widgetEnabled: parsePortalSettings(g.portalSettings).widget.enabled,
       createdAt: g.createdAt,
-      owner: { name: g.user.name, email: g.user.email, phone: g.user.phone, invitePending: !g.user.password },
+      owner: pickOwner(g) ?? { id: "", name: "No owner yet", email: "", phone: null, invitePending: false },
+      business: (() => {
+        const b = g.organisationId ? businessById.get(g.organisationId) : undefined
+        if (!b) return null
+        const position = b.locations.findIndex((l) => l.id === g.id) + 1
+        return { id: b.id, name: b.name, locationCount: b.locations.length, position, additionalLocation: position > 1 }
+      })(),
       readiness: garageReadiness({ ...g, priceCount: prices.get(g.id) ?? 0 }),
     })),
     total,
@@ -118,6 +130,11 @@ export async function POST(req: Request) {
 
     const existing = await prisma.garage.findUnique({ where: { id: garageId } })
     if (!existing) return NextResponse.json({ error: "Garage not found" }, { status: 404 })
+    // An archived location was closed by its own business. Approving it would put a closed branch on the marketplace,
+    // and "suspending" it would overwrite that choice; the business restores it itself.
+    if (existing.status === "ARCHIVED") {
+      return NextResponse.json({ error: "This location was archived by its business. They can restore it from their Locations page.", code: "ARCHIVED" }, { status: 409 })
+    }
 
     if (action === "approve" && !force) {
       const priceCount = await prisma.servicePrice.count({ where: { garageId, isActive: true } })

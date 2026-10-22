@@ -5,7 +5,7 @@ import { GET as getManage } from "../../booking/[token]/route"
 import { handleStripeEvent } from "@/lib/portal/payment-service"
 import { DEFAULT_PORTAL_SETTINGS, serializePortalSettings } from "@/lib/portal/portal-settings"
 import { addDays, londonWallToUtc, todayLondon } from "@/lib/portal/tz"
-import { cleanupPrefix, makeGarage } from "@/test/fixtures"
+import { cleanupPrefix, makeGarage, setBilling } from "@/test/fixtures"
 
 const stripe = vi.hoisted(() => ({ checkout: { sessions: { create: vi.fn() } }, refunds: { create: vi.fn() } }))
 vi.mock("@/lib/stripe", () => ({ getStripe: () => stripe, stripeConfigured: () => true }))
@@ -24,7 +24,7 @@ async function setup(payments: object) {
   } as any)
   const { garage } = await makeGarage(PREFIX, { key: `g${n++}`, openingHours: ALL_OPEN, portalSettings: settings, services: ["MOT"] })
   await prisma.servicePrice.create({ data: { garageId: garage.id, serviceType: "MOT", priceFrom: 80, durationMins: 60 } })
-  await prisma.garage.update({ where: { id: garage.id }, data: { stripeAccountId: `acct_${PREFIX}${garage.id}`, stripeChargesEnabled: true } })
+  await setBilling(garage.id, { stripeAccountId: `acct_${PREFIX}${garage.id}`, stripeChargesEnabled: true })
   return garage
 }
 

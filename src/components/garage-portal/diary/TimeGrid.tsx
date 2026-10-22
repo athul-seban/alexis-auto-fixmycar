@@ -26,7 +26,8 @@ interface TimeGridProps {
   bookings: BookingRow[]
   blocks: DiaryBlockRow[]
   openingHours: OpeningHours | null
-  onSlotClick: (day: string, time: string) => void
+  /** Click an empty slot to add a booking there. Omitted for roles that can't create bookings. */
+  onSlotClick?: (day: string, time: string) => void
   onBookingClick: (id: string) => void
   onBlockClick: (block: DiaryBlockRow) => void
   /** Drag-and-drop: a booking was dropped on a day at a slot. */
@@ -131,7 +132,7 @@ export function TimeGrid({ days, bookings, blocks, openingHours, onSlotClick, on
                 }}
                 onClick={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect()
-                  onSlotClick(day, snapToTime(windowStart + (e.clientY - rect.top) / PX_PER_MIN))
+                  onSlotClick?.(day, snapToTime(windowStart + (e.clientY - rect.top) / PX_PER_MIN))
                 }}
                 onDragOver={(e) => {
                   if (dragging) {
@@ -148,7 +149,7 @@ export function TimeGrid({ days, bookings, blocks, openingHours, onSlotClick, on
                 }}
                 onKeyDown={(e) => {
                   // Keyboard users can't point at a time, so Enter starts a booking at the first opening hour.
-                  if (e.key === "Enter") onSlotClick(day, snapToTime(windowStart))
+                  if (e.key === "Enter") onSlotClick?.(day, snapToTime(windowStart))
                 }}
               >
                 {closed.map((c, i) => (

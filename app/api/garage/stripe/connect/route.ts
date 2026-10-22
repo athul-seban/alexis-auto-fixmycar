@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { withGarage } from "@/lib/garage-auth"
 import { stripeConfigured } from "@/lib/stripe"
 import { refreshConnectStatus, startConnectOnboarding } from "@/lib/portal/stripe-connect"
+import { getBilling } from "@/lib/org/billing"
 
 /** Where a garage stands with Stripe. Re-reads the account from Stripe so a garage returning from onboarding sees it at once. */
 export const GET = withGarage("Garage stripe status GET", async (_req, { garage }) => {
@@ -12,7 +13,8 @@ export const GET = withGarage("Garage stripe status GET", async (_req, { garage 
   } catch (err) {
     // Stripe being unreachable shouldn't break the Website page: fall back to what we last knew.
     console.error("[stripe connect] status refresh failed:", err)
-    return NextResponse.json({ available: true, connected: Boolean(garage.stripeAccountId), enabled: garage.stripeChargesEnabled })
+    const billing = await getBilling(garage.id)
+    return NextResponse.json({ available: true, connected: Boolean(billing.stripeAccountId), enabled: billing.stripeChargesEnabled })
   }
 }, { permission: "billing.view" })
 

@@ -4,8 +4,11 @@ import { Store } from "lucide-react"
 import { authOptions } from "@/lib/auth"
 import { roleHome } from "@/lib/auth-routes"
 import { resolveActiveGarage } from "@/lib/org/resolve"
+import { can as hasPermission, permissionList } from "@/lib/org/access"
+import { orgFeatureEnabled } from "@/lib/org/features"
 import { garageNavBadges } from "@/lib/portal/nav-badges"
 import { PortalShell } from "@/components/portal-shell/PortalShell"
+import type { PortalAccess } from "@/components/portal-shell/nav-filter"
 import { EmptyState } from "@/components/ui/empty-state"
 
 export const metadata = {
@@ -28,7 +31,18 @@ export default async function GaragePortalLayout({ children }: { children: React
   const resolved = await resolveActiveGarage(user.id)
   const garage = resolved.ok ? resolved.value.garage : null
   const noAccess = !resolved.ok && resolved.failure.code === "NO_ACCESS"
-  const badges = garage ? await garageNavBadges(garage) : undefined
+  // What this person can do here, so the shell shows only what they can use. The API checks the same keys again.
+  const here = resolved.ok ? resolved.value : null
+  const badges = garage && here ? await garageNavBadges(garage, { userId: user.id, can: (k) => hasPermission(here.access, k) }) : undefined
+  const orgId = here?.organisation?.id
+  const access: PortalAccess | undefined = here
+    ? {
+        permissions: permissionList(here.access),
+        isOwner: here.access.isOwner,
+        // Features need a real business (a garage that hasn't been upgraded yet has nothing to manage).
+        features: { staff: !!orgId && orgFeatureEnabled("staff", orgId), locations: !!orgId && orgFeatureEnabled("locations", orgId), sites: !!orgId && orgFeatureEnabled("sites", orgId) },
+      }
+    : undefined
 
   return (
     <PortalShell
@@ -37,6 +51,10 @@ export default async function GaragePortalLayout({ children }: { children: React
       identity={{ name: garage?.name ?? "Garage Portal", logo: garage?.logo }}
       garageStatus={garage?.status}
       badges={badges}
+      access={access}
+      locations={here?.locations ?? []}
+      activeLocationId={garage?.id ?? null}
+      organisationName={here?.organisation?.name ?? null}
     >
       {garage ? (
         children

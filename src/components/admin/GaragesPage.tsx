@@ -34,8 +34,12 @@ interface AdminGarage {
   widgetEnabled: boolean
   createdAt: string
   owner: { name: string | null; email: string; phone: string | null; invitePending: boolean }
+  /** The garage business this location belongs to, and where it sits in it (2+ is a branch added later). */
+  business: { id: string; name: string; locationCount: number; position: number; additionalLocation: boolean } | null
   readiness: Readiness
 }
+
+const branchLabel = (b: NonNullable<AdminGarage["business"]>) => `Location ${b.position} of ${b.locationCount}`
 
 interface PriceRow {
   serviceType: string
@@ -196,6 +200,16 @@ function GarageDialog({ garage, onClose, onChanged }: { garage: AdminGarage | nu
               </section>
 
               <dl className="mb-5 divide-y divide-slate-100 dark:divide-white/10">
+                {g.business && (
+                  <Row label="Business">
+                    {g.business.name}
+                    {g.business.locationCount > 1 && (
+                      <span className={cn("ml-2 rounded-full px-2 py-0.5 text-[11px] font-semibold", g.business.additionalLocation ? "bg-blue-100 text-blue-900 dark:bg-blue-500/20 dark:text-blue-200" : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300")}>
+                        {branchLabel(g.business)}
+                      </span>
+                    )}
+                  </Row>
+                )}
                 <Row label="Owner">
                   {g.owner.name ?? g.owner.email}
                   {g.owner.invitePending && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">Invite not accepted yet</span>}
@@ -242,7 +256,9 @@ function GarageDialog({ garage, onClose, onChanged }: { garage: AdminGarage | nu
                     View listing <ExternalLink className="h-3.5 w-3.5" />
                   </Link>
                 )}
-                {g.status === "APPROVED" ? (
+                {g.status === "ARCHIVED" ? (
+                  <p className={cn("text-sm", muted)}>Closed by its business. They can restore it from their Locations page.</p>
+                ) : g.status === "APPROVED" ? (
                   <Button variant="destructive" onClick={() => setConfirm({ action: "suspend" })}>
                     Suspend
                   </Button>
@@ -369,6 +385,7 @@ export function AdminGaragesPage() {
           <span className="font-medium text-slate-900 dark:text-white">{g.name}</span>
           <span className={cn("block text-xs font-normal", muted)}>
             {g.city} · {g.owner.name ?? g.owner.email}
+            {g.business?.additionalLocation && <span className="ml-1.5 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-900 dark:bg-blue-500/20 dark:text-blue-200">New location of {g.business.name}</span>}
           </span>
         </span>
       ),
@@ -404,6 +421,7 @@ export function AdminGaragesPage() {
           { value: "PENDING", label: "Pending approval", countKey: "PENDING" },
           { value: "APPROVED", label: "Approved", countKey: "APPROVED" },
           { value: "SUSPENDED", label: "Suspended", countKey: "SUSPENDED" },
+          { value: "ARCHIVED", label: "Archived", countKey: "ARCHIVED" },
         ],
       }}
       searchPlaceholder="Search name, city or email…"

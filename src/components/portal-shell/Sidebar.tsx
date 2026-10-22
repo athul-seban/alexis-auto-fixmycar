@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isNavActive, type PortalNav } from "@/components/portal-shell/nav"
+import { usePortalAccess } from "@/components/portal-shell/access-context"
+import { LocationSwitcher } from "@/components/portal-shell/LocationSwitcher"
 
 /** Who the sidebar header shows: a garage, "Admin", or the signed-in customer. */
 export interface PortalIdentity {
@@ -44,25 +46,40 @@ export function SidebarContent({ nav, identity, badges = {}, collapsed = false, 
   const pathname = usePathname()
   const Icon = identity.icon
 
-  return (
-    <div className="flex h-full flex-col">
-      <div className={cn("flex h-16 flex-shrink-0 items-center gap-3 border-b border-slate-100 px-4 dark:border-white/10", collapsed && "justify-center px-0")}>
-        {identity.logo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={identity.logo} alt="" className="h-9 w-9 flex-shrink-0 rounded-lg bg-slate-100 object-cover dark:bg-slate-800" />
-        ) : (
-          <div
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
-            style={{ background: "linear-gradient(135deg, #1E3A5F, #2D5A8E)" }}
-          >
-            <Icon className="h-5 w-5 text-white" />
-          </div>
-        )}
-        {!collapsed && (
-          <span className="truncate text-sm font-bold text-slate-900 dark:text-white" title={identity.name}>
+  const { locations, organisationName } = usePortalAccess()
+  // A business with several locations gets a switcher; everyone else keeps the plain header.
+  const multiple = locations.length > 1
+
+  const identityBlock = (
+    <>
+      {identity.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={identity.logo} alt="" className="h-9 w-9 flex-shrink-0 rounded-lg bg-slate-100 object-cover dark:bg-slate-800" />
+      ) : (
+        <div
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
+          style={{ background: "linear-gradient(135deg, #1E3A5F, #2D5A8E)" }}
+        >
+          <Icon className="h-5 w-5 text-white" />
+        </div>
+      )}
+      {!collapsed && (
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-bold text-slate-900 dark:text-white" title={identity.name}>
             {identity.name}
           </span>
-        )}
+          {multiple && organisationName && organisationName !== identity.name && (
+            <span className="block truncate text-[11px] font-normal text-slate-500 dark:text-slate-400">{organisationName}</span>
+          )}
+        </span>
+      )}
+    </>
+  )
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className={cn("flex h-16 flex-shrink-0 items-center gap-3 border-b border-slate-100 dark:border-white/10", multiple ? "" : "px-4", collapsed && "justify-center px-0")}>
+        {multiple ? <LocationSwitcher collapsed={collapsed} onNavigate={onNavigate}>{identityBlock}</LocationSwitcher> : identityBlock}
       </div>
 
       <nav aria-label={nav.ariaLabel} className="flex-1 space-y-5 overflow-y-auto px-3 py-4">

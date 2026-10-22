@@ -12,15 +12,19 @@ const subscribeSchema = z.object({
 })
 const unsubscribeSchema = z.object({ endpoint: z.string().url().max(1000) })
 
-/** Who a subscription belongs to: a garage account's pushes go to the location it is acting on, everyone else's to the user. */
-async function owner(req?: Request): Promise<{ userId: string } | { garageId: string } | NextResponse> {
+/**
+ * Who a subscription belongs to: always the person. A garage login must still hold a garage (so a removed or suspended
+ * member can't register a device); which locations' notifications reach the device is decided at send time from what the
+ * person can access then (see pushToGarage), so switching location or losing access needs no re-subscribe.
+ */
+async function owner(req?: Request): Promise<{ userId: string; garageId?: string } | NextResponse> {
   const session = await getServerSession(authOptions)
   const user = session?.user as { id?: string; role?: string } | undefined
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (user.role === "GARAGE") {
     const resolved = await resolveActiveGarage(user.id, req)
     if (!resolved.ok) return garageFailureResponse(resolved.failure)
-    return { garageId: resolved.value.garage.id }
+    return { userId: user.id, garageId: resolved.value.garage.id }
   }
   if (user.role === "OWNER") return { userId: user.id }
   return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -41,8 +45,8 @@ export async function POST(req: Request) {
     // A browser has one endpoint; if someone else signed in on it, the subscription follows the current account.
     await prisma.pushSubscription.upsert({
       where: { endpoint: data.endpoint },
-      create: { endpoint: data.endpoint, ...fields, ...("userId" in who ? { userId: who.userId } : { garageId: who.garageId }) },
-      update: { ...fields, userId: "userId" in who ? who.userId : null, garageId: "garageId" in who ? who.garageId : null },
+      create: { endpoint: data.endpoint, ...fields, userId: who.userId },
+      update: { ...fields, userId: who.userId, garageId: null },
     })
     return NextResponse.json({ success: true }, { status: 201 })
   } catch (err) {
@@ -57,8 +61,9 @@ export async function DELETE(req: Request) {
   if (who instanceof NextResponse) return who
   try {
     const { endpoint } = unsubscribeSchema.parse(await req.json())
-    // Scoped to the caller so nobody can drop someone else's subscription by guessing an endpoint.
-    await prisma.pushSubscription.deleteMany({ where: { endpoint, ...who } })
+    // Scoped to the caller so nobody can drop someone else's subscription by guessing an endpoint. A garage login can also
+    // drop a device registered against its location before subscriptions followed the person.
+    await prisma.pushSubscription.deleteMany({ where: { endpoint, OR: [{ userId: who.userId }, ...(who.garageId ? [{ garageId: who.garageId }] : [])] } })
     return NextResponse.json({ success: true })
   } catch (err) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: "Invalid request" }, { status: 400 })

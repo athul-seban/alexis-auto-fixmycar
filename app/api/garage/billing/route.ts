@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withGarage } from "@/lib/garage-auth"
 import { stripeConfigured } from "@/lib/stripe"
+import { creditHistoryWhere, getBilling, locationIdsOf } from "@/lib/org/billing"
 import {
   BillingError,
   createBillingPortal,
@@ -15,17 +16,19 @@ import { CREDIT_PACK, effectivePlan, FEATURED_PRODUCT, isFeatured, monthStart, P
 /** Where the garage stands: plan, lead usage this month, credits, featured status, and what is on sale. */
 export const GET = withGarage("Garage billing GET", async (_req, { garage }) => {
   const now = new Date()
+  // Plan, credits and the monthly allowance belong to the business: the numbers are the same from every location.
+  const [billing, locationIds, creditRows] = await Promise.all([getBilling(garage.id), locationIdsOf(garage.id), creditHistoryWhere(garage.id)])
   const [usedThisMonth, transactions] = await Promise.all([
-    prisma.jobResponse.count({ where: { garageId: garage.id, createdAt: { gte: monthStart(now) } } }),
-    prisma.leadCreditTransaction.findMany({ where: { garageId: garage.id }, orderBy: { createdAt: "desc" }, take: 10 }),
+    prisma.jobResponse.count({ where: { garageId: { in: locationIds }, createdAt: { gte: monthStart(now) } } }),
+    prisma.leadCreditTransaction.findMany({ where: creditRows, orderBy: { createdAt: "desc" }, take: 10 }),
   ])
-  const plan = effectivePlan(garage)
+  const plan = effectivePlan(billing)
   return NextResponse.json({
     available: stripeConfigured(),
     enforced: plansEnforced(),
     plan: { id: plan.id, label: plan.label, leadsPerMonth: plan.leadsPerMonth },
-    subscription: { status: garage.subscriptionStatus, periodEnd: garage.subscriptionPeriodEnd, hasCustomer: Boolean(garage.stripeCustomerId) },
-    leads: { usedThisMonth, credits: garage.leadCredits },
+    subscription: { status: billing.subscriptionStatus, periodEnd: billing.subscriptionPeriodEnd, hasCustomer: Boolean(billing.stripeCustomerId) },
+    leads: { usedThisMonth, credits: billing.leadCredits },
     featured: { active: isFeatured(garage, now), until: garage.featuredUntil },
     plans: PLAN_IDS.map((id) => ({
       id,

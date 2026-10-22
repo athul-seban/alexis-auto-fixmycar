@@ -18,6 +18,7 @@ import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
 import { BookingDrawer } from "@/components/garage-portal/bookings/BookingDrawer"
 import { NewBookingDialog, type NewBookingPrefill } from "@/components/garage-portal/bookings/NewBookingDialog"
 import { BlockDetailsDialog, BlockDialog } from "@/components/garage-portal/diary/BlockDialog"
+import { useCan } from "@/components/portal-shell/access-context"
 import { MonthGrid } from "@/components/garage-portal/diary/MonthGrid"
 import { TimeGrid } from "@/components/garage-portal/diary/TimeGrid"
 import type { DiaryBlockRow, DiaryResponse } from "@/components/garage-portal/diary/types"
@@ -37,6 +38,11 @@ function rangeLabel(days: string[]): string {
 export function DiaryPage() {
   const { searchParams, setParams } = useUrlParams()
   const today = todayLondon()
+  // Seeing the diary and changing it are different roles: a technician sees their own column and can't book or move anyone.
+  const can = useCan()
+  const manageBookings = can("bookings.manage")
+  const manageDiary = can("diary.manage")
+  const movable = (b: BookingRow) => manageBookings && canMove(b)
 
   const dateParam = searchParams.get("date")
   const date = isValidDateString(dateParam) ? dateParam : today
@@ -68,7 +74,7 @@ export function DiaryPage() {
   /** A drop (or "move" gesture) asks for confirmation first, so a slip of the mouse never reschedules a customer. */
   function proposeMove(bookingId: string, start: Date) {
     const booking = data?.bookings.find((b) => b.id === bookingId)
-    if (!booking || !canMove(booking)) return
+    if (!booking || !movable(booking)) return
     if (start.getTime() === new Date(booking.scheduledAt).getTime()) return
     setMove({ booking, start, clash: false })
   }
@@ -99,15 +105,23 @@ export function DiaryPage() {
     <>
       <PageHeader
         title="Diary"
-        description="Your bookings, technicians and time off. Click an empty slot to add a booking, drag a booking to move it, or focus one and press Alt + arrow keys."
+        description={
+          manageBookings
+            ? "Your bookings, technicians and time off. Click an empty slot to add a booking, drag a booking to move it, or focus one and press Alt + arrow keys."
+            : "Your bookings and time off. Click a booking to see the details."
+        }
         actions={
           <>
-            <Button variant="white" className="gap-2 border border-slate-200 dark:border-white/10" onClick={() => setBlockOpen(true)}>
-              <CalendarOff className="h-4 w-4" /> Block time
-            </Button>
-            <Button variant="primary" className="gap-2" onClick={() => setNewBooking({ open: true, prefill: technicianId ? { technicianId } : undefined })}>
-              <Plus className="h-4 w-4" /> New booking
-            </Button>
+            {manageDiary && (
+              <Button variant="white" className="gap-2 border border-slate-200 dark:border-white/10" onClick={() => setBlockOpen(true)}>
+                <CalendarOff className="h-4 w-4" /> Block time
+              </Button>
+            )}
+            {manageBookings && (
+              <Button variant="primary" className="gap-2" onClick={() => setNewBooking({ open: true, prefill: technicianId ? { technicianId } : undefined })}>
+                <Plus className="h-4 w-4" /> New booking
+              </Button>
+            )}
           </>
         }
       />
@@ -189,7 +203,7 @@ export function DiaryPage() {
                 }}
                 dragging={dragging}
                 onDragStateChange={setDragging}
-                draggable={canMove}
+                draggable={movable}
                 onBookingKeyMove={keyMove}
               />
             ) : (
@@ -198,13 +212,13 @@ export function DiaryPage() {
                 bookings={data.bookings}
                 blocks={data.blocks}
                 openingHours={data.openingHours}
-                onSlotClick={(day, time) => setNewBooking({ open: true, prefill: { date: day, time, technicianId: technicianId || undefined } })}
+                onSlotClick={manageBookings ? (day, time) => setNewBooking({ open: true, prefill: { date: day, time, technicianId: technicianId || undefined } }) : undefined}
                 onBookingClick={(id) => setParams({ booking: id })}
                 onBlockClick={setBlockView}
                 onBookingDrop={(id, day, time) => proposeMove(id, londonWallToUtc(day, time))}
                 dragging={dragging}
                 onDragStateChange={setDragging}
-                draggable={canMove}
+                draggable={movable}
                 onBookingKeyMove={keyMove}
               />
             )}

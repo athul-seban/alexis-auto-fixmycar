@@ -4,7 +4,7 @@ import { getStripe } from "@/lib/stripe"
 import { notifyGarage } from "@/lib/notifications"
 import { absoluteUrl } from "@/lib/portal/links"
 import { CREDIT_PACK, extendFeatured, FEATURED_PRODUCT, isPlanId, PLANS, type PlanId } from "@/lib/portal/plans"
-import { organisationIdOf, syncOrganisationBilling } from "@/lib/org/billing"
+import { addCredits, billingOwnerOf, claimStripeId, getBilling, mirrorBillingToLocations, organisationIdOf, readBilling, takeCredit, writeBilling, type BillingOwner } from "@/lib/org/billing"
 
 // What the platform charges garages: monthly plans (Stripe Billing), pay-per-lead credit packs and featured
 // placement (one-off Checkout payments). All charged to the platform's own Stripe account, not the garage's
@@ -12,22 +12,25 @@ import { organisationIdOf, syncOrganisationBilling } from "@/lib/org/billing"
 
 const RETURN_PATH = "/garage-dashboard/billing"
 
-type BillingGarage = { id: string; email: string; name: string; stripeCustomerId: string | null }
+type BillingGarage = { id: string; email: string; name: string; organisationId?: string | null }
 
-/** The garage's Stripe customer, created on first use. Claimed only while unset so two clicks can't make two customers. */
+/**
+ * The BUSINESS's Stripe customer (the garage's own when it has no business), created on first use. Claimed only while
+ * unset so two clicks can't make two customers, whichever location they come from.
+ */
 export async function ensureCustomer(garage: BillingGarage): Promise<string> {
   const stripe = getStripe()
   if (!stripe) throw new Error("Stripe is not configured")
-  if (garage.stripeCustomerId) return garage.stripeCustomerId
+  const existing = (await getBilling(garage.id)).stripeCustomerId
+  if (existing) return existing
 
-  const customer = await stripe.customers.create({ email: garage.email, name: garage.name, metadata: { garageId: garage.id } })
-  const claimed = await prisma.garage.updateMany({ where: { id: garage.id, stripeCustomerId: null }, data: { stripeCustomerId: customer.id } })
-  if (claimed.count === 0) {
+  const owner = await billingOwnerOf(garage.id)
+  const customer = await stripe.customers.create({ email: garage.email, name: garage.name, metadata: { garageId: garage.id, ...("organisationId" in owner ? { organisationId: owner.organisationId } : {}) } })
+  if (!(await claimStripeId(owner, "stripeCustomerId", customer.id))) {
     // Lost the race: use the winner's customer and discard ours.
     await stripe.customers.del(customer.id).catch(() => {})
-    return (await prisma.garage.findUniqueOrThrow({ where: { id: garage.id }, select: { stripeCustomerId: true } })).stripeCustomerId!
+    return (await getBilling(garage.id)).stripeCustomerId!
   }
-  await syncOrganisationBilling(garage.id)
   return customer.id
 }
 
@@ -35,6 +38,15 @@ export class BillingError extends Error {
   constructor(message: string, readonly code: string) {
     super(message)
   }
+}
+
+/**
+ * What Stripe is told so a webhook can find who a payment is for: the business (which owns the plan, credits and pool)
+ * and the location the click came from (which a featured placement belongs to). Old checkouts carry only garageId.
+ */
+async function stripeMetadata(garageId: string): Promise<Record<string, string>> {
+  const organisationId = await organisationIdOf(garageId)
+  return { garageId, ...(organisationId ? { organisationId } : {}) }
 }
 
 const priceIdFor = (plan: PlanId): string | null => {
@@ -55,12 +67,13 @@ export async function createSubscriptionCheckout(garage: BillingGarage, plan: Pl
   if (plan === "FREE" || !price) throw new BillingError("That plan isn't available to subscribe to.", "PLAN_UNAVAILABLE")
 
   const customer = await ensureCustomer(garage)
+  const ids = await stripeMetadata(garage.id)
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer,
     line_items: [{ price, quantity: 1 }],
-    metadata: { kind: "subscription", garageId: garage.id, plan },
-    subscription_data: { metadata: { garageId: garage.id, plan } },
+    metadata: { kind: "subscription", ...ids, plan },
+    subscription_data: { metadata: { ...ids, plan } },
     success_url: absoluteUrl(`${RETURN_PATH}?billing=success`),
     cancel_url: absoluteUrl(`${RETURN_PATH}?billing=cancelled`),
   })
@@ -85,7 +98,7 @@ async function oneOffCheckout(garage: BillingGarage, kind: "credits" | "featured
     mode: "payment",
     customer,
     line_items: [{ quantity: 1, price_data: { currency: "gbp", unit_amount: pence, product_data: { name } } }],
-    metadata: { kind, garageId: garage.id },
+    metadata: { kind, ...(await stripeMetadata(garage.id)) },
     success_url: absoluteUrl(`${RETURN_PATH}?billing=${kind}`),
     cancel_url: absoluteUrl(`${RETURN_PATH}?billing=cancelled`),
   })
@@ -104,29 +117,36 @@ const periodEnd = (sub: Stripe.Subscription): Date | null => {
   return unix ? new Date(unix * 1000) : null
 }
 
-/** Copy a subscription's state onto the garage it belongs to. A cancelled subscription drops the garage back to FREE. */
+/**
+ * Who a Stripe subscription belongs to. Tried in order: a business that holds this Stripe customer, the business named in
+ * the metadata, then (checkouts started before businesses existed) a garage by customer or id, resolved to its business.
+ */
+async function findSubscriptionOwner(customerId: string, metadata: Stripe.Metadata | null | undefined): Promise<BillingOwner | null> {
+  const org = await prisma.organisation.findFirst({ where: { OR: [{ stripeCustomerId: customerId }, ...(metadata?.organisationId ? [{ id: metadata.organisationId }] : [])] }, select: { id: true } })
+  if (org) return { organisationId: org.id }
+  const garage = await prisma.garage.findFirst({ where: { OR: [{ stripeCustomerId: customerId }, ...(metadata?.garageId ? [{ id: metadata.garageId }] : [])] }, select: { id: true, organisationId: true } })
+  if (!garage) return null
+  return garage.organisationId ? { organisationId: garage.organisationId } : { garageId: garage.id }
+}
+
+/** Copy a subscription's state onto the business it belongs to. A cancelled subscription drops it back to FREE. */
 export async function applySubscription(sub: Stripe.Subscription): Promise<void> {
   const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id
-  const garage = await prisma.garage.findFirst({
-    where: { OR: [{ stripeCustomerId: customerId }, ...(sub.metadata?.garageId ? [{ id: sub.metadata.garageId }] : [])] },
-  })
-  if (!garage) return
+  const owner = await findSubscriptionOwner(customerId, sub.metadata)
+  if (!owner) return
 
+  const current = await readBilling(owner)
   const priceId = sub.items?.data?.[0]?.price?.id
   const plan = planForPriceId(priceId) ?? (isPlanId(sub.metadata?.plan) ? sub.metadata.plan : null)
   const ended = sub.status === "canceled" || sub.status === "incomplete_expired"
 
-  await prisma.garage.update({
-    where: { id: garage.id },
-    data: {
-      stripeCustomerId: garage.stripeCustomerId ?? customerId,
-      stripeSubscriptionId: ended ? null : sub.id,
-      subscriptionStatus: ended ? null : sub.status,
-      subscriptionPeriodEnd: ended ? null : periodEnd(sub),
-      plan: ended || !plan ? (ended ? "FREE" : garage.plan) : plan,
-    },
+  await writeBilling(owner, {
+    stripeCustomerId: current.stripeCustomerId ?? customerId,
+    stripeSubscriptionId: ended ? null : sub.id,
+    subscriptionStatus: ended ? null : sub.status,
+    subscriptionPeriodEnd: ended ? null : periodEnd(sub),
+    plan: ended || !plan ? (ended ? "FREE" : current.plan) : plan,
   })
-  await syncOrganisationBilling(garage.id)
 }
 
 /** A one-off payment (credits or featured placement) completed. The event id was already de-duplicated by the caller. */
@@ -137,17 +157,20 @@ export async function fulfilCheckout(session: Stripe.Checkout.Session, now = new
 
   if (kind === "credits") {
     try {
-      // The unique session id makes this grant happen once even if the event is redelivered under a new event id.
+      // The unique session id makes this grant happen once even if the event is redelivered under a new event id. The
+      // credits go to the business's pool (the garage's own balance when it has no business).
       const organisationId = await organisationIdOf(garageId)
       await prisma.$transaction([
         prisma.leadCreditTransaction.create({ data: { garageId, organisationId, delta: CREDIT_PACK.credits, reason: "PURCHASE", stripeSessionId: session.id } }),
-        prisma.garage.update({ where: { id: garageId }, data: { leadCredits: { increment: CREDIT_PACK.credits } } }),
+        organisationId
+          ? prisma.organisation.update({ where: { id: organisationId }, data: { leadCredits: { increment: CREDIT_PACK.credits } } })
+          : prisma.garage.update({ where: { id: garageId }, data: { leadCredits: { increment: CREDIT_PACK.credits } } }),
       ])
+      if (organisationId) await mirrorBillingToLocations(organisationId)
     } catch (err: any) {
       if (err?.code === "P2002") return
       throw err
     }
-    await syncOrganisationBilling(garageId)
     await notifyGarage({ garageId, type: "GARAGE_STATUS_CHANGED", title: "Lead credits added", body: `${CREDIT_PACK.credits} credits are ready to use.`, link: "/garage-dashboard/billing" })
   } else if (kind === "featured") {
     const garage = await prisma.garage.findUnique({ where: { id: garageId }, select: { featuredUntil: true } })
@@ -174,16 +197,15 @@ export async function handleBillingEvent(event: Stripe.Event): Promise<void> {
 
 /** Take one lead credit, recording why. Returns false when the garage has none left (so two answers can't both spend the last). */
 export async function spendLeadCredit(garageId: string, jobRequestId: string): Promise<boolean> {
-  const taken = await prisma.garage.updateMany({ where: { id: garageId, leadCredits: { gt: 0 } }, data: { leadCredits: { decrement: 1 } } })
-  if (taken.count === 0) return false
-  await prisma.leadCreditTransaction.create({ data: { garageId, organisationId: await organisationIdOf(garageId), delta: -1, reason: "LEAD", jobRequestId } })
-  await syncOrganisationBilling(garageId)
+  const owner = await billingOwnerOf(garageId)
+  if (!(await takeCredit(owner))) return false
+  await prisma.leadCreditTransaction.create({ data: { garageId, organisationId: "organisationId" in owner ? owner.organisationId : null, delta: -1, reason: "LEAD", jobRequestId } })
   return true
 }
 
 /** Give back a credit spent on an answer that then failed to save. */
 export async function refundLeadCredit(garageId: string, jobRequestId: string): Promise<void> {
-  await prisma.garage.update({ where: { id: garageId }, data: { leadCredits: { increment: 1 } } })
-  await prisma.leadCreditTransaction.create({ data: { garageId, organisationId: await organisationIdOf(garageId), delta: 1, reason: "REFUND", jobRequestId } })
-  await syncOrganisationBilling(garageId)
+  const owner = await billingOwnerOf(garageId)
+  await addCredits(owner, 1)
+  await prisma.leadCreditTransaction.create({ data: { garageId, organisationId: "organisationId" in owner ? owner.organisationId : null, delta: 1, reason: "REFUND", jobRequestId } })
 }

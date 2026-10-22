@@ -19,6 +19,7 @@ import { SavedViews } from "@/components/garage-portal/bookings/SavedViews"
 import { BookingsTable } from "@/components/garage-portal/bookings/BookingsTable"
 import { NewBookingDialog } from "@/components/garage-portal/bookings/NewBookingDialog"
 import { EnquiryList } from "@/components/garage-portal/enquiries/EnquiryList"
+import { useCan } from "@/components/portal-shell/access-context"
 import type { BookingsResponse, TechnicianOption } from "@/components/garage-portal/bookings/types"
 
 const EMPTY_SET: ReadonlySet<string> = new Set()
@@ -39,8 +40,10 @@ const API_KEYS = ["tab", "sort", "dir", "page", "pageSize", ...FILTER_KEYS] as c
 
 export function BookingsPage() {
   const { searchParams, setParams } = useUrlParams()
+  const can = useCan()
+  const manage = can("bookings.manage")
   // `?new=1` (from the dashboard's "New booking" shortcut) opens the dialog straight away.
-  const [newOpen, setNewOpen] = useState(() => searchParams.get("new") === "1")
+  const [newOpen, setNewOpen] = useState(() => searchParams.get("new") === "1" && manage)
   const { toast } = useToast()
   // Selection belongs to one filtered page: it is dropped when the query (filters, page, sort) changes.
   const [selection, setSelection] = useState<{ query: string; ids: Set<string> }>({ query: "", ids: new Set() })
@@ -105,14 +108,18 @@ export function BookingsPage() {
         actions={
           <>
             <SavedViews params={searchParams} setParams={setParams} keys={["tab", ...FILTER_KEYS]} />
-            <Button asChild variant="white" className="gap-2 border border-slate-200 dark:border-white/10">
-              <a href={`/api/garage/bookings?${csvParams.toString()}`} download>
-                <Download className="h-4 w-4" /> Export CSV
-              </a>
-            </Button>
-            <Button variant="primary" className="gap-2" onClick={() => setNewOpen(true)}>
-              <Plus className="h-4 w-4" /> New booking
-            </Button>
+            {can("bookings.export") && (
+              <Button asChild variant="white" className="gap-2 border border-slate-200 dark:border-white/10">
+                <a href={`/api/garage/bookings?${csvParams.toString()}`} download>
+                  <Download className="h-4 w-4" /> Export CSV
+                </a>
+              </Button>
+            )}
+            {manage && (
+              <Button variant="primary" className="gap-2" onClick={() => setNewOpen(true)}>
+                <Plus className="h-4 w-4" /> New booking
+              </Button>
+            )}
           </>
         }
       />
@@ -134,13 +141,15 @@ export function BookingsPage() {
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <FilterTabs value={pageTab} onValueChange={(v) => setParams({ tab: v === "all" ? null : v, sort: null, dir: null }, { resetPage: true })} className="min-w-0">
             <FilterTabList>
-              <Link
-                href="/garage-dashboard/diary"
-                className="-mb-px inline-flex items-center whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-              >
-                Diary
-              </Link>
-              {TAB_LABELS.map((t) => (
+              {can({ anyOf: ["diary.view", "diary.viewOwn"] }) && (
+                <Link
+                  href="/garage-dashboard/diary"
+                  className="-mb-px inline-flex items-center whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                >
+                  Diary
+                </Link>
+              )}
+              {TAB_LABELS.filter((t) => t.value !== "estimates" || can("enquiries.view")).map((t) => (
                 <FilterTab key={t.value} value={t.value}>
                   {t.label}
                   {data && t.value !== "all" && data.counts[t.value] > 0 && (
@@ -170,7 +179,7 @@ export function BookingsPage() {
           <>
         <BookingsFilters params={searchParams} setParams={setParams} technicians={technicians} />
 
-        {selected.size > 0 && (
+        {manage && selected.size > 0 && (
           <div role="region" aria-label="Bulk actions" className="mt-4 flex flex-wrap items-center gap-2 rounded-lg bg-[#1E3A5F] px-3 py-2 text-sm text-white">
             <span className="mr-auto font-semibold" aria-live="polite">{selected.size} selected</span>
             <Button size="sm" variant="white" className="gap-1.5" loading={bulkBusy} onClick={() => bulk("confirm")}><CheckCheck className="h-3.5 w-3.5" /> Confirm</Button>
@@ -194,7 +203,7 @@ export function BookingsPage() {
               action={!filtersActive && tab === "all" ? <Button variant="primary" size="sm" onClick={() => setNewOpen(true)}>Add a booking</Button> : undefined}
             />
           ) : (
-            <BookingsTable rows={rows} loading={loading} sort={sort} dir={dir} onSort={onSort} onOpen={(id) => setParams({ booking: id })} selectedId={openId} selected={selected} onSelectedChange={setSelected} />
+            <BookingsTable rows={rows} loading={loading} sort={sort} dir={dir} onSort={onSort} onOpen={(id) => setParams({ booking: id })} selectedId={openId} selected={selected} onSelectedChange={setSelected} selectable={manage} />
           )}
         </div>
 

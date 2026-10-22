@@ -8,6 +8,7 @@ import { isSuperAdmin } from "@/lib/roles"
 import { slugify } from "@/lib/utils"
 import { sendGarageInvite } from "@/lib/garage-invite"
 import { createBusiness } from "@/lib/org/create"
+import { OWNER_SELECT, pickOwner } from "@/lib/org/owners"
 
 // Onboard a garage that someone else owns. The super admin supplies only the business name, the owner and a city;
 // the owner sets their own password from the emailed link and fills in the rest of the profile. The garage starts
@@ -65,11 +66,13 @@ export async function PATCH(req: Request) {
   const parsed = resendSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: "Invalid data" }, { status: 400 })
 
-  const garage = await prisma.garage.findUnique({ where: { id: parsed.data.garageId }, select: { id: true, name: true, user: { select: { email: true, name: true, password: true } } } })
+  const garage = await prisma.garage.findUnique({ where: { id: parsed.data.garageId }, select: { id: true, name: true, ...OWNER_SELECT } })
   if (!garage) return NextResponse.json({ error: "Garage not found" }, { status: 404 })
-  if (garage.user.password) return NextResponse.json({ error: "The owner has already set a password." }, { status: 409 })
+  const owner = pickOwner(garage)
+  if (!owner) return NextResponse.json({ error: "This garage has no owner to invite." }, { status: 409 })
+  if (!owner.invitePending) return NextResponse.json({ error: "The owner has already set a password." }, { status: 409 })
 
-  const invite = await sendGarageInvite({ email: garage.user.email, name: garage.user.name }, garage.name)
-  await audit(session, { action: "GARAGE_INVITE_RESENT", targetType: "GARAGE", targetId: garage.id, detail: `${garage.name} · ${garage.user.email}${invite.sent ? "" : " · email not sent"}` })
+  const invite = await sendGarageInvite({ email: owner.email, name: owner.name }, garage.name)
+  await audit(session, { action: "GARAGE_INVITE_RESENT", targetType: "GARAGE", targetId: garage.id, detail: `${garage.name} · ${owner.email}${invite.sent ? "" : " · email not sent"}` })
   return NextResponse.json({ emailSent: invite.sent, ...(invite.devUrl ? { devUrl: invite.devUrl } : {}) })
 }

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Pencil, Plus, Trash2, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
-import { FieldError, FieldLabel, TextInput } from "@/components/ui/form-controls"
+import { FieldError, FieldLabel, NativeSelect, TextInput } from "@/components/ui/form-controls"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/components/ui/toast"
 import { sendJson, useApi } from "@/hooks/use-api"
@@ -18,17 +18,32 @@ interface Technician {
   phone: string | null
   color: string
   isActive: boolean
+  /** The login linked to this technician, who then sees only their jobs (sent to people who manage technicians). */
+  login?: { id: string; name: string | null; email: string } | null
+}
+interface Person {
+  id: string
+  name: string | null
+  email: string
 }
 
 const SWATCHES = ["#1E3A5F", "#F97316", "#10B981", "#8B5CF6", "#EF4444", "#0EA5E9", "#EAB308", "#EC4899"]
 
 export function TechniciansCard() {
   const { toast } = useToast()
-  const { data, loading, error, reload } = useApi<{ technicians: Technician[] }>("/api/garage/technicians")
+  const { data, loading, error, reload } = useApi<{ technicians: Technician[]; people?: Person[] }>("/api/garage/technicians")
   const [editing, setEditing] = useState<Technician | "new" | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const technicians = data?.technicians ?? []
+  const people = data?.people
+
+  const linkLogin = async (t: Technician, userId: string) => {
+    const res = await sendJson(`/api/garage/technicians/${t.id}`, "PATCH", { userId: userId || null })
+    if (!res.ok) return toast(res.error ?? "Couldn't link that person", "error")
+    toast(userId ? `${t.name} will see only their own jobs when they sign in` : `${t.name} is no longer linked to a sign-in`)
+    reload()
+  }
 
   const toggleActive = async (t: Technician, isActive: boolean) => {
     const res = await sendJson(`/api/garage/technicians/${t.id}`, "PATCH", { isActive })
@@ -81,6 +96,17 @@ export function TechniciansCard() {
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-slate-900 dark:text-white">{t.name}{!t.isActive && <span className="ml-2 text-xs font-normal text-slate-400">inactive</span>}</p>
                 {(t.email || t.phone) && <p className="truncate text-xs text-slate-500 dark:text-slate-400">{[t.email, t.phone].filter(Boolean).join(" · ")}</p>}
+                {people && (
+                  <div className="mt-1.5 flex max-w-sm items-center gap-2">
+                    <label htmlFor={`login-${t.id}`} className="flex-shrink-0 text-xs font-semibold text-slate-500 dark:text-slate-400">Signs in as</label>
+                    <NativeSelect id={`login-${t.id}`} value={t.login?.id ?? ""} onChange={(e) => linkLogin(t, e.target.value)} className="h-8 text-xs">
+                      <option value="">Not linked</option>
+                      {people.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name ?? p.email}</option>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                )}
               </div>
               <Switch checked={t.isActive} onCheckedChange={(v) => toggleActive(t, v)} aria-label={`${t.name} active`} />
               <button type="button" aria-label={`Edit ${t.name}`} onClick={() => setEditing(t)} className="cursor-pointer rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-white/10 dark:hover:text-white">

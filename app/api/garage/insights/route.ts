@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withGarage } from "@/lib/garage-auth"
 import { hasFeature } from "@/lib/portal/plans"
+import { getBilling } from "@/lib/org/billing"
 import { diffDays } from "@/lib/portal/tz"
 import { parseCivilRange, presetRange, rangeToUtc } from "@/lib/portal/date-range"
 import { buildFunnel, buildSeries, byChannel, bySource, byService, defaultGranularity, type Granularity } from "@/lib/portal/insights"
@@ -10,7 +11,7 @@ import type { KpiRow } from "@/lib/portal/kpi"
 const GRANULARITIES: Granularity[] = ["day", "week", "month"]
 
 export const GET = withGarage("Garage insights GET", async (req, { garage }) => {
-  if (!hasFeature(garage, "insights")) {
+  if (!hasFeature(await getBilling(garage.id), "insights")) {
     return NextResponse.json({ error: "Insights are part of the Pro and Premium plans.", code: "PLAN_REQUIRED" }, { status: 402 })
   }
   const sp = new URL(req.url).searchParams

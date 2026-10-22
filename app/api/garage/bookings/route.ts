@@ -1,8 +1,10 @@
 import { manageUrl } from "@/lib/portal/links"
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { forbidden, withGarage } from "@/lib/garage-auth"
+import { jobScope, scopeWhere } from "@/lib/org/own-jobs"
 import { SERVICE_TYPES } from "@/lib/constants"
 import { parseOpeningHours } from "@/lib/garage-mapper"
 import { sendMail } from "@/lib/mail"
@@ -19,19 +21,24 @@ import { normalisePhone } from "@/lib/portal/phone"
 import { londonDateString, londonTimeString, formatLondonDateTime } from "@/lib/portal/tz"
 import { getServiceLabel } from "@/lib/utils"
 
-export const GET = withGarage("Garage bookings GET", async (req, { garage, can }) => {
+export const GET = withGarage("Garage bookings GET", async (req, ctx) => {
+  const { garage, can } = ctx
   const parsed = parseBookingsQuery(new URL(req.url).searchParams)
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
   const q = parsed.value
   const now = new Date()
-  // Viewing is bookings.view (the route gate); downloading the whole list is a separate, rarer permission.
+  // Viewing is bookings.view (everything here) or bookings.viewOwn (only the jobs assigned to the caller as a technician);
+  // downloading the whole list is a separate, rarer permission.
+  const scope = await jobScope(ctx, "bookings")
+  if (!scope) return forbidden()
   if (q.format === "csv" && !can("bookings.export")) return forbidden()
+  const mine = scopeWhere(scope)
 
-  let where = buildBookingsWhere(garage.id, q, now)
+  let where: Prisma.BookingWhereInput = { AND: [buildBookingsWhere(garage.id, q, now), mine] }
   if (q.outcome === "pending") {
     // "Awaiting outcome" depends on each booking's duration, so resolve it here and filter by id.
     const candidates = await prisma.booking.findMany({
-      where: { garageId: garage.id, status: { in: ["PENDING", "CONFIRMED"] }, scheduledAt: { lt: now } },
+      where: { AND: [{ garageId: garage.id, status: { in: ["PENDING", "CONFIRMED"] }, scheduledAt: { lt: now } }, mine] },
       select: { id: true, status: true, scheduledAt: true, durationMins: true },
     })
     const ids = candidates.filter((c) => displayStatus(c, now) === "AWAITING_OUTCOME").map((c) => c.id)
@@ -72,9 +79,10 @@ export const GET = withGarage("Garage bookings GET", async (req, { garage, can }
       select: BOOKING_ROW_SELECT,
     }),
     prisma.booking.count({ where }),
-    Promise.all(TABS.map((t) => prisma.booking.count({ where: { AND: [{ garageId: garage.id }, tabWhere(t, now)] } }))),
-    prisma.quote.count({ where: { garageId: garage.id, status: "SENT" } }),
-    prisma.jobResponse.count({ where: { garageId: garage.id, status: "SENT" } }),
+    Promise.all(TABS.map((t) => prisma.booking.count({ where: { AND: [{ garageId: garage.id }, tabWhere(t, now), mine] } }))),
+    // Estimates awaiting an answer belong to the location's enquiries, not to any technician's jobs.
+    scope.kind === "all" ? prisma.quote.count({ where: { garageId: garage.id, status: "SENT" } }) : 0,
+    scope.kind === "all" ? prisma.jobResponse.count({ where: { garageId: garage.id, status: "SENT" } }) : 0,
   ])
 
   const counts: Record<string, number> = Object.fromEntries(TABS.map((t, i) => [t, tabCounts[i]]))
@@ -88,7 +96,7 @@ export const GET = withGarage("Garage bookings GET", async (req, { garage, can }
     totalPages: Math.max(1, Math.ceil(total / q.pageSize)),
     counts,
   })
-}, { permission: "bookings.view" })
+}, { permission: { anyOf: ["bookings.view", "bookings.viewOwn"] } })
 
 const createSchema = z
   .object({

@@ -9,6 +9,7 @@ import { applyAccountState } from "@/lib/portal/stripe-connect"
 import { handleBillingEvent } from "@/lib/portal/billing-service"
 import { depositPence, platformFeePence, refundPence, toPence, toPounds } from "@/lib/portal/payments"
 import { hasFeature } from "@/lib/portal/plans"
+import { getBilling } from "@/lib/org/billing"
 import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { getServiceLabel } from "@/lib/utils"
 
@@ -32,12 +33,14 @@ export async function createDepositCheckout(bookingId: string): Promise<Checkout
 
   const booking = await prisma.booking.findUnique({ where: { id: bookingId }, include: { garage: true } })
   if (!booking) return null
-  if (!hasFeature(booking.garage, "deposits")) return null // online deposits aren't part of the garage's plan
+  // Plan and payout account belong to the business (every location pays into the same Connect account).
+  const billing = await getBilling(booking.garageId)
+  if (!hasFeature(billing, "deposits")) return null // online deposits aren't part of the business's plan
   const settings = parsePortalSettings(booking.garage.portalSettings).payments
   const pence = depositPence(booking.totalPrice, settings)
   if (pence === 0) return null
-  // The deposit is the garage's money, so it needs somewhere to go: no connected account, no online deposit.
-  if (!booking.garage.stripeAccountId || !booking.garage.stripeChargesEnabled) return null
+  // The deposit is the business's money, so it needs somewhere to go: no connected account, no online deposit.
+  if (!billing.stripeAccountId || !billing.stripeChargesEnabled) return null
   const fee = platformFeePence(pence)
 
   const manage = manageUrl(booking.manageToken) ?? absoluteUrl("/")
@@ -60,7 +63,7 @@ export async function createDepositCheckout(bookingId: string): Promise<Checkout
     // Destination charge: the customer pays, Stripe moves the money (less our fee) to the garage's own account.
     payment_intent_data: {
       metadata: { bookingId: booking.id },
-      transfer_data: { destination: booking.garage.stripeAccountId },
+      transfer_data: { destination: billing.stripeAccountId },
       ...(fee > 0 ? { application_fee_amount: fee } : {}),
     },
     success_url: `${manage}?paid=1`,

@@ -199,7 +199,16 @@ export async function DELETE(req: Request) {
   }
 
   try {
-    const target = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } })
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, garage: { select: { id: true } }, _count: { select: { memberships: true } } } })
+    // People who run a garage business can't be deleted out from under it: the owner of a location, or any member, would
+    // leave the business without them (and a deleted owner can't be recovered). Suspend them, or have the business's own
+    // owner remove them, which keeps the history.
+    if (target && (target.garage || target._count.memberships > 0)) {
+      return NextResponse.json(
+        { error: "This person works for a garage business, so they can't be deleted. Suspend them instead, or remove them from the business first." },
+        { status: 409 }
+      )
+    }
     await prisma.user.delete({ where: { id: userId } })
     await audit(session, { action: "USER_DELETED", targetType: "USER", targetId: userId, detail: target?.email ?? null })
     return NextResponse.json({ success: true })

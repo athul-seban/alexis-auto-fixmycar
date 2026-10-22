@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from "vitest"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { cleanupPrefix, makeGarage, makeOwner } from "@/test/fixtures"
+import { cleanupPrefix, makeGarage, makeOwner, makeStaff } from "@/test/fixtures"
 import { GET, PATCH } from "./route"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
@@ -16,8 +16,8 @@ let otherId: string
 let garageId: string
 let garageUserId: string
 
-const note = (data: { userId?: string; garageId?: string; title: string }) =>
-  prisma.notification.create({ data: { type: "TEST", body: "b", ...data } })
+const note = (data: { userId?: string; garageId?: string; title: string; type?: string }) =>
+  prisma.notification.create({ data: { type: "MESSAGE_RECEIVED", body: "b", ...data } })
 
 beforeEach(async () => {
   await cleanupPrefix(PREFIX)
@@ -49,6 +49,29 @@ describe("GET /api/notifications", () => {
     expect(body.notifications.map((n: { title: string }) => n.title)).toEqual(["garage only"])
   })
 
+  it("shows staff only the kinds of notification their role covers", async () => {
+    const { organisation } = await prisma.garage.findUniqueOrThrow({ where: { id: garageId }, include: { organisation: true } }).then((g) => ({ organisation: g.organisation! }))
+    await note({ garageId, title: "new booking", type: "BOOKING_CREATED" })
+    await note({ garageId, title: "billing notice", type: "GARAGE_STATUS_CHANGED" })
+    await note({ garageId, title: "new review", type: "REVIEW_RECEIVED" })
+    const desk = await makeStaff(PREFIX, organisation.id, { permissions: ["bookings.view"], locations: [garageId] })
+    mockSession.mockResolvedValue({ user: { id: desk.user.id, role: "GARAGE" } } as never)
+
+    const body = await (await GET()).json()
+    expect(body.notifications.map((n: { title: string }) => n.title)).toEqual(["new booking"])
+    expect(body.unreadCount).toBe(1)
+
+    // The owner (everything) still sees them all.
+    mockSession.mockResolvedValue({ user: { id: garageUserId, role: "GARAGE" } } as never)
+    expect((await (await GET()).json()).notifications).toHaveLength(4)
+  })
+
+  it("hides a notification of a type nobody has mapped to a permission, rather than showing it to everyone", async () => {
+    await note({ garageId, title: "mystery", type: "SOMETHING_NEW" })
+    mockSession.mockResolvedValue({ user: { id: garageUserId, role: "GARAGE" } } as never)
+    expect((await (await GET()).json()).notifications.map((n: { title: string }) => n.title)).not.toContain("mystery")
+  })
+
   it("refuses a signed-out visitor", async () => {
     mockSession.mockResolvedValue(null as never)
     expect((await GET()).status).toBe(401)
@@ -71,6 +94,21 @@ describe("PATCH /api/notifications", () => {
     expect((await PATCH(patch({ all: true }))).status).toBe(200)
     const unread = await prisma.notification.findMany({ where: { readAt: null, userId: { in: [ownerId, otherId] } } })
     expect(unread.map((n) => n.title)).toEqual(["someone else"])
+  })
+
+  it("marking all read as staff leaves what their role can't see untouched for the people it is meant for", async () => {
+    const { organisation } = await prisma.garage.findUniqueOrThrow({ where: { id: garageId }, include: { organisation: true } }).then((g) => ({ organisation: g.organisation! }))
+    await note({ garageId, title: "new booking", type: "BOOKING_CREATED" })
+    const review = await note({ garageId, title: "new review", type: "REVIEW_RECEIVED" })
+    const desk = await makeStaff(PREFIX, organisation.id, { permissions: ["bookings.view"], locations: [garageId] })
+    mockSession.mockResolvedValue({ user: { id: desk.user.id, role: "GARAGE" } } as never)
+
+    expect((await PATCH(patch({ all: true }))).status).toBe(200)
+    expect((await prisma.notification.findUniqueOrThrow({ where: { id: review.id } })).readAt).toBeNull()
+    // Nor can they mark it by guessing its id.
+    await PATCH(patch({ ids: [review.id] }))
+    expect((await prisma.notification.findUniqueOrThrow({ where: { id: review.id } })).readAt).toBeNull()
+    expect((await prisma.notification.findFirstOrThrow({ where: { garageId, title: "new booking" } })).readAt).not.toBeNull()
   })
 
   it("cannot mark another user's notification read by id", async () => {

@@ -17,10 +17,13 @@ interface FoundUser {
   role: string
   suspendedAt: string | null
   garage: { name: string } | null
+  /** The business they belong to (staff have no garage of their own). */
+  business: string | null
 }
 interface Detail {
   user: FoundUser & { createdAt: string; lockedUntil: string | null; failedLoginAttempts: number; smsOptIn: boolean }
   garage: { name: string; status: string; isVerified: boolean; plan: string; subscriptionStatus: string | null; leadCredits: number; city: string } | null
+  business: { name: string; status: string; suspended: boolean; locationCount: number; access: { role: string; where: string }[] } | null
   bookings: { id: string; reference: string | null; serviceType: string; status: string; scheduledAt: string; totalPrice: number; paymentStatus: string; source: string; customerName: string | null; garage: { name: string } }[]
   quotes: { id: string; serviceType: string; status: string; price: number | null; createdAt: string }[]
   vehicles: { id: string; registration: string; make: string; model: string; motDueDate: string | null }[]
@@ -73,7 +76,7 @@ export function AdminSupportPage() {
               <li key={u.id}>
                 <button type="button" onClick={() => setSelected(u.id)} aria-pressed={selected === u.id} className="flex w-full cursor-pointer items-center justify-between gap-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-white/5">
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">{u.garage?.name ?? u.name ?? u.email}</span>
+                    <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">{u.garage?.name ?? u.name ?? u.email}{u.business && u.business !== u.garage?.name ? <span className="font-normal text-slate-500 dark:text-slate-400"> · {u.business}</span> : null}</span>
                     <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{u.email}{u.phone ? ` · ${u.phone}` : ""}</span>
                   </span>
                   <span className="flex flex-shrink-0 items-center gap-2">
@@ -104,6 +107,17 @@ export function AdminSupportPage() {
               <dt className="text-slate-500 dark:text-slate-400">Messages</dt><dd>{detail.data.messageCount}</dd>
             </dl>
           </Section>
+
+          {detail.data.business && (
+            <Section title="Business">
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                <dt className="text-slate-500 dark:text-slate-400">Name</dt><dd>{detail.data.business.name} ({detail.data.business.locationCount} location{detail.data.business.locationCount === 1 ? "" : "s"})</dd>
+                <dt className="text-slate-500 dark:text-slate-400">Membership</dt><dd>{detail.data.business.suspended ? "Business suspended" : detail.data.business.status.toLowerCase()}</dd>
+                <dt className="text-slate-500 dark:text-slate-400">Roles</dt>
+                <dd>{detail.data.business.access.length === 0 ? "None" : detail.data.business.access.map((a, i) => <span key={i} className="block">{a.role} · {a.where}</span>)}</dd>
+              </dl>
+            </Section>
+          )}
 
           {detail.data.garage && (
             <Section title="Garage">

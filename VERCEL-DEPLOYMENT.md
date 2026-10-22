@@ -152,3 +152,37 @@ Order (same rule as above: schema first, then code; old code against the new sch
 Fixed in the same release (security): a revoked or suspended session used to see everyone's notifications and could touch
 any vehicle by id; the language switcher was an open redirect; uploads trusted the browser's file type; changing or
 resetting a password now signs out every session; sign-in no longer reveals which emails exist.
+
+## Staff, roles, extra locations and billing on the business (phase 2)
+
+Adds the Team, Roles, Locations, Business details and Activity pages, the location switcher, own-jobs-only technician
+logins, one lead per business, per-person push notifications and a same-origin check on every `/api` write. Everything
+new is **dark in production until `ORG_FEATURES` is set** (see below), so deploying changes nobody's screens, with one
+exception: **billing authority moves to the business** the moment this code is live (plan, lead credits, Stripe Connect
+account and invoice numbers are read from the `Organisation`, and mirrored back onto the garages' columns).
+
+Schema (both files, a second push, **after Phase 1's push and backfill**): `Garage.userId` becomes nullable and its
+relation `onDelete: SetNull` (a location added later has no login of its own, and deleting a person never deletes a
+location). `prisma migrate diff` will therefore show an `ALTER COLUMN ... DROP NOT NULL` and a replaced foreign key
+besides the additive changes; that is expected, and nothing is dropped. (`Technician.userId`, `Role`, `Membership`,
+`StaffInvite` and the rest arrived in the phase 1 push.)
+
+Order:
+
+1. Phase 1 is live and `npm run db:backfill-orgs -- --verify` prints OK. **Run `npm run db:backfill-orgs -- --sync-billing`
+   once more** (after `npx prisma generate --schema=prisma/schema.prod.prisma`) so every business holds its garage's current
+   plan, credits and invoice counter, then verify again. After this release the business is the truth.
+2. Back up (Neon branch or snapshot) and rehearse the second `db push` on a branch.
+3. `npx prisma db push --schema=prisma/schema.prod.prisma` (never `--accept-data-loss`), then deploy.
+4. In Stripe **test mode**, replay an old subscription webhook (metadata has only `garageId`): it must still resolve to the
+   business. New checkouts carry `organisationId` as well.
+5. Smoke test as an owner: billing page (plan and credits unchanged), Connect status, an invoice (numbers continue), answer
+   a lead, a deposit checkout.
+6. Switch a **beta business** on by setting `ORG_FEATURES=staff,locations` (add `sites` later) and
+   `ORG_BETA_IDS=<organisation id>`; leave `ORG_BETA_IDS` empty to switch it on for everyone. Removing the variable hides the
+   screens again and keeps all data. New locations start `PENDING` and need approval in `/admin/garages` ("New location of
+   ..." tag); closing one archives it.
+
+Rollback: unset `ORG_FEATURES`. Reverting to phase 1 code is also safe while every business has one location, because every
+billing write is mirrored onto the garage columns the older code reads; once a business has several locations or staff,
+turn the flag off rather than reverting code.

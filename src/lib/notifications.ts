@@ -46,6 +46,6 @@ export async function notifyGarage({ garageId, type, title, body, link }: Notify
   const notification = await prisma.notification.create({
     data: { garageId, type, title, body, link },
   })
-  await pushToGarage(garageId, { title, body, link })
+  await pushToGarage(garageId, { title, body, link }, type)
   return notification
 }

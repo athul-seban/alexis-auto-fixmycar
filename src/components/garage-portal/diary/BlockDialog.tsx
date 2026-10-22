@@ -7,6 +7,7 @@ import { FieldError, FieldLabel, NativeSelect, TextInput } from "@/components/ui
 import { useToast } from "@/components/ui/toast"
 import { sendJson } from "@/hooks/use-api"
 import { addDays, formatLondonDateTime, londonWallToUtc, todayLondon } from "@/lib/portal/tz"
+import { useCan } from "@/components/portal-shell/access-context"
 import type { TechnicianOption } from "@/components/garage-portal/bookings/types"
 import type { DiaryBlockRow } from "@/components/garage-portal/diary/types"
 
@@ -137,6 +138,7 @@ interface BlockDetailsDialogProps {
 
 export function BlockDetailsDialog({ block, onOpenChange, onRemoved }: BlockDetailsDialogProps) {
   const { toast } = useToast()
+  const can = useCan()
   const [busy, setBusy] = useState(false)
 
   const remove = async () => {
@@ -166,7 +168,7 @@ export function BlockDetailsDialog({ block, onOpenChange, onRemoved }: BlockDeta
             </p>
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>Close</Button>
-              <Button type="button" variant="destructive" loading={busy} onClick={remove}>Remove block</Button>
+              {can("diary.manage") && <Button type="button" variant="destructive" loading={busy} onClick={remove}>Remove block</Button>}
             </DialogFooter>
           </>
         )}

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { GET, PATCH } from "./route"
 import { POST as changePassword } from "../change-password/route"
 import { DEFAULT_PORTAL_SETTINGS } from "@/lib/portal/portal-settings"
-import { cleanupPrefix, makeGarage } from "@/test/fixtures"
+import { cleanupPrefix, makeGarage, setBilling } from "@/test/fixtures"
 
 vi.mock("next-auth", () => ({ getServerSession: vi.fn() }))
 vi.mock("@/lib/auth", () => ({ authOptions: {} }))
@@ -69,7 +69,7 @@ describe("garage settings: online payments", () => {
       // Options can still be saved while off.
       expect((await PATCH(json("PATCH", { payments: { depositPercent: 20 } }))).status).toBe(200)
 
-      await prisma.garage.update({ where: { id: garage.id }, data: { stripeAccountId: "acct_settings", stripeChargesEnabled: true } })
+      await setBilling(garage.id, { stripeAccountId: "acct_settings", stripeChargesEnabled: true })
       const ok = await PATCH(json("PATCH", { payments: { enabled: true, depositPercent: 30, refundPolicy: "FULL" } }))
       expect((await ok.json()).settings.payments).toEqual({ enabled: true, depositPercent: 30, refundPolicy: "FULL" })
       expect(JSON.parse((await prisma.garage.findUniqueOrThrow({ where: { id: garage.id } })).portalSettings!).payments.depositPercent).toBe(30)

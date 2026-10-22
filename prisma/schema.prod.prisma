@@ -107,7 +107,7 @@ model Vehicle {
 
 model Garage {
   id                 String    @id @default(cuid())
-  userId             String    @unique
+  userId             String?   @unique // the login a single-owner garage was registered with; locations added later have none (access comes from Membership)
   organisationId     String?   // the business this location belongs to; null until backfilled
   name               String
   slug               String    @unique
@@ -152,7 +152,7 @@ model Garage {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull) // deleting a person never deletes a location
   organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Restrict) // a business can never cascade away
   quotes       Quote[]
   bookings     Booking[]

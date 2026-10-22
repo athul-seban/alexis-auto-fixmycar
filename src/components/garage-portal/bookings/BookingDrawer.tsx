@@ -21,6 +21,7 @@ import { InvoiceSection } from "@/components/garage-portal/bookings/InvoiceSecti
 import { PaymentPill } from "@/components/garage-portal/shared/PaymentPill"
 import { StatusPill } from "@/components/garage-portal/shared/StatusPill"
 import { VrmPlate } from "@/components/garage-portal/shared/VrmPlate"
+import { useCan } from "@/components/portal-shell/access-context"
 import type { BookingDetail, OverlapDetails, TechnicianOption } from "@/components/garage-portal/bookings/types"
 
 interface BookingDrawerProps {
@@ -68,6 +69,10 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
   const [openedAt] = useState(() => Date.now()) // "now" for the no-show rule; fixed while the drawer is open
 
   const b = data?.booking
+  // What this person may do: a manager changes anything; someone who can only update their own jobs (a technician) may
+  // start, finish or mark a no-show, and add notes. The server enforces the same split.
+  const can = useCan()
+  const manage = can("bookings.manage")
 
   const patch = async (body: Record<string, unknown>, successMessage?: string): Promise<boolean> => {
     setBusy(true)
@@ -150,7 +155,7 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
       )}
 
       {/* Status actions */}
-      <StatusActions b={b} busy={busy} startsInPast={startsInPast} mode={mode} setMode={setMode} patch={patch} />
+      <StatusActions b={b} busy={busy} startsInPast={startsInPast} mode={mode} setMode={setMode} patch={patch} manage={manage} />
 
       {/* Customer */}
       <Section title="Customer">
@@ -168,7 +173,7 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
           )}
         </div>
         <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-          <input type="checkbox" className="h-4 w-4 rounded border-slate-300" checked={!!b.contactedAt} disabled={busy} onChange={(e) => patch({ contacted: e.target.checked })} />
+          <input type="checkbox" className="h-4 w-4 rounded border-slate-300" checked={!!b.contactedAt} disabled={busy || !manage} onChange={(e) => patch({ contacted: e.target.checked })} />
           Customer contacted{b.contactedAt && <span className="text-xs text-slate-400">· {formatLondonDateTime(b.contactedAt)}</span>}
         </label>
       </Section>
@@ -191,7 +196,7 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
             <p className="font-semibold text-slate-900 dark:text-white">{formatLondonDateTime(b.scheduledAt)}</p>
             <p className="text-sm text-slate-500 dark:text-slate-400">{b.durationMins ?? 60} min{b.durationMins === null && " (default)"}</p>
           </div>
-          {(b.status === "PENDING" || b.status === "CONFIRMED" || b.status === "IN_PROGRESS") && mode !== "reschedule" && (
+          {manage && (b.status === "PENDING" || b.status === "CONFIRMED" || b.status === "IN_PROGRESS") && mode !== "reschedule" && (
             <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setMode("reschedule")}>
               <CalendarClock className="h-4 w-4" /> Reschedule
             </Button>
@@ -201,22 +206,27 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
 
         <div className="mt-4">
           <FieldLabel htmlFor="drawer-tech">Technician</FieldLabel>
-          <NativeSelect id="drawer-tech" value={b.technician?.id ?? ""} disabled={busy} onChange={(e) => patch({ technicianId: e.target.value || null }, "Technician updated")}>
-            <option value="">Unassigned</option>
-            {technicians.filter((t) => t.isActive || t.id === b.technician?.id).map((t) => (
-              <option key={t.id} value={t.id}>{t.name}{t.isActive ? "" : " (inactive)"}</option>
-            ))}
-          </NativeSelect>
+          {manage ? (
+            <NativeSelect id="drawer-tech" value={b.technician?.id ?? ""} disabled={busy} onChange={(e) => patch({ technicianId: e.target.value || null }, "Technician updated")}>
+              <option value="">Unassigned</option>
+              {technicians.filter((t) => t.isActive || t.id === b.technician?.id).map((t) => (
+                <option key={t.id} value={t.id}>{t.name}{t.isActive ? "" : " (inactive)"}</option>
+              ))}
+            </NativeSelect>
+          ) : (
+            <p id="drawer-tech" className="text-sm text-slate-700 dark:text-slate-300">{b.technician?.name ?? "Unassigned"}</p>
+          )}
         </div>
       </Section>
 
       {/* Money */}
-      <MoneySection b={b} busy={busy} patch={patch} />
+      <MoneySection b={b} busy={busy} patch={patch} editable={manage} />
 
       {/* Notes */}
       <NotesSection key={b.notes ?? ""} b={b} busy={busy} patch={patch} />
 
       {/* Messages */}
+      {can("messages.view") && (
       <Section title="Messages">
         {b.hasOwner && userId ? (
           showThread ? (
@@ -230,6 +240,7 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
           <p className="text-sm text-slate-500 dark:text-slate-400">This customer doesn&apos;t have a Quote My Garage account, so in-app messaging isn&apos;t available — contact them by phone or email above.</p>
         )}
       </Section>
+      )}
 
       {/* Review */}
       {b.paymentStatus !== "NONE" && (
@@ -242,7 +253,7 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
         </Section>
       )}
 
-      {b.status === "COMPLETED" && (
+      {b.status === "COMPLETED" && can("invoices.issue") && (
         <Section title="Invoice">
           <InvoiceSection booking={b} onChanged={() => { reload(); onChanged() }} />
         </Section>
@@ -280,8 +291,8 @@ function DrawerBody({ bookingId, onChanged, technicians }: { bookingId: string; 
 type PatchFn = (body: Record<string, unknown>, successMessage?: string) => Promise<boolean>
 
 function StatusActions({
-  b, busy, startsInPast, mode, setMode, patch,
-}: { b: BookingDetail; busy: boolean; startsInPast: boolean; mode: Mode; setMode: (m: Mode) => void; patch: PatchFn }) {
+  b, busy, startsInPast, mode, setMode, patch, manage,
+}: { b: BookingDetail; busy: boolean; startsInPast: boolean; mode: Mode; setMode: (m: Mode) => void; patch: PatchFn; manage: boolean }) {
   const [fiv, setFiv] = useState(String(b.totalPrice))
   const [reason, setReason] = useState("")
 
@@ -289,12 +300,14 @@ function StatusActions({
   const add = (key: string, label: string, onClick: () => void, variant: "primary" | "secondary" | "destructive" = "secondary") =>
     buttons.push(<Button key={key} size="sm" variant={variant} disabled={busy} onClick={onClick}>{label}</Button>)
 
-  if (b.status === "PENDING") add("confirm", "Confirm booking", () => patch({ status: "CONFIRMED" }, "Booking confirmed"), "primary")
+  // Confirming, cancelling and reinstating decide what the customer is told, so they stay with whoever manages bookings.
+  if (b.status === "PENDING" && manage) add("confirm", "Confirm booking", () => patch({ status: "CONFIRMED" }, "Booking confirmed"), "primary")
   if (b.status === "CONFIRMED") add("start", "Start job", () => patch({ status: "IN_PROGRESS" }, "Job started"), "primary")
-  if (b.status === "CONFIRMED" || b.status === "IN_PROGRESS") add("complete", "Mark complete", () => setMode("complete"), b.status === "IN_PROGRESS" ? "primary" : "secondary")
+  // Managers record the final invoice value when they finish a job; someone updating only their own jobs just finishes it.
+  if (b.status === "CONFIRMED" || b.status === "IN_PROGRESS") add("complete", "Mark complete", () => (manage ? setMode("complete") : patch({ status: "COMPLETED" }, "Job completed")), b.status === "IN_PROGRESS" ? "primary" : "secondary")
   if ((b.status === "PENDING" || b.status === "CONFIRMED") && startsInPast) add("noshow", "No show", () => patch({ status: "NO_SHOW" }, "Marked as no-show"))
-  if (b.status === "PENDING" || b.status === "CONFIRMED" || b.status === "IN_PROGRESS") add("cancel", "Cancel booking", () => setMode("cancel"), "destructive")
-  if (b.status === "CANCELLED") add("reinstate", "Reinstate booking", () => patch({ status: "PENDING" }, "Booking reinstated"), "primary")
+  if (manage && (b.status === "PENDING" || b.status === "CONFIRMED" || b.status === "IN_PROGRESS")) add("cancel", "Cancel booking", () => setMode("cancel"), "destructive")
+  if (manage && b.status === "CANCELLED") add("reinstate", "Reinstate booking", () => patch({ status: "PENDING" }, "Booking reinstated"), "primary")
 
   if (buttons.length === 0) return null
 
@@ -366,7 +379,7 @@ function ReschedulePanel({
   )
 }
 
-function MoneySection({ b, busy, patch }: { b: BookingDetail; busy: boolean; patch: PatchFn }) {
+function MoneySection({ b, busy, patch, editable }: { b: BookingDetail; busy: boolean; patch: PatchFn; editable: boolean }) {
   const [fiv, setFiv] = useState(b.finalInvoiceValue === null ? "" : String(b.finalInvoiceValue))
   const dirty = fiv !== (b.finalInvoiceValue === null ? "" : String(b.finalInvoiceValue))
 
@@ -376,7 +389,7 @@ function MoneySection({ b, busy, patch }: { b: BookingDetail; busy: boolean; pat
         <span className="text-sm text-slate-500 dark:text-slate-400">Quoted / booked price</span>
         <span className="font-semibold text-slate-900 dark:text-white">{formatCurrency(b.totalPrice)}</span>
       </div>
-      {b.status === "COMPLETED" && (
+      {b.status === "COMPLETED" && editable && (
         <div className="mt-3 flex items-end gap-2">
           <div className="flex-1">
             <FieldLabel htmlFor="drawer-fiv">Final invoice value (£)</FieldLabel>

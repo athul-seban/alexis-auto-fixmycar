@@ -28,6 +28,7 @@ const valid = (n: string, over: Record<string, unknown> = {}) => ({
 })
 
 async function cleanup() {
+  await prisma.garage.deleteMany({ where: { name: { startsWith: PREFIX } } }) // a garage outlives its login (SetNull)
   await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } })
   await prisma.organisation.deleteMany({ where: { name: { startsWith: PREFIX } } })
 }

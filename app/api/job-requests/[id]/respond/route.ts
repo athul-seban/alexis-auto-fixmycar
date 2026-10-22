@@ -12,6 +12,8 @@ import { expireDueRequests } from "@/lib/portal/quote-request-service"
 import { forbidden } from "@/lib/garage-auth"
 import { can } from "@/lib/org/access"
 import { garageFailureResponse, resolveActiveGarage } from "@/lib/org/resolve"
+import { canBusinessAnswer, wonTheLead } from "@/lib/org/lead-routing"
+import { getBilling, locationIdsOf } from "@/lib/org/billing"
 import { z } from "zod"
 
 // Upper bound for any single amount a garage can quote: well above any real repair, low enough to stop absurd values.
@@ -58,6 +60,9 @@ export async function POST(req: Request, props: Params) {
     if (!jobMatchesGarage(jobRequest, garage)) {
       return NextResponse.json({ error: "This job isn't in your area or services" }, { status: 403 })
     }
+    // One lead per business: not if another location has answered, or if another location is the one to handle it.
+    const business = await canBusinessAnswer(jobRequest, garage, (g) => jobMatchesGarage(jobRequest, g))
+    if (!business.ok) return NextResponse.json({ error: business.message, code: business.reason }, { status: business.reason === "BUSINESS_ANSWERED" ? 409 : 403 })
 
     if (jobRequest.status === "EXPIRED") {
       return NextResponse.json({ error: "The time to send a quote for this request has passed", code: "EXPIRED" }, { status: 409 })
@@ -82,9 +87,11 @@ export async function POST(req: Request, props: Params) {
     const validUntil = new Date()
     validUntil.setDate(validUntil.getDate() + data.validDays)
 
-    // Plan limits (a no-op until PLANS_ENFORCED=true): past the monthly allowance a lead costs one credit.
-    const usedThisMonth = await prisma.jobResponse.count({ where: { garageId: garage.id, createdAt: { gte: monthStart(new Date()) } } })
-    const decision = leadDecision(garage, usedThisMonth)
+    // Plan limits (a no-op until PLANS_ENFORCED=true): past the monthly allowance a lead costs one credit. The plan, the
+    // allowance and the credits belong to the BUSINESS, so answers from all its locations count towards one allowance.
+    const [billing, locationIds] = await Promise.all([getBilling(garage.id), locationIdsOf(garage.id)])
+    const usedThisMonth = await prisma.jobResponse.count({ where: { garageId: { in: locationIds }, createdAt: { gte: monthStart(new Date()) } } })
+    const decision = leadDecision(billing, usedThisMonth)
     if (!decision.allowed) {
       return NextResponse.json(
         { error: "You've used this month's leads for your plan. Buy lead credits or upgrade to answer more.", code: "LEAD_LIMIT" },
@@ -115,6 +122,14 @@ export async function POST(req: Request, props: Params) {
     } catch (err) {
       if (spentCredit) await refundLeadCredit(garage.id, jobRequest.id).catch(() => {})
       throw err
+    }
+
+    // Two locations of one business can answer at the same moment and both pass the check above. The earliest answer
+    // wins; the other is withdrawn and its credit given back, so the customer hears from the business once.
+    if (!(await wonTheLead(jobRequest.id, garage))) {
+      await prisma.jobResponse.delete({ where: { id: jobResponse.id } }).catch(() => {})
+      if (spentCredit) await refundLeadCredit(garage.id, jobRequest.id).catch(() => {})
+      return NextResponse.json({ error: "Another location of your business has already answered this request.", code: "BUSINESS_ANSWERED" }, { status: 409 })
     }
 
     // Running average of how quickly this garage answers, used to rank garages (see src/lib/ranking.ts).
