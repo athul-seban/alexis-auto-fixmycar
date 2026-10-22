@@ -5,11 +5,14 @@ import { loadRescheduleContext } from "@/lib/portal/customer-reschedule"
 import { handleRouteError } from "@/lib/portal/route-errors"
 import { isValidDateString } from "@/lib/portal/tz"
 import { loadByToken } from "@/lib/portal/booking-token"
+import { limitByIp } from "@/lib/rate-limit"
 
 const querySchema = z.object({ date: z.string().refine(isValidDateString, "date must be YYYY-MM-DD") })
 
 // Token-authenticated: times this customer could move their booking to on one day.
 export async function GET(req: Request, props: { params: Promise<{ token: string }> }) {
+  const limited = await limitByIp(req.headers, "booking-slots", 120, 60_000)
+  if (limited) return limited
   try {
     const { token } = await props.params
     const parsed = querySchema.safeParse({ date: new URL(req.url).searchParams.get("date") })

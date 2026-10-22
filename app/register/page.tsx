@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { ConsentNotice } from "@/components/shared/ConsentNotice"
 import { Input } from "@/components/ui/input"
 import { isValidUkMobile } from "@/lib/portal/phone"
+import { errorMessage } from "@/lib/errors"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -63,8 +64,8 @@ export default function RegisterPage() {
 
       setSuccess(true)
       setTimeout(() => router.push("/login"), 2000)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(errorMessage(err))
     } finally {
       setLoading(false)
     }

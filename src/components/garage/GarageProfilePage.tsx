@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { RemoteImage } from "@/components/ui/remote-image"
 import { useSession } from "next-auth/react"
 import {
   MapPin, Star, Shield, Phone, Mail, Globe, Car,
@@ -65,8 +66,7 @@ export function GarageProfilePage({ garage, initialService, initialReg }: Props)
           <div className="flex flex-col sm:flex-row gap-5 items-start">
             <div className="w-20 h-20 rounded-xl bg-white flex items-center justify-center text-[#1E3A5F] font-bold text-2xl flex-shrink-0 overflow-hidden">
               {garage.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={garage.logo} alt={garage.name} className="w-full h-full object-cover" />
+                <RemoteImage src={garage.logo} alt={garage.name} width={160} height={160} sizes="80px" className="w-full h-full object-cover" priority />
               ) : (
                 garage.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2)
               )}
@@ -141,8 +141,7 @@ export function GarageProfilePage({ garage, initialService, initialReg }: Props)
             {garage.images.length > 0 && (
               <div className="grid grid-cols-3 gap-2 mb-6">
                 {garage.images.slice(0, 6).map((img, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={img} alt={`${garage.name} photo ${i + 1}`} className="w-full h-28 object-cover rounded-lg" />
+                  <RemoteImage key={i} src={img} alt={`${garage.name} photo ${i + 1}`} width={480} height={224} sizes="(min-width: 1024px) 22vw, 30vw" className="w-full h-28 object-cover rounded-lg" />
                 ))}
               </div>
             )}

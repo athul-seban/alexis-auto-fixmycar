@@ -5,6 +5,8 @@
 // Idempotent: every row has an id starting "dx-" and is upserted.
 import { PrismaClient } from "@prisma/client"
 import bcrypt from "bcryptjs"
+import { defaultContent } from "../src/lib/site/content"
+import { DEFAULT_THEME } from "../src/lib/site/theme"
 
 const DAY = 24 * 60 * 60 * 1000
 const days = (n: number, hour = 10) => {
@@ -197,5 +199,37 @@ export async function seedDemoExtra(prisma: PrismaClient) {
     })
   }
 
-  console.log(`✅ Seeded extra demo data: ${OWNERS.length} owners, ${VEHICLES.length} vehicles, ${bookings.length} bookings, ${reviews.length} reviews, ${quotes.length} quotes, ${messages.length} messages, ${enquiries.length} enquiries (owner logins: owner123)`)
+  // A live demo website for Premier (premier-demo.<root domain>), so the tenant e2e spec has a published site to visit and
+  // anyone can see the feature locally. Only created when the business has no site yet, so it never touches one someone built.
+  let demoSite = false
+  if (premier.organisationId) {
+    const existing = await prisma.organisationSite.findUnique({ where: { organisationId: premier.organisationId }, select: { id: true } })
+    if (!existing) {
+      const content = defaultContent(premier.name)
+      content.hero.headline = "MOTs and repairs, done properly"
+      content.about.body = "Family run since 1984. We **explain** every job before we start, and we never carry out work you haven't agreed to."
+      const published = JSON.stringify(content)
+      const theme = JSON.stringify(DEFAULT_THEME)
+      const now = new Date()
+      await prisma.organisationSite.create({
+        data: {
+          id: "dx-site-1",
+          organisationId: premier.organisationId,
+          status: "PUBLISHED",
+          theme,
+          content: published,
+          draftTheme: theme,
+          draftContent: published,
+          submittedAt: now,
+          approvedAt: now,
+          publishedAt: now,
+          domains: { create: { id: "dx-site-domain-1", host: "premier-demo", kind: "SUBDOMAIN", status: "ACTIVE" } },
+          revisions: { create: { id: "dx-site-rev-1", version: 1, theme, content: published, note: "Approved by Quote My Garage" } },
+        },
+      })
+      demoSite = true
+    }
+  }
+
+  console.log(`✅ Seeded extra demo data: ${OWNERS.length} owners, ${VEHICLES.length} vehicles, ${bookings.length} bookings, ${reviews.length} reviews, ${quotes.length} quotes, ${messages.length} messages, ${enquiries.length} enquiries${demoSite ? ", a demo website at premier-demo.<root domain>" : ""} (owner logins: owner123)`)
 }

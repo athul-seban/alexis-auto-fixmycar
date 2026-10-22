@@ -167,6 +167,40 @@ describe("permission on every garage route", () => {
   })
 })
 
+describe("admin routes", () => {
+  const routes = walk(path.join(ROOT, "app/api/admin")).filter((f) => f.endsWith("route.ts"))
+
+  it("every handler in /api/admin authorises through requireAdmin (a new admin route can't forget its guard)", () => {
+    expect(routes.length).toBeGreaterThan(15)
+    const problems = routes.flatMap((f) => {
+      const src = read(f)
+      const handlers = (src.match(/^export (?:async )?function (?:GET|POST|PUT|PATCH|DELETE)\b/gm) ?? []).length
+      const guards = (src.match(/await requireAdmin\(/g) ?? []).length
+      return handlers === 0 || guards < handlers ? [`${rel(f)}: ${handlers} handler(s), ${guards} requireAdmin call(s)`] : []
+    })
+    expect(problems).toEqual([])
+  })
+
+  it("only the routes that need a super admin ask for one (settings, inviting a garage owner, and nothing else by accident)", () => {
+    const superOnly = routes.filter((f) => /requireAdmin\(\{\s*superOnly:\s*true\s*\}\)/.test(read(f))).map(rel).sort()
+    expect(superOnly).toEqual(["app/api/admin/garages/invite/route.ts", "app/api/admin/settings/route.ts"])
+  })
+})
+
+describe("page metadata", () => {
+  it("every top-level page sets its own title (a client page does it from a sibling layout.tsx, as it can't export metadata)", () => {
+    const dirs = fs.readdirSync(path.join(ROOT, "app"), { withFileTypes: true }).filter((d) => d.isDirectory())
+    const missing = dirs.flatMap((d) => {
+      const page = path.join(ROOT, "app", d.name, "page.tsx")
+      if (!fs.existsSync(page)) return []
+      const layout = path.join(ROOT, "app", d.name, "layout.tsx")
+      const source = read(page) + (fs.existsSync(layout) ? read(layout) : "")
+      return /export const metadata\b|export (?:async )?function generateMetadata\b/.test(source) ? [] : [`app/${d.name}`]
+    })
+    expect(missing).toEqual([])
+  })
+})
+
 describe("tests that share the database", () => {
   it("each file has its own fixture prefix (cleanupPrefix deletes every row under it, so a shared one wipes another file's data mid-run)", () => {
     const testFiles = [...walk(path.join(ROOT, "app")), ...walk(path.join(ROOT, "src"))].filter((f) => /\.test\.ts$/.test(f))

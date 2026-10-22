@@ -7,6 +7,7 @@ import { notifyGarage } from "@/lib/notifications"
 import { emailGarage } from "@/lib/portal/garage-email"
 import { garageLinks } from "@/lib/portal/links"
 import { handleRouteError } from "@/lib/portal/route-errors"
+import { limitByIp } from "@/lib/rate-limit"
 import { z } from "zod"
 
 const acceptSchema = z.object({
@@ -19,6 +20,9 @@ interface Params {
 
 export async function POST(req: Request, props: Params) {
   const params = await props.params
+  // Accepting creates a booking and sends emails: a handful of attempts is plenty for a real customer.
+  const limited = await limitByIp(req.headers, "job-accept", 20, 10 * 60_000)
+  if (limited) return limited
   try {
     const body = await req.json()
     const { jobResponseId } = acceptSchema.parse(body)

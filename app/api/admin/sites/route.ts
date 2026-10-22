@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { requireAdmin } from "@/lib/admin-auth"
 import { handleRouteError } from "@/lib/portal/route-errors"
-import { isAdmin } from "@/lib/roles"
 import { SITE_STATUSES, applySiteAction, listSites, siteActionSchema } from "@/lib/site/site-admin"
-
-async function requireAdmin() {
-  const session = await getServerSession(authOptions)
-  return session && isAdmin((session.user as { role?: string }).role) ? session : null
-}
 
 /** Business websites by status (default: waiting for review), with search and paging. */
 export async function GET(req: Request) {
-  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
   const sp = new URL(req.url).searchParams
   const asked = sp.get("status") ?? "PENDING_REVIEW"
   const status = (SITE_STATUSES as readonly string[]).includes(asked) ? asked : "PENDING_REVIEW"
@@ -27,11 +21,11 @@ export async function GET(req: Request) {
 
 /** Approve a first publish, send it back with a reason, or switch a site off or back on. */
 export async function POST(req: Request) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
   try {
     const input = siteActionSchema.parse(await req.json().catch(() => null))
-    const site = await applySiteAction(session, (session.user as { id?: string }).id ?? null, input)
+    const site = await applySiteAction(auth.session, auth.user.id, input)
     return NextResponse.json({ site })
   } catch (err) {
     return handleRouteError(err, "Admin sites POST")

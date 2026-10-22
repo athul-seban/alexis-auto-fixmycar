@@ -1,19 +1,13 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
+import { requireAdmin } from "@/lib/admin-auth"
+import { errorCode } from "@/lib/errors"
 import { articleInputSchema } from "@/lib/article-input"
-import { isAdmin } from "@/lib/roles"
-
-async function adminId() {
-  const session = await getServerSession(authOptions)
-  const user = session?.user as { id?: string; role?: string } | undefined
-  return isAdmin(user?.role) ? (user?.id ?? null) : null
-}
 
 export async function GET(req: Request) {
-  if (!(await adminId())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
 
   const sp = new URL(req.url).searchParams
   const status = sp.get("status")
@@ -46,18 +40,18 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const id = await adminId()
-  if (!id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
 
   try {
     const data = articleInputSchema.parse(await req.json())
     const article = await prisma.article.create({
-      data: { ...data, authorId: id, publishedAt: data.status === "PUBLISHED" ? new Date() : null },
+      data: { ...data, authorId: auth.user.id, publishedAt: data.status === "PUBLISHED" ? new Date() : null },
     })
     return NextResponse.json({ article }, { status: 201 })
   } catch (err) {
     if (err instanceof z.ZodError) return NextResponse.json({ error: err.issues[0]?.message ?? "Invalid data" }, { status: 400 })
-    if ((err as { code?: string })?.code === "P2002") return NextResponse.json({ error: "Another article already uses that web address" }, { status: 409 })
+    if (errorCode(err) === "P2002") return NextResponse.json({ error: "Another article already uses that web address" }, { status: 409 })
     console.error("Admin articles POST error:", err)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

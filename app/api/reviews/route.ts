@@ -1,19 +1,20 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { handleRouteError } from "@/lib/portal/route-errors"
 import { reviewInputSchema, submitReview } from "@/lib/portal/review-service"
 import { z } from "zod"
+import { requireSession } from "@/lib/session"
+import { limitByKey } from "@/lib/rate-limit"
 
 const createSchema = reviewInputSchema.extend({ bookingId: z.string() })
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
   if (user.role !== "OWNER") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const limited = await limitByKey("reviews", user.id, 20, 10 * 60_000)
+  if (limited) return limited
 
   try {
     const { bookingId, ...input } = createSchema.parse(await req.json())

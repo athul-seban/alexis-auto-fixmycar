@@ -24,5 +24,8 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: true,
     timeout: process.env.CI ? 300_000 : 120_000,
+    // Business websites answer on <name>.localhost, which tenant.spec.ts visits. (NEXT_PUBLIC_ is read at build time, and
+    // plain localhost is still the marketplace.) A dev server that is already running without it makes that spec skip itself.
+    env: { NEXT_PUBLIC_ROOT_DOMAIN: "localhost" },
   },
 })

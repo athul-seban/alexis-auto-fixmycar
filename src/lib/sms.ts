@@ -2,6 +2,8 @@
 // dependency list short. Like src/lib/mail.ts it has a dev fallback: with no credentials a send is logged and
 // reported as skipped, so local development and CI never need an account and never text real people.
 
+import { logger, maskPhone } from "@/lib/log"
+
 export interface SendSmsInput {
   /** E.164, e.g. +447700900123 */
   to: string
@@ -20,7 +22,8 @@ export const smsConfigured = () => Boolean(process.env.TWILIO_ACCOUNT_SID && pro
 export async function sendSms({ to, body }: SendSmsInput): Promise<SendSmsResult> {
   const { TWILIO_ACCOUNT_SID: sid, TWILIO_AUTH_TOKEN: token, TWILIO_FROM: from, TWILIO_MESSAGING_SERVICE_SID: service } = process.env
   if (!sid || !token || (!from && !service)) {
-    console.log("[sms:dev-fallback]", to, body)
+    // The text can hold a customer's name and a private link, so outside development only the fact it was skipped is logged.
+    logger.info("sms.skipped", { reason: "no provider configured", to: maskPhone(to), ...(process.env.NODE_ENV === "production" ? {} : { body }) })
     return { success: false, skipped: true }
   }
 

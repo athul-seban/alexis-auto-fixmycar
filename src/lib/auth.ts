@@ -1,4 +1,5 @@
 import { NextAuthOptions } from "next-auth"
+import type { Adapter } from "next-auth/adapters"
 import { limitByIp } from "@/lib/rate-limit"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
@@ -14,7 +15,8 @@ const SESSION_RECHECK_MS = 60 * 1000
 const DUMMY_HASH = "$2a$12$z2Na007PQkdOFVDB.QJfzeJglxw2nsqLGvbMvD9hWxLB1uDwLeScu"
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as any,
+  // @auth/prisma-adapter is typed against the next-auth v5 adapter interface; the v4 `Adapter` is structurally the same.
+  adapter: PrismaAdapter(prisma) as Adapter,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
@@ -98,7 +100,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, trigger }) {
       if (user) {
-        token.role = (user as any).role
+        token.role = user.role
         token.id = user.id
       }
       if (token.id) {

@@ -15,6 +15,15 @@ const config = [
       "react-hooks/set-state-in-effect": "warn",
     },
   },
+  {
+    // Production code is `any`-free: a thrown value is `unknown` (see src/lib/errors.ts), a session user is typed
+    // (src/types/next-auth.d.ts, src/lib/session.ts) and Prisma inputs have generated types. Tests may still cast a mock.
+    files: ["app/**/*.{ts,tsx}", "src/**/*.{ts,tsx}", "proxy.ts"],
+    ignores: ["**/*.test.{ts,tsx}", "src/test/**"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+    },
+  },
 ]
 
 export default config

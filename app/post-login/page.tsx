@@ -14,7 +14,7 @@ export default async function PostLoginPage({
   const session = await getServerSession(authOptions)
   if (!session) redirect("/login")
 
-  const role = (session.user as any).role as string | undefined
+  const role = session.user?.role
   const { next } = await searchParams
   const target = safeCallbackUrl(next)
 

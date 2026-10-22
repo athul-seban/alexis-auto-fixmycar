@@ -4,6 +4,7 @@ import Link from "next/link"
 import { MapPin, Star, Shield, Clock, ChevronRight, Car, GitCompareArrows, CheckSquare, Megaphone, ThumbsUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { RemoteImage } from "@/components/ui/remote-image"
 import { getServiceLabel } from "@/lib/utils"
 import { responseTimeLabel } from "@/lib/response-time"
 import { useCompare } from "@/context/CompareContext"
@@ -70,9 +71,12 @@ export function GarageCard({ garage, distance, service, reg }: GarageCardProps) 
         <div className="flex gap-4">
           {/* Avatar / Logo */}
           {garage.logo ? (
-            <img
+            <RemoteImage
               src={garage.logo}
               alt={garage.name}
+              width={128}
+              height={128}
+              sizes="64px"
               className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
             />
           ) : (

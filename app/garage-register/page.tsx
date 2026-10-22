@@ -10,6 +10,7 @@ import { ConsentNotice } from "@/components/shared/ConsentNotice"
 import { SEARCH_SERVICE_OPTIONS } from "@/lib/service-options"
 import { isValidUkMobile, isValidUkPhone } from "@/lib/portal/phone"
 import { isValidUkVat } from "@/lib/portal/vat"
+import { errorMessage } from "@/lib/errors"
 
 const serviceOptions = SEARCH_SERVICE_OPTIONS
 
@@ -74,8 +75,8 @@ export default function GarageRegisterPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Registration failed")
       setSuccess(true)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(errorMessage(err))
     } finally {
       setLoading(false)
     }

@@ -10,6 +10,7 @@ import { buildGarageCompareRows, GarageCompareColumnHeader } from "@/components/
 import { useCompare } from "@/context/CompareContext"
 import { MAX_COMPARE_GARAGES } from "@/lib/constants"
 import type { GarageProfile } from "@/types"
+import { errorMessage, isAbortError } from "@/lib/errors"
 
 export function CompareView() {
   const searchParams = useSearchParams()
@@ -47,8 +48,8 @@ export function CompareView() {
         missing.forEach((id) => removeFromContext(id))
         setMissingCount(missing.length)
         setGarages(returned)
-      } catch (err: any) {
-        if (err.name !== "AbortError") setError(err.message ?? "Failed to load garages")
+      } catch (err) {
+        if (!isAbortError(err)) setError(errorMessage(err, "Failed to load garages"))
       } finally {
         setLoading(false)
       }

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { notifyGarage, notifyUser } from "@/lib/notifications"
 import { absoluteUrl, garageLinks } from "@/lib/portal/links"
 import { emailGarage } from "@/lib/portal/garage-email"
@@ -17,6 +15,8 @@ import { can } from "@/lib/org/access"
 import { garageFailureResponse, resolveActiveGarage } from "@/lib/org/resolve"
 import { z } from "zod"
 import { SERVICE_TYPES } from "@/lib/constants"
+import { requireSession } from "@/lib/session"
+import { limitByKey } from "@/lib/rate-limit"
 
 // Upper bound for any single amount a garage can quote: well above any real repair, low enough to stop absurd values.
 const MAX_AMOUNT = 100_000
@@ -42,10 +42,9 @@ const respondSchema = z.object({
 })
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
   const { searchParams } = new URL(req.url)
   const role = user.role
 
@@ -88,10 +87,12 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
+  // Requests and replies both email the other side.
+  const limited = await limitByKey("quotes", user.id, 60, 10 * 60_000)
+  if (limited) return limited
   // Parsed before the try (which maps errors to 500s), and a malformed body is the caller's mistake: 400, not a crash.
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
@@ -118,7 +119,7 @@ export async function POST(req: Request) {
           ownerId: user.id,
           vehicleId: data.vehicleId,
           garageId: data.garageId,
-          serviceType: data.serviceType as any,
+          serviceType: data.serviceType,
           description: data.description,
           status: "PENDING",
           services: JSON.stringify(works),
@@ -168,7 +169,7 @@ export async function POST(req: Request) {
         where: { id: data.quoteId, garageId: garage.id },
       })
       if (!quote) return NextResponse.json({ error: "Quote not found" }, { status: 404 })
-      // A request can be quoted (or re-quoted while still open) — not once it's accepted, declined or expired.
+      // A request can be quoted (or re-quoted while still open) â€” not once it's accepted, declined or expired.
       if (quote.status !== "PENDING" && quote.status !== "SENT") {
         return NextResponse.json({ error: `This request is ${quote.status.toLowerCase()} and can no longer be quoted` }, { status: 409 })
       }
@@ -197,7 +198,7 @@ export async function POST(req: Request) {
         userId: quote.ownerId,
         type: "QUOTE_RESPONDED",
         title: `${garage.name} sent you a quote`,
-        body: `Quoted £${price.toFixed(2)} for your ${parseWorks(quote.services, quote.serviceType).map(getServiceLabel).join(", ")} request`,
+        body: `Quoted Â£${price.toFixed(2)} for your ${parseWorks(quote.services, quote.serviceType).map(getServiceLabel).join(", ")} request`,
         link: `/dashboard?quote=${quote.id}`,
       })
       const quoteOwner = await prisma.user.findUnique({ where: { id: quote.ownerId }, select: { name: true, email: true, emailNotifications: true } })

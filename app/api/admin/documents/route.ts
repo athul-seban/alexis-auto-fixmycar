@@ -1,23 +1,17 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
+import { requireAdmin } from "@/lib/admin-auth"
 import { audit } from "@/lib/audit"
 import { notifyGarage } from "@/lib/notifications"
 import { garageLinks } from "@/lib/portal/links"
 import { DOCUMENT_KIND_LABELS, isDocumentKind } from "@/lib/garage-documents"
-import { isAdmin } from "@/lib/roles"
 
 const STATUSES = ["PENDING", "APPROVED", "REJECTED"]
 
-async function adminSession() {
-  const session = await getServerSession(authOptions)
-  return session && isAdmin((session.user as { role?: string }).role) ? session : null
-}
-
 export async function GET(req: Request) {
-  if (!(await adminSession())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
 
   const sp = new URL(req.url).searchParams
   const status = sp.get("status")
@@ -70,8 +64,9 @@ const decisionSchema = z.object({
 })
 
 export async function PATCH(req: Request) {
-  const session = await adminSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   try {
     const { documentId, decision, note } = decisionSchema.parse(await req.json())

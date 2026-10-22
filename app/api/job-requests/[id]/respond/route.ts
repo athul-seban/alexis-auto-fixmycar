@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { sendMail } from "@/lib/mail"
 import { jobResponseGuestNotification } from "@/lib/email-templates"
 import { jobMatchesGarage } from "@/lib/job-matching"
@@ -15,6 +13,8 @@ import { garageFailureResponse, resolveActiveGarage } from "@/lib/org/resolve"
 import { canBusinessAnswer, wonTheLead } from "@/lib/org/lead-routing"
 import { getBilling, locationIdsOf } from "@/lib/org/billing"
 import { z } from "zod"
+import { requireSession } from "@/lib/session"
+import { errorCode } from "@/lib/errors"
 
 // Upper bound for any single amount a garage can quote: well above any real repair, low enough to stop absurd values.
 const MAX_AMOUNT = 100_000
@@ -35,10 +35,9 @@ interface Params {
 
 export async function POST(req: Request, props: Params) {
   const params = await props.params;
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
   if (user.role !== "GARAGE") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {
@@ -154,11 +153,11 @@ export async function POST(req: Request, props: Params) {
     })
 
     return NextResponse.json({ jobResponse }, { status: 201 })
-  } catch (err: any) {
+  } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid data", details: err.errors }, { status: 400 })
     }
-    if (err?.code === "P2002") {
+    if (errorCode(err) === "P2002") {
       return NextResponse.json({ error: "You've already responded to this job request" }, { status: 409 })
     }
     console.error("Job response POST error:", err)

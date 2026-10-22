@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { expireDueRequests } from "@/lib/portal/quote-request-service"
+import { limitByIp } from "@/lib/rate-limit"
 
 interface Params {
   params: Promise<{ token: string }>
 }
 
-export async function GET(_req: Request, props: Params) {
+export async function GET(req: Request, props: Params) {
   const params = await props.params;
+  // The tracking page polls, so the allowance is generous; it exists to stop token guessing, not to slow a customer down.
+  const limited = await limitByIp(req.headers, "job-track", 120, 60_000)
+  if (limited) return limited
   try {
     const found = await prisma.jobRequest.findUnique({ where: { token: params.token }, select: { id: true } })
     if (found) await expireDueRequests({ jobId: found.id })

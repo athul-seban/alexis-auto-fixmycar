@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { notFound } from "next/navigation"
 import { cache } from "react"
 import { Header } from "@/components/layout/Header"
 import { Footer } from "@/components/layout/Footer"
@@ -46,32 +47,31 @@ export default async function GaragePage(props: Props) {
   const { id } = await props.params
   const query = (await props.searchParams) ?? {}
   const garage = await loadGarage(id)
+  // A garage that doesn't exist (or isn't approved) is a real 404, not a 200 page saying "not found": search engines drop a 404
+  // but index a thin 200 shell. (generateMetadata above also marks it noindex.)
+  if (!garage) notFound()
   // Plain data for the client component (dates become strings, exactly as the JSON API returns them).
-  const profile = garage ? JSON.parse(JSON.stringify(await getPublicGarage(id))) : null
+  const profile = JSON.parse(JSON.stringify(await getPublicGarage(id)))
 
   return (
     <>
-      {garage && (
-        <>
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: jsonLdString(garageJsonLd(garage, parseImageList(garage.images))) }}
-          />
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{
-              __html: jsonLdString(
-                breadcrumbJsonLd([
-                  { name: "Home", path: "/" },
-                  { name: "Garages", path: "/garages" },
-                  ...(slugify(garage.city) ? [{ name: garage.city, path: `/garages/${slugify(garage.city)}` }] : []),
-                  { name: garage.name, path: `/garage/${garage.slug}` },
-                ]),
-              ),
-            }}
-          />
-        </>
-      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdString(garageJsonLd(garage, parseImageList(garage.images))) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLdString(
+            breadcrumbJsonLd([
+              { name: "Home", path: "/" },
+              { name: "Garages", path: "/garages" },
+              ...(slugify(garage.city) ? [{ name: garage.city, path: `/garages/${slugify(garage.city)}` }] : []),
+              { name: garage.name, path: `/garage/${garage.slug}` },
+            ]),
+          ),
+        }}
+      />
       <Header />
       <main className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950">
         <GarageProfilePage

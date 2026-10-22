@@ -18,7 +18,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -26,6 +26,17 @@ jobs:
 
       - name: Generate Prisma client
         run: npx prisma generate
+
+      # Both schema files must be valid (the production one is what `prisma db push` applies to Postgres) and identical in
+      # content: src/lib/schema-parity.test.ts, run below, enforces that.
+      - name: Validate Prisma schemas
+        run: |
+          npx prisma validate
+          DATABASE_URL="postgresql://u:p@localhost:5432/x" npx prisma validate --schema=prisma/schema.prod.prisma
+
+      # Known-vulnerable runtime dependencies fail the build. (Dev tooling is excluded: it never ships.)
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Lint
         run: npm run lint
@@ -38,6 +49,27 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # A pull request may only change the production schema additively: the database is real and is changed with
+  # `prisma db push`, so a dropped column or a changed type would lose data. See scripts/schema-safety.mjs.
+  schema-safety:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Compare the production schema with the base branch
+        run: node scripts/schema-safety.mjs "origin/${{ github.base_ref }}"
 
   # Browser tests (desktop + mobile) against the dev server and the seeded demo data.
   e2e:
@@ -52,7 +84,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -110,7 +142,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies

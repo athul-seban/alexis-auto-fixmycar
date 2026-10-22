@@ -1,12 +1,12 @@
 import crypto from "crypto"
 import { audit } from "@/lib/audit"
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { sendMail } from "@/lib/mail"
 import { z } from "zod"
 import { ROLES, isAdmin, isSuperAdmin } from "@/lib/roles"
+import { requireAdmin } from "@/lib/admin-auth"
+import { errorCode } from "@/lib/errors"
 
 const updateSchema = z.object({
   userId: z.string(),
@@ -32,10 +32,8 @@ const actionSchema = z.object({
 })
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session || !isAdmin((session.user as any).role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
 
   const { searchParams } = new URL(req.url)
   const role = searchParams.get("role")
@@ -88,12 +86,11 @@ export async function GET(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session || !isAdmin((session.user as any).role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-  const adminId = (session.user as any).id
-  const actorRole = (session.user as any).role as string
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
+  const { session, user: admin } = auth
+  const adminId = admin.id
+  const actorRole = admin.role
 
   try {
     const body = await req.json()
@@ -135,16 +132,15 @@ export async function PATCH(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session || !isAdmin((session.user as any).role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   try {
     const body = await req.json()
     const { userId } = actionSchema.parse(body)
 
-    if (await touchesAdminAccount((session.user as any).role, userId)) {
+    if (await touchesAdminAccount(auth.user.role, userId)) {
       return NextResponse.json({ error: SUPER_ONLY }, { status: 403 })
     }
 
@@ -181,20 +177,18 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session || !isAdmin((session.user as any).role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-  const adminId = (session.user as any).id
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
+  const { session, user: admin } = auth
 
   const { searchParams } = new URL(req.url)
   const userId = searchParams.get("userId")
   if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
 
-  if (userId === adminId) {
+  if (userId === admin.id) {
     return NextResponse.json({ error: "You can't delete your own account" }, { status: 400 })
   }
-  if (await touchesAdminAccount((session.user as any).role, userId)) {
+  if (await touchesAdminAccount(admin.role, userId)) {
     return NextResponse.json({ error: SUPER_ONLY }, { status: 403 })
   }
 
@@ -212,8 +206,8 @@ export async function DELETE(req: Request) {
     await prisma.user.delete({ where: { id: userId } })
     await audit(session, { action: "USER_DELETED", targetType: "USER", targetId: userId, detail: target?.email ?? null })
     return NextResponse.json({ success: true })
-  } catch (err: any) {
-    if (err?.code === "P2003") {
+  } catch (err) {
+    if (errorCode(err) === "P2003") {
       return NextResponse.json(
         { error: "This user has related records (quotes, bookings, etc.) and can't be deleted. Suspend them instead." },
         { status: 409 }

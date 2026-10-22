@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
+import { requireAdmin } from "@/lib/admin-auth"
 import { audit } from "@/lib/audit"
-import { isSuperAdmin } from "@/lib/roles"
 import { slugify } from "@/lib/utils"
 import { sendGarageInvite } from "@/lib/garage-invite"
 import { createBusiness } from "@/lib/org/create"
@@ -14,11 +12,6 @@ import { OWNER_SELECT, pickOwner } from "@/lib/org/owners"
 // the owner sets their own password from the emailed link and fills in the rest of the profile. The garage starts
 // PENDING: it can't pass the readiness check with an empty profile, and approving goes through the normal flow.
 
-async function superAdmin() {
-  const session = await getServerSession(authOptions)
-  return isSuperAdmin((session?.user as { role?: string } | undefined)?.role) ? session : null
-}
-
 const inviteSchema = z.object({
   garageName: z.string().trim().min(2, "Enter the garage's name").max(120),
   ownerName: z.string().trim().min(2, "Enter the owner's name").max(120),
@@ -27,8 +20,9 @@ const inviteSchema = z.object({
 })
 
 export async function POST(req: Request) {
-  const session = await superAdmin()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin({ superOnly: true })
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const parsed = inviteSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid data" }, { status: 400 })
@@ -60,8 +54,9 @@ const resendSchema = z.object({ garageId: z.string().min(1) })
 
 /** Send a fresh link to an owner who hasn't set a password yet. */
 export async function PATCH(req: Request) {
-  const session = await superAdmin()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin({ superOnly: true })
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const parsed = resendSchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: "Invalid data" }, { status: 400 })

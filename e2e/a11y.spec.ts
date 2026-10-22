@@ -95,6 +95,25 @@ test.describe("accessibility", () => {
     })
   }
 
+  // The business pages (team, roles, locations, details, activity, website builder) and the admin website queue.
+  for (const [label, path] of [["team", "/garage-dashboard/team"], ["roles", "/garage-dashboard/roles"], ["locations", "/garage-dashboard/locations"], ["business details", "/garage-dashboard/business"], ["activity", "/garage-dashboard/activity"], ["website builder", "/garage-dashboard/site"]] as const) {
+    test(`garage ${label}`, async ({ page }) => {
+      await login(page, "garage")
+      await page.goto(path)
+      await expect(page.locator("#portal-main h1").first()).toBeVisible()
+      await expect(page.locator("#portal-main [aria-busy=true], #portal-main .animate-pulse")).toHaveCount(0, { timeout: 15_000 })
+      await expectNoViolations(page, `garage ${label}`)
+    })
+  }
+
+  test("admin websites queue", async ({ page }) => {
+    await login(page, "admin")
+    await page.goto("/admin/sites")
+    await expect(page.locator("#portal-main h1").first()).toBeVisible()
+    await expect(page.locator("#portal-main [aria-busy=true], #portal-main .animate-pulse")).toHaveCount(0, { timeout: 15_000 })
+    await expectNoViolations(page, "admin websites")
+  })
+
   test("admin site content editor", async ({ page }) => {
     await login(page, "admin")
     await page.goto("/admin/content")

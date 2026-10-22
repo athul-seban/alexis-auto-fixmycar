@@ -15,7 +15,8 @@
     "db:seed": "prisma db seed",
     "db:backfill": "tsx prisma/backfill-bookings.ts",
     "db:backfill-orgs": "tsx prisma/backfill-organisations.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "schema:safety": "node scripts/schema-safety.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -40,7 +41,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.441.0",
-    "next": "16.3.5",
+    "next": "16.4.2",
     "next-auth": "^4.24.8",
     "next-themes": "^0.4.6",
     "nodemailer": "^10.0.10",
@@ -68,7 +69,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.39.5",
-    "eslint-config-next": "16.3.5",
+    "eslint-config-next": "16.4.2",
     "jsdom": "^29.1.1",
     "postcss": "^8.4.47",
     "prisma": "^5.19.1",

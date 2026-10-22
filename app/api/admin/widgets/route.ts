@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { parsePortalSettings } from "@/lib/portal/portal-settings"
-import { isAdmin } from "@/lib/roles"
+import { requireAdmin } from "@/lib/admin-auth"
 
 const HOUR_MS = 3_600_000
 const DAY_MS = 24 * HOUR_MS
@@ -15,10 +13,8 @@ const PER_VISITOR_LIMIT = 3
  * who are making repeated bookings — the pattern the widget's rate limits exist to stop.
  */
 export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session || !isAdmin((session.user as any).role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
 
   const now = Date.now()
   const [garages, bookings] = await Promise.all([

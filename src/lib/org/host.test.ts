@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { apexUrl, classifyHost, hostnameOf, isTenantLabel, normaliseRootDomain, siteOrigin, tenantRoute } from "./host"
+import { apexUrl, classifyHost, hostnameOf, isApexTarget, isTenantLabel, normaliseRootDomain, siteOrigin, tenantRoute } from "./host"
 
 describe("isTenantLabel", () => {
   it("accepts what a business could own and nothing else", () => {
@@ -117,6 +117,23 @@ describe("apexUrl", () => {
     expect(apexUrl(undefined, "/", "")).toBeNull()
     expect(apexUrl("javascript:alert(1)", "/", "")).toBeNull()
     expect(apexUrl("nonsense", "/", "")).toBeNull()
+  })
+})
+
+describe("isApexTarget", () => {
+  const app = "https://quotemygarage.com"
+
+  it("accepts an address on exactly the configured main site", () => {
+    expect(isApexTarget("https://quotemygarage.com/login?x=1", app)).toBe(true)
+    expect(isApexTarget("http://localhost:3000/search", "http://localhost:3000")).toBe(true)
+  })
+
+  it("refuses every other origin, look-alike, scheme and junk", () => {
+    for (const t of ["https://evil.com/login", "https://quotemygarage.com.evil.com/", "https://acme.quotemygarage.com/", "http://quotemygarage.com/", "https://quotemygarage.com:8443/", "javascript:alert(1)", "//evil.com", "/login", "", null, undefined]) {
+      expect(isApexTarget(t, app), String(t)).toBe(false)
+    }
+    expect(isApexTarget("https://quotemygarage.com/", undefined)).toBe(false)
+    expect(isApexTarget("https://quotemygarage.com/", "nonsense")).toBe(false)
   })
 })
 

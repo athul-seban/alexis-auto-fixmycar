@@ -6,6 +6,10 @@ declare module "next-auth" {
   interface Session {
     user?: NonNullable<DefaultSession["user"]> & { id: string; role: string }
   }
+  // What authorize() returns on sign-in; the jwt callback copies the role onto the token.
+  interface User {
+    role?: string
+  }
 }
 
 declare module "next-auth/jwt" {

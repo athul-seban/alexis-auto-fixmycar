@@ -1,12 +1,23 @@
+// Hosts whose images next/image may optimise. The list is also given to the app (NEXT_PUBLIC_IMAGE_HOSTS, below) so
+// <RemoteImage> can fall back to a plain <img> for any other host: next/image throws on a host that isn't listed, and a
+// garage's photo URL isn't always one of these.
+const IMAGE_HOSTS = [
+  'quotemygarage-assets.s3.amazonaws.com',
+  'quotemygarage-assets.s3.ap-southeast-1.amazonaws.com',
+  'images.unsplash.com',
+  'lh3.googleusercontent.com',
+  // Vercel Blob: garage photos, avatars, documents' thumbnails and business-website images (each store has its own
+  // <id>.public.blob.vercel-storage.com host).
+  '*.public.blob.vercel-storage.com',
+]
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Don't advertise the framework on every response.
+  poweredByHeader: false,
+  env: { NEXT_PUBLIC_IMAGE_HOSTS: IMAGE_HOSTS.join(',') },
   images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: 'quotemygarage-assets.s3.amazonaws.com' },
-      { protocol: 'https', hostname: 'quotemygarage-assets.s3.ap-southeast-1.amazonaws.com' },
-      { protocol: 'https', hostname: 'images.unsplash.com' },
-      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
-    ],
+    remotePatterns: IMAGE_HOSTS.map((hostname) => ({ protocol: 'https', hostname })),
   },
   serverExternalPackages: ['@prisma/client', 'bcryptjs'],
   // Only the public booking widget (/widget/*) may be iframed by other sites; every

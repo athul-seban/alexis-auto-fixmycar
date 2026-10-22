@@ -32,9 +32,13 @@ test.describe("public site", () => {
     expect(JSON.parse(ld!)["@type"]).toBe("AutoRepair")
   })
 
-  test("an unknown garage is not indexable", async ({ page }) => {
-    await page.goto("/garage/does-not-exist")
-    await expect(page.locator("meta[name=robots]")).toHaveAttribute("content", /noindex/)
+  test("an unknown garage is a real 404 and not indexable", async ({ page }) => {
+    const res = await page.goto("/garage/does-not-exist")
+    expect(res?.status()).toBe(404)
+    // Next adds its own noindex to a 404 next to ours: every robots tag on the page must say noindex.
+    const robots = await page.locator("meta[name=robots]").evaluateAll((els) => els.map((e) => e.getAttribute("content") ?? ""))
+    expect(robots.length).toBeGreaterThan(0)
+    expect(robots.every((c) => /noindex/.test(c))).toBe(true)
   })
 
   test("a bad booking link says so and is noindex", async ({ page }) => {

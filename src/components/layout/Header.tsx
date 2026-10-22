@@ -36,7 +36,7 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [servicesOpen, setServicesOpen] = useState(false)
 
-  const user = session?.user as any
+  const user = session?.user
   const t = useT()
   const locale = useLocale()
   const lp = (path: string) => localePath(locale, path)

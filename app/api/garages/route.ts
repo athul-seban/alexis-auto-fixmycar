@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
+import { limitByIp } from "@/lib/rate-limit"
 import { toGarageListItem, toGarageProfile } from "@/lib/garage-mapper"
 import { MAX_COMPARE_GARAGES } from "@/lib/constants"
 import { isFeatured } from "@/lib/portal/plans"
@@ -33,6 +35,11 @@ function clampInt(raw: string | null, fallback: number, min: number, max: number
 }
 
 export async function GET(req: Request) {
+  // Public and the heaviest read we have (it ranks up to RANK_CANDIDATES garages), so it is limited per visitor. Generous:
+  // someone paging and filtering makes a handful of calls a minute.
+  const limited = await limitByIp(req.headers, "garages", 120, 60_000)
+  if (limited) return limited
+
   try {
     const { searchParams } = new URL(req.url)
 
@@ -68,7 +75,7 @@ export async function GET(req: Request) {
     const page = clampInt(searchParams.get("page"), 1, 1, 1000)
     const limit = clampInt(searchParams.get("limit"), 20, 1, 50)
 
-    const where: any = { status: "APPROVED" }
+    const where: Prisma.GarageWhereInput = { status: "APPROVED" }
 
     // SQLite's Prisma connector doesn't support `mode: "insensitive"` — sqlite's
     // underlying LIKE (which `contains` compiles to) is already ASCII case-insensitive
@@ -83,7 +90,7 @@ export async function GET(req: Request) {
     if (isVerified) where.isVerified = true
     if (minRating) where.averageRating = { gte: parseFloat(minRating) }
 
-    const orderBy: any =
+    const orderBy: Prisma.GarageOrderByWithRelationInput =
       sortBy === "rating" ? { averageRating: "desc" }
       : sortBy === "reviews" ? { totalReviews: "desc" }
       : sortBy === "bookings" ? { totalBookings: "desc" }

@@ -1,4 +1,5 @@
 import nodemailer, { type Transporter } from "nodemailer"
+import { logger, maskEmail } from "@/lib/log"
 
 const globalForMail = globalThis as unknown as {
   mailTransporter: Transporter | null | undefined
@@ -45,7 +46,7 @@ export async function sendMail({ to, subject, html, attachments, headers }: Send
   const transporter = getTransporter()
 
   if (!transporter) {
-    console.log(`[mail:dev-fallback] to=${to} subject="${subject}"`)
+    logger.info("mail.skipped", { reason: "no mail server configured", to: maskEmail(to), subject })
     return { success: true, skipped: true }
   }
 

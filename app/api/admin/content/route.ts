@@ -1,24 +1,17 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { revalidateTag } from "next/cache"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
+import { requireAdmin } from "@/lib/admin-auth"
 import { audit } from "@/lib/audit"
 import { LOCALES, isLocale } from "@/lib/i18n/config"
 import { MESSAGE_KEYS, defaultFor, isEnglishOnlyKey, isMessageKey } from "@/lib/i18n/messages"
 import { isBodyKey, sectionLabel, validateContent, validateForPublish } from "@/lib/i18n/content-rules"
-import { isAdmin } from "@/lib/roles"
-
-async function admin() {
-  const session = await getServerSession(authOptions)
-  const user = session?.user as { id?: string; role?: string } | undefined
-  return isAdmin(user?.role) && user?.id ? { session, id: user.id } : null
-}
 
 /** Every editable string for a language: built-in text, the live override and any unpublished draft. */
 export async function GET(req: Request) {
-  if (!(await admin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
   const locale = new URL(req.url).searchParams.get("locale") ?? "en"
   if (!isLocale(locale)) return NextResponse.json({ error: "Unknown language" }, { status: 400 })
 
@@ -58,8 +51,8 @@ const bodySchema = z.object({
  * reset       remove the override so the built-in text is used again
  */
 export async function PUT(req: Request) {
-  const who = await admin()
-  if (!who) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 })
@@ -70,7 +63,7 @@ export async function PUT(req: Request) {
 
   const existing = await prisma.contentEntry.findUnique({ where: { key_locale: { key, locale } } })
   const where = { key_locale: { key, locale } }
-  const base = { updatedById: who.id }
+  const base = { updatedById: auth.user.id }
 
   let detail = ""
   if (action === "saveDraft" || action === "publish") {
@@ -99,7 +92,7 @@ export async function PUT(req: Request) {
   // Live content is cached for up to a minute; drop it so the edit shows immediately.
   revalidateTag("content", { expire: 0 })
   if (action !== "saveDraft" && action !== "discardDraft") {
-    await audit(who.session, { action: action === "publish" ? "CONTENT_PUBLISHED" : "CONTENT_RESET", targetType: "CONTENT", targetId: `${locale}:${key}`, detail: `${detail}: ${key} (${locale})` })
+    await audit(auth.session, { action: action === "publish" ? "CONTENT_PUBLISHED" : "CONTENT_RESET", targetType: "CONTENT", targetId: `${locale}:${key}`, detail: `${detail}: ${key} (${locale})` })
   }
   return NextResponse.json({ ok: true })
 }

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { notifyUser, notifyGarage } from "@/lib/notifications"
 import { absoluteUrl, garageLinks } from "@/lib/portal/links"
 import { emailGarage } from "@/lib/portal/garage-email"
@@ -15,6 +13,8 @@ import { accessToLocation } from "@/lib/org/resolve"
 import { getServiceLabel } from "@/lib/utils"
 import { z } from "zod"
 import { isAdmin } from "@/lib/roles"
+import { requireSession } from "@/lib/session"
+import { limitByKey } from "@/lib/rate-limit"
 
 const querySchema = z.object({
   quoteId: z.string().optional(),
@@ -86,10 +86,9 @@ async function emailOtherParty(a: {
 }
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
   const { searchParams } = new URL(req.url)
   const parsed = querySchema.parse({
     quoteId: searchParams.get("quoteId") ?? undefined,
@@ -129,10 +128,12 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
+  // Every message can email and push the other side, so one account can't flood either.
+  const limited = await limitByKey("messages", user.id, 60, 60_000)
+  if (limited) return limited
 
   try {
     const body = await req.json()
@@ -150,7 +151,7 @@ export async function POST(req: Request) {
     // Walk-in / widget bookings have no customer account to message.
     if (!thread.ownerId) {
       return NextResponse.json(
-        { error: "This customer doesn't have an account — contact them by phone or email instead." },
+        { error: "This customer doesn't have an account â€” contact them by phone or email instead." },
         { status: 409 }
       )
     }

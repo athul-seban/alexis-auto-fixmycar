@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Wrench, CheckCircle, AlertCircle, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { errorMessage } from "@/lib/errors"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -24,8 +25,8 @@ export default function ForgotPasswordPage() {
       })
       if (!res.ok) throw new Error("Something went wrong. Please try again.")
       setSuccess(true)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(errorMessage(err))
     } finally {
       setLoading(false)
     }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { isValidDateString } from "@/lib/portal/tz"
 import { computeDaySlots, findWidgetService, loadWidgetGarage } from "@/lib/portal/widget-service"
+import { limitByIp } from "@/lib/rate-limit"
 
 const querySchema = z.object({
   date: z.string().refine(isValidDateString, "date must be YYYY-MM-DD"),
@@ -11,6 +12,10 @@ const querySchema = z.object({
 // Public (no auth): bookable start times for one day. Never cached — availability changes constantly.
 export async function GET(req: Request, props: { params: Promise<{ slug: string }> }) {
   const { slug } = await props.params
+  // Each call works out a whole day of availability from the database, so it is limited per visitor. Someone browsing a
+  // month of days makes a few dozen calls, so this is generous.
+  const limited = await limitByIp(req.headers, "widget-slots", 120, 60_000)
+  if (limited) return limited
   const sp = new URL(req.url).searchParams
   const parsed = querySchema.safeParse({ date: sp.get("date"), service: sp.get("service") })
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })

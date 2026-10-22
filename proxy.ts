@@ -12,7 +12,7 @@ import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server
 import { isAdmin } from "@/lib/roles"
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale, isTranslatedPath, splitLocalePath } from "@/lib/i18n/config"
 import { isCrossSiteRequest } from "@/lib/origin"
-import { apexUrl, classifyHost, tenantRoute } from "@/lib/org/host"
+import { APEX_REDIRECT_HEADER, APEX_REDIRECT_PATH, apexUrl, classifyHost, tenantRoute } from "@/lib/org/host"
 
 const authProxy = withAuth(
   function middleware(req) {
@@ -63,6 +63,7 @@ function tenantProxy(req: NextRequest, label: string) {
   const route = tenantRoute(label, pathname)
   const headers = new Headers(req.headers)
   headers.delete(SITE_HEADER)
+  headers.delete(APEX_REDIRECT_HEADER) // only this function sets it; whatever the visitor sent is dropped
   switch (route.action) {
     case "rewrite": {
       headers.set(SITE_HEADER, label)
@@ -75,9 +76,16 @@ function tenantProxy(req: NextRequest, label: string) {
     case "empty":
       return new NextResponse(null, { status: 204, headers: { "Cache-Control": "public, max-age=86400" } })
     case "apex": {
-      // 308 keeps the method and body; the target is built from the configured app URL and this request's own path.
+      // The target is built from the configured app URL and this request's own path (never from anything else in the request).
+      // It is answered as a 308 by a route handler we rewrite to: see APEX_REDIRECT_PATH in org/host.ts for why the proxy
+      // can't send the redirect itself.
       const target = apexUrl(process.env.NEXT_PUBLIC_APP_URL, pathname, search)
-      return target ? NextResponse.redirect(target, 308) : notFound()
+      if (!target) return notFound()
+      headers.set(APEX_REDIRECT_HEADER, target)
+      const url = req.nextUrl.clone()
+      url.pathname = APEX_REDIRECT_PATH
+      url.search = ""
+      return NextResponse.rewrite(url, { request: { headers } })
     }
     case "notFound":
       return notFound()
@@ -144,7 +152,8 @@ export default function proxy(req: NextRequest, event: NextFetchEvent) {
 
 // Every page except Next internals and files with an extension (images, sw.js ...), plus /api for the cross-site write
 // check above (the proxy does no authorisation on /api: each handler checks its own role), plus sitemap.xml and
-// robots.txt, which have an extension but must reach a tenant host's own copy.
+// robots.txt, which have an extension but must reach a tenant host's own copy. /sites/* is listed so its dotted files
+// (/sites/<label>/sitemap.xml, robots.txt) can't be fetched directly: the generic pattern skips anything with a dot.
 export const config = {
-  matcher: ["/api/:path*", "/sitemap.xml", "/robots.txt", "/favicon.ico", "/((?!api|_next|.*\\..*).*)"],
+  matcher: ["/api/:path*", "/sitemap.xml", "/robots.txt", "/favicon.ico", "/sites/:path*", "/((?!api|_next|.*\\..*).*)"],
 }

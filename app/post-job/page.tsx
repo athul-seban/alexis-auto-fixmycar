@@ -11,6 +11,7 @@ import { ConsentNotice } from "@/components/shared/ConsentNotice"
 import { getServiceLabel } from "@/lib/utils"
 import { SERVICE_OPTIONS } from "@/lib/service-options"
 import { WorkPicker, hoursLabel, type QuoteTerms } from "@/components/shared/WorkPicker"
+import { errorMessage } from "@/lib/errors"
 
 const serviceOptions = SERVICE_OPTIONS
 
@@ -107,8 +108,8 @@ function PostJobForm() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Something went wrong")
       setResult(data)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(errorMessage(err))
     } finally {
       setLoading(false)
     }

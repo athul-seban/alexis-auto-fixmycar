@@ -10,6 +10,7 @@ import { Pagination } from "@/components/ui/pagination"
 import { useUrlParams } from "@/hooks/use-url-params"
 import { SEARCH_SERVICE_OPTIONS } from "@/lib/service-options"
 import type { GarageListItem } from "@/types"
+import { errorMessage, isAbortError } from "@/lib/errors"
 
 const serviceOptions = [{ value: "", label: "All Services" }, ...SEARCH_SERVICE_OPTIONS]
 
@@ -81,8 +82,8 @@ export function SearchResults() {
         if (!res.ok) throw new Error(data.error ?? "Failed to load garages")
         setGarages(data.garages)
         setTotal(data.total)
-      } catch (err: any) {
-        if (err.name !== "AbortError") setError(err.message ?? "Failed to load garages")
+      } catch (err) {
+        if (!isAbortError(err)) setError(errorMessage(err, "Failed to load garages"))
       } finally {
         if (!controller.signal.aborted) setLoading(false)
       }

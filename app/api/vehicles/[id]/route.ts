@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireSession } from "@/lib/session"
+import { errorCode } from "@/lib/errors"
 import { z } from "zod"
 
 const updateSchema = z.object({
@@ -64,8 +65,8 @@ export async function DELETE(_req: Request, props: Params) {
 
     await prisma.vehicle.delete({ where: { id: params.id } })
     return NextResponse.json({ success: true })
-  } catch (err: any) {
-    if (err?.code === "P2003") {
+  } catch (err) {
+    if (errorCode(err) === "P2003") {
       return NextResponse.json(
         { error: "This vehicle has existing quotes or bookings and can't be deleted" },
         { status: 409 }

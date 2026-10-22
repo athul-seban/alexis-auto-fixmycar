@@ -8,6 +8,7 @@ import { buildJobResponseCompareRows } from "@/components/post-job/jobResponseCo
 import { getServiceLabel } from "@/lib/utils"
 import { parseWorks } from "@/lib/portal/quote-pricing"
 import type { TrackedJobRequest } from "@/components/post-job/types"
+import { errorMessage } from "@/lib/errors"
 
 const STATUS_CONFIG: Record<string, { label: string; icon: typeof Clock; className: string }> = {
   OPEN: { label: "Waiting for quotes…", icon: Clock, className: "bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30" },
@@ -49,8 +50,8 @@ export function JobRequestTracker({ jobRequest: initialJobRequest }: Props) {
         ),
       }))
       router.refresh()
-    } catch (err: any) {
-      setError(err.message ?? "Failed to accept quote")
+    } catch (err) {
+      setError(errorMessage(err, "Failed to accept quote"))
     } finally {
       setAcceptingId(null)
     }

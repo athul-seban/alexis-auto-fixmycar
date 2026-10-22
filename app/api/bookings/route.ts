@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { PLACEHOLDER_LEAD_MS, createBooking, transitionBooking, type Actor } from "@/lib/portal/booking-service"
 import { handleRouteError } from "@/lib/portal/route-errors"
 import { forbidden } from "@/lib/garage-auth"
@@ -10,6 +8,8 @@ import { readOnlyReason } from "@/lib/org/location-status"
 import { accessToLocation, garageFailureResponse, resolveActiveGarage } from "@/lib/org/resolve"
 import { z } from "zod"
 import { isAdmin } from "@/lib/roles"
+import { requireSession } from "@/lib/session"
+import { limitByKey } from "@/lib/rate-limit"
 
 const statusSchema = z.object({
   bookingId: z.string(),
@@ -28,17 +28,16 @@ const createSchema = z.object({
 })
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
   const { searchParams } = new URL(req.url)
   const status = searchParams.get("status")
 
   try {
     if (user.role === "OWNER") {
       const bookings = await prisma.booking.findMany({
-        where: { ownerId: user.id, ...(status ? { status: status as any } : {}) },
+        where: { ownerId: user.id, ...(status ? { status } : {}) },
         include: {
           vehicle: true,
           garage: { select: { id: true, name: true, slug: true, city: true, phone: true } },
@@ -56,7 +55,7 @@ export async function GET(req: Request) {
       const garage = resolved.value.garage
 
       const bookings = await prisma.booking.findMany({
-        where: { garageId: garage.id, ...(status ? { status: status as any } : {}) },
+        where: { garageId: garage.id, ...(status ? { status } : {}) },
         include: {
           vehicle: true,
           owner: { select: { id: true, name: true, phone: true } },
@@ -88,11 +87,12 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
   if (user.role !== "OWNER") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  const limited = await limitByKey("bookings", user.id, 30, 10 * 60_000)
+  if (limited) return limited
 
   try {
     const body = await req.json()
@@ -120,10 +120,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
 
   try {
     const body = await req.json()

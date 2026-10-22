@@ -77,7 +77,6 @@ export function roleNameProblem(name: string, existing: readonly { id: string; n
   const n = name.trim()
   if (n.length < 2) return "Give the role a name of at least 2 characters."
   if (n.length > ROLE_NAME_MAX) return `Role names can be at most ${ROLE_NAME_MAX} characters.`
-  // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f<>]/.test(n)) return "That name contains characters that aren't allowed."
   if (existing.some((r) => r.id !== selfId && r.name.trim().toLowerCase() === n.toLowerCase())) return "A role with that name already exists."
   return null

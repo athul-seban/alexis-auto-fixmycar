@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Wrench, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { errorMessage } from "@/lib/errors"
 
 function ResetPasswordForm() {
   const router = useRouter()
@@ -43,8 +44,8 @@ function ResetPasswordForm() {
       if (!res.ok) throw new Error(data.error ?? "Something went wrong.")
       setSuccess(true)
       setTimeout(() => router.push("/login"), 2000)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(errorMessage(err))
     } finally {
       setLoading(false)
     }

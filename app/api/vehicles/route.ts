@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { z } from "zod"
+import { requireSession } from "@/lib/session"
 
 const createSchema = z.object({
   registration: z.string().min(2),
@@ -17,10 +16,9 @@ const createSchema = z.object({
 })
 
 export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
   if (user.role !== "OWNER") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {
@@ -36,10 +34,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
   if (user.role !== "OWNER") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {

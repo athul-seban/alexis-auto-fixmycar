@@ -101,6 +101,26 @@ export function apexUrl(appUrl: string | null | undefined, pathname: string, sea
   }
 }
 
+// A redirect to the main site can't be sent straight from the proxy. Next rewrites a Location whose host equals the host it
+// believes the request was for into a relative one, and in local development and `next start` that host is always the
+// server's own origin, i.e. the main site's. The visitor's browser then follows "/login" on the business's own address and
+// loops until it gives up. So the proxy rewrites to this internal route handler instead, which answers the 308 itself
+// (route handler responses aren't post-processed). The target travels in a header the proxy sets, never one a visitor sends.
+export const APEX_REDIRECT_PATH = "/sites/-/main-site"
+export const APEX_REDIRECT_HEADER = "x-qmg-apex"
+
+/** Is `target` an http(s) address on exactly the configured main site? Anything else is never redirected to. */
+export function isApexTarget(target: string | null | undefined, appUrl: string | null | undefined): boolean {
+  if (!target || !appUrl) return false
+  try {
+    const t = new URL(target)
+    const base = new URL(appUrl)
+    return (t.protocol === "https:" || t.protocol === "http:") && t.origin === base.origin
+  } catch {
+    return false
+  }
+}
+
 /** The public address of a site, for canonical links, sitemaps and sharing. */
 export function siteOrigin(label: string, rootDomain: string | null | undefined, appUrl: string | null | undefined): string | null {
   const root = normaliseRootDomain(rootDomain)

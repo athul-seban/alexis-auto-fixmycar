@@ -227,3 +227,22 @@ business's website.
 
 Rollback: remove `sites` from `ORG_FEATURES` (or unset `NEXT_PUBLIC_ROOT_DOMAIN` and redeploy). Websites stop being served,
 the builder disappears, and all content stays in the database. The three tables are harmless to keep.
+
+## Hardening, indexes and dependency upgrade (phase 4)
+
+- **Schema (both files, a fourth push):** ten new indexes (`CREATE INDEX` only, no table or column changes): `Garage(status)`,
+  `Booking(status, scheduledAt)`, `Quote(status, respondBy)`, `JobRequest(status, respondBy)`, `JobResponse(garageId)`,
+  `Message(garageId, readAt)`, `Notification(userId, createdAt)`, `Notification(garageId, createdAt)`, `Vehicle(motDueDate)`
+  and `Vehicle(serviceDueDate)`. `npm run schema:safety` must print only `CREATE INDEX`. Back up, rehearse on a Neon branch, then
+  `npx prisma db push --schema=prisma/schema.prod.prisma` (never `--accept-data-loss`). Index builds on the larger tables take
+  a lock briefly; do it at a quiet time. The code works without the indexes (they only make queries faster), so push before or
+  after the deploy.
+- **Next.js 16.3.5 -> 16.4.2** fixes advisories that were live in this app (RCE in `next/og`, which the share-image routes use;
+  SSRF in image optimisation; cache poisoning). Deploy it soon; it changes no behaviour. `package-lock.json` changed too
+  (`sharp` and `source-map-js` advisories).
+- `NEXT_PUBLIC_IMAGE_HOSTS` is set by `next.config.js`, not in the dashboard. Garage and business photos on Vercel Blob are now
+  resized by `next/image`; this uses the project's image-optimisation quota.
+- **Monitoring:** point an uptime monitor at `GET /api/health` (200 = database reachable, 503 = not).
+- **Things only you can switch on** (GitHub and Vercel settings): enable Dependabot alerts and security updates, enable code
+  scanning (the CodeQL workflow is in the repository), add branch protection on `main` requiring the CI jobs, and set the Vercel
+  project's Node.js version to 22.x to match `.nvmrc`.

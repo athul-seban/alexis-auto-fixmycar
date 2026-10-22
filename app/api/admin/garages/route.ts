@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { audit } from "@/lib/audit"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
+import { requireAdmin } from "@/lib/admin-auth"
 import { notifyGarage } from "@/lib/notifications"
 import { garageLinks } from "@/lib/portal/links"
 import { parsePortalSettings } from "@/lib/portal/portal-settings"
@@ -10,7 +9,6 @@ import { garageReadiness } from "@/lib/portal/readiness"
 import { OWNER_SELECT, pickOwner } from "@/lib/org/owners"
 import { invalidateSiteForGarage } from "@/lib/site/cache"
 import { z } from "zod"
-import { isAdmin } from "@/lib/roles"
 
 const actionSchema = z.object({
   garageId: z.string(),
@@ -37,13 +35,9 @@ function parseBadges(json: string): string[] {
 
 const AUDIT_FOR = { approve: "GARAGE_APPROVED", reject: "GARAGE_REJECTED", suspend: "GARAGE_SUSPENDED" } as const
 
-async function requireAdmin() {
-  const session = await getServerSession(authOptions)
-  return session && isAdmin((session.user as any).role) ? session : null
-}
-
 export async function GET(req: Request) {
-  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
 
   const { searchParams } = new URL(req.url)
   const status = searchParams.get("status") ?? "PENDING"
@@ -123,8 +117,9 @@ export async function GET(req: Request) {
 const STATUS_FOR = { approve: "APPROVED", reject: "SUSPENDED", suspend: "SUSPENDED" } as const
 
 export async function POST(req: Request) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   try {
     const { garageId, action, reason, force } = actionSchema.parse(await req.json())
@@ -179,8 +174,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const session = await requireAdmin()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   try {
     const { garageId, badges } = badgeSchema.parse(await req.json())

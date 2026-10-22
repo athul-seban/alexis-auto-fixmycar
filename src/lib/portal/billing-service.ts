@@ -2,6 +2,7 @@ import type Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
 import { getStripe } from "@/lib/stripe"
 import { notifyGarage } from "@/lib/notifications"
+import { errorCode } from "@/lib/errors"
 import { absoluteUrl } from "@/lib/portal/links"
 import { CREDIT_PACK, extendFeatured, FEATURED_PRODUCT, isPlanId, PLANS, type PlanId } from "@/lib/portal/plans"
 import { addCredits, billingOwnerOf, claimStripeId, getBilling, mirrorBillingToLocations, organisationIdOf, readBilling, takeCredit, writeBilling, type BillingOwner } from "@/lib/org/billing"
@@ -167,8 +168,8 @@ export async function fulfilCheckout(session: Stripe.Checkout.Session, now = new
           : prisma.garage.update({ where: { id: garageId }, data: { leadCredits: { increment: CREDIT_PACK.credits } } }),
       ])
       if (organisationId) await mirrorBillingToLocations(organisationId)
-    } catch (err: any) {
-      if (err?.code === "P2002") return
+    } catch (err) {
+      if (errorCode(err) === "P2002") return
       throw err
     }
     await notifyGarage({ garageId, type: "GARAGE_STATUS_CHANGED", title: "Lead credits added", body: `${CREDIT_PACK.credits} credits are ready to use.`, link: "/garage-dashboard/billing" })

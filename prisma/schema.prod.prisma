@@ -103,6 +103,8 @@ model Vehicle {
   bookings Booking[]
 
   @@index([ownerId])
+  @@index([motDueDate])
+  @@index([serviceDueDate])
 }
 
 model Garage {
@@ -172,6 +174,7 @@ model Garage {
   roleAssignments RoleAssignment[]
 
   @@index([organisationId])
+  @@index([status])
 }
 
 model Quote {
@@ -202,6 +205,7 @@ model Quote {
 
   @@index([garageId, status])
   @@index([ownerId])
+  @@index([status, respondBy])
 }
 
 model Booking {
@@ -278,6 +282,7 @@ model Booking {
   @@index([garageId, source])
   @@index([customerEmail])
   @@unique([garageId, invoiceNumber])
+  @@index([status, scheduledAt])
 }
 
 model Review {
@@ -360,6 +365,7 @@ model JobRequest {
   leads     GarageLead[]
 
   @@index([targetGarageId])
+  @@index([status, respondBy])
 }
 
 model JobResponse {
@@ -382,6 +388,7 @@ model JobResponse {
   booking    Booking?
 
   @@unique([jobRequestId, garageId])
+  @@index([garageId])
 }
 
 model Message {
@@ -401,6 +408,7 @@ model Message {
   @@index([quoteId])
   @@index([bookingId])
   @@index([garageId])
+  @@index([garageId, readAt])
 }
 
 model Notification {
@@ -419,6 +427,8 @@ model Notification {
 
   @@index([userId])
   @@index([garageId])
+  @@index([userId, createdAt])
+  @@index([garageId, createdAt])
 }
 
 model Technician {

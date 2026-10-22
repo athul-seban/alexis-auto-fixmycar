@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { parseServiceList, toGarageProfile } from "@/lib/garage-mapper"
 import { SERVICE_TYPES } from "@/lib/constants"
 import { openingHoursSchema } from "@/lib/portal/opening-hours"
@@ -13,6 +11,7 @@ import { readOnlyReason } from "@/lib/org/location-status"
 import { invalidateSiteForGarage } from "@/lib/site/cache"
 import { accessToLocation } from "@/lib/org/resolve"
 import { z } from "zod"
+import { requireSession } from "@/lib/session"
 
 interface Params {
   params: Promise<{ id: string }>
@@ -52,10 +51,9 @@ const patchSchema = z.object({
 
 export async function PATCH(req: Request, props: Params) {
   const params = await props.params;
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
   if (user.role !== "GARAGE") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {

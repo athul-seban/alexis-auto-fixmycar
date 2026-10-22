@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Star, Shield, Car, MapPin, Clock, CheckCircle, Minus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { RemoteImage } from "@/components/ui/remote-image"
 import { getServiceLabel, getTodayOpeningHoursLabel } from "@/lib/utils"
 import type { CompareRowConfig } from "@/components/compare/CompareTable"
 import type { GarageProfile, ServiceType } from "@/types"
@@ -99,7 +100,7 @@ export function GarageCompareColumnHeader({
   return (
     <div className="flex items-start gap-3">
       {garage.logo ? (
-        <img src={garage.logo} alt={garage.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+        <RemoteImage src={garage.logo} alt={garage.name} width={80} height={80} sizes="40px" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
       ) : (
         <div className="w-10 h-10 rounded-lg bg-[#1E3A5F] flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
           {initials}

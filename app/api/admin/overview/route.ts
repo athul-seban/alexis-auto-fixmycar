@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
+import { requireAdmin } from "@/lib/admin-auth"
 import { getServiceLabel } from "@/lib/utils"
 import { isAdmin } from "@/lib/roles"
 
 export async function GET() {
-  const session = await getServerSession(authOptions)
-  const userId = (session?.user as { id?: string } | undefined)?.id
-  if (!session || !isAdmin((session.user as any).role) || !userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-  const admin = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, suspendedAt: true } })
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
+  // The dashboard also reads the database (not just the token) so a demoted or suspended admin is refused at once.
+  const admin = await prisma.user.findUnique({ where: { id: auth.user.id }, select: { role: true, suspendedAt: true } })
   if (!isAdmin(admin?.role) || admin?.suspendedAt) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const now = new Date()

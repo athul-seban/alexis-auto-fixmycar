@@ -1,9 +1,7 @@
 import crypto from "crypto"
 import { limitByIp } from "@/lib/rate-limit"
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { parseServiceList } from "@/lib/garage-mapper"
 import { emailGarage } from "@/lib/portal/garage-email"
 import { findMatchingGaragesForJob, findMatchingJobRequestsForGarage, toGarageJobView } from "@/lib/job-matching"
@@ -17,6 +15,7 @@ import { can } from "@/lib/org/access"
 import { garageFailureResponse, resolveActiveGarage } from "@/lib/org/resolve"
 import { z } from "zod"
 import { SERVICE_TYPES } from "@/lib/constants"
+import { requireSession } from "@/lib/session"
 
 const createSchema = z.object({
   guestName: z.string().min(2),
@@ -129,10 +128,9 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req?: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
   if (user.role !== "GARAGE") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {

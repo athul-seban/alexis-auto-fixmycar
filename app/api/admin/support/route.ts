@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
 import { audit } from "@/lib/audit"
-import { isAdmin } from "@/lib/roles"
 import { getBilling } from "@/lib/org/billing"
 import { ALL_LOCATIONS } from "@/lib/org/access"
+import { requireAdmin } from "@/lib/admin-auth"
 
 // Read-only support view: find a customer or garage and see what they see, without signing in as them.
 // Searching lists matching accounts; opening one (`userId`) returns their recent activity and is written to the audit log.
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session || !isAdmin((session.user as { role?: string }).role)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth.response
+  const { session } = auth
 
   const sp = new URL(req.url).searchParams
   const userId = sp.get("userId")
