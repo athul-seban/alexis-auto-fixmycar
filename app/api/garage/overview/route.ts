@@ -120,4 +120,4 @@ export const GET = withGarage("Garage overview GET", async (req, { garage }) => 
     })),
     readiness: { ready: readiness.ready, missing: readiness.checks.filter((c) => !c.ok).map((c) => ({ label: c.label, required: c.required })) },
   })
-})
+}, { permission: "member" })

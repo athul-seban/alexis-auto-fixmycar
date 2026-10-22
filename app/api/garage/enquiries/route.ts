@@ -16,4 +16,4 @@ export const GET = withGarage("Garage enquiries GET", async (req, { garage }) =>
     return NextResponse.json({ error: `Invalid ${issue.path.join(".") || "query"}: ${issue.message}` }, { status: 400 })
   }
   return NextResponse.json(await listEnquiries(garage, parsed.data))
-})
+}, { permission: "enquiries.view" })

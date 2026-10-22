@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
+import { createBusiness } from "@/lib/org/create"
 import { slugify } from "@/lib/utils"
 import { z } from "zod"
 import { SERVICE_TYPES } from "@/lib/constants"
@@ -51,34 +52,27 @@ export async function POST(req: Request) {
       slug = `${baseSlug}-${counter++}`
     }
 
-    const user = await prisma.user.create({
-      data: {
-        name: data.name,
-        email: data.email,
-        phone: formatPhone(data.phone),
-        password: hashedPassword,
-        role: "GARAGE",
-        garage: {
-          create: {
-            name: data.garageName,
-            slug,
-            phone: formatPhone(data.garagePhone),
-            email: data.garageEmail,
-            vatNumber: data.vatNumber ? formatVat(data.vatNumber) : null,
-            address: data.address,
-            city: data.city,
-            postcode: data.postcode.toUpperCase(),
-            description: data.description,
-            isMobile: data.isMobile,
-            services: JSON.stringify(data.services),
-            status: "PENDING",
-          },
-        },
+    // A garage never exists on its own: this creates the business, its roles, the first location and the owner's
+    // membership together, in one transaction.
+    const created = await createBusiness({
+      owner: { data: { name: data.name, email: data.email, phone: formatPhone(data.phone), password: hashedPassword } },
+      location: {
+        name: data.garageName,
+        slug,
+        phone: formatPhone(data.garagePhone),
+        email: data.garageEmail,
+        vatNumber: data.vatNumber ? formatVat(data.vatNumber) : null,
+        address: data.address,
+        city: data.city,
+        postcode: data.postcode.toUpperCase(),
+        description: data.description,
+        isMobile: data.isMobile,
+        services: JSON.stringify(data.services),
+        status: "PENDING",
       },
-      select: { id: true, email: true, garage: { select: { id: true, slug: true } } },
     })
 
-    return NextResponse.json({ user }, { status: 201 })
+    return NextResponse.json({ user: { id: created.user.id, email: created.user.email, garage: { id: created.garage.id, slug: created.garage.slug } } }, { status: 201 })
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: err.errors[0]?.message ?? "Invalid data", details: err.errors }, { status: 400 })

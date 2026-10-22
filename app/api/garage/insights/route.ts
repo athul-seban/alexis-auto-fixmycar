@@ -59,4 +59,4 @@ export const GET = withGarage("Garage insights GET", async (req, { garage }) => 
     byService: byService(kpiRows, range).slice(0, 8),
     funnel: buildFunnel({ quoteStatuses: quotes.map((q) => q.status), responseStatuses: responses.map((r) => r.status) }),
   })
-})
+}, { permission: "insights.view" })

@@ -19,7 +19,7 @@ async function loadDetail(id: string, garageId: string) {
 
 export const GET = withGarage<Params>("Garage booking GET", async (_req, { garage }, { id }) => {
   return NextResponse.json({ booking: toBookingDetail(await loadDetail(id, garage.id)) })
-})
+}, { permission: "bookings.view" })
 
 const patchSchema = z
   .object({
@@ -94,5 +94,5 @@ export const PATCH = withGarage<Params>(
 
     return NextResponse.json({ booking: toBookingDetail(await loadDetail(id, garage.id)) })
   },
-  { write: true }
+  { permission: "bookings.manage", write: true }
 )

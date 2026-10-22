@@ -10,22 +10,33 @@ export type ThreadKey = { quoteId: string } | { bookingId: string }
 
 export const threadKeyOf = (m: { quoteId: string | null; bookingId: string | null }): string => (m.quoteId ? `q:${m.quoteId}` : `b:${m.bookingId}`)
 
-/** Mark every message in a thread that the viewer didn't send as read. Returns how many were newly read. */
-export async function markThreadRead(viewerUserId: string, thread: ThreadKey): Promise<number> {
+/** Which end of a conversation someone is on. A garage is several people (staff), so "the other side" can't be a user id. */
+export type ThreadSide = "GARAGE" | "CUSTOMER"
+
+/**
+ * Mark the messages the viewer's side RECEIVED as read. Returns how many were newly read.
+ *
+ * A garage viewer only reads messages from the customer (`fromGarage: false`). Without that, one staff member opening a
+ * thread would mark a colleague's reply as read, and the customer's "unread" badge would clear before they had seen it.
+ * A customer reads everything they didn't send themselves, which is always the garage side.
+ */
+export async function markThreadRead(viewerUserId: string, thread: ThreadKey, side?: ThreadSide): Promise<number> {
   const res = await prisma.message.updateMany({
-    where: { ...thread, senderId: { not: viewerUserId }, readAt: null },
+    where: { ...thread, senderId: { not: viewerUserId }, readAt: null, ...(side === "GARAGE" ? { fromGarage: false } : {}) },
     data: { readAt: new Date() },
   })
   return res.count
 }
 
 /**
- * A message only triggers an email if it is the first unread one from that sender in the thread, so a burst of
- * messages is one email and not a flood. (The in-app notification still fires for every message.)
+ * A message only triggers an email if it is the first unread one from that side of the conversation, so a burst of
+ * messages is one email and not a flood, even when several staff are replying. (The in-app notification still fires
+ * for every message.)
  */
-export async function isFirstUnreadFromSender(message: { id: string; senderId: string; quoteId: string | null; bookingId: string | null }): Promise<boolean> {
+export async function isFirstUnreadFromSender(message: { id: string; senderId: string; fromGarage?: boolean; quoteId: string | null; bookingId: string | null }): Promise<boolean> {
   const thread: ThreadKey = message.quoteId ? { quoteId: message.quoteId } : { bookingId: message.bookingId! }
-  const earlier = await prisma.message.count({ where: { ...thread, senderId: message.senderId, readAt: null, id: { not: message.id } } })
+  const sameSide = message.fromGarage ? [{ fromGarage: true }] : []
+  const earlier = await prisma.message.count({ where: { ...thread, readAt: null, id: { not: message.id }, OR: [{ senderId: message.senderId }, ...sameSide] } })
   return earlier === 0
 }
 
@@ -58,9 +69,15 @@ export async function ownerUnreadCount(userId: string): Promise<number> {
   })
 }
 
-/** Unread messages for a garage: messages from customers in its threads. */
-export async function garageUnreadCount(garage: { id: string; userId: string }): Promise<number> {
-  return prisma.message.count({ where: { garageId: garage.id, readAt: null, senderId: { not: garage.userId } } })
+/**
+ * Unread messages for a garage location: messages from customers in its threads. Messages sent by ANY of the garage's
+ * staff are excluded (`fromGarage`), not just the owner's, which is what the old `senderId != garage.userId` rule did.
+ * That rule is kept as well so messages written before `fromGarage` existed (and not yet backfilled) still count right.
+ */
+export async function garageUnreadCount(garage: { id: string; userId: string | null }): Promise<number> {
+  return prisma.message.count({
+    where: { garageId: garage.id, readAt: null, fromGarage: false, ...(garage.userId ? { senderId: { not: garage.userId } } : {}) },
+  })
 }
 
 const PREVIEW = 120
@@ -77,12 +94,15 @@ export async function threadSummaries(viewer: { role: "OWNER" | "GARAGE"; userId
           ],
         }
 
-  const messages = await prisma.message.findMany({ where, orderBy: { createdAt: "desc" }, take: 500, select: { id: true, quoteId: true, bookingId: true, senderId: true, body: true, readAt: true, createdAt: true } })
+  const messages = await prisma.message.findMany({ where, orderBy: { createdAt: "desc" }, take: 500, select: { id: true, quoteId: true, bookingId: true, senderId: true, fromGarage: true, body: true, readAt: true, createdAt: true } })
   const threads = new Map<string, { quoteId: string | null; bookingId: string | null; unread: number; last: (typeof messages)[number] }>()
   for (const m of messages) {
     const key = threadKeyOf(m)
     const t = threads.get(key) ?? { quoteId: m.quoteId, bookingId: m.bookingId, unread: 0, last: m }
-    if (!m.readAt && m.senderId !== viewer.userId) t.unread += 1
+    // Unread = not yet read, and received (not sent) by the viewer's side. For a garage that means from the customer,
+    // whichever colleague wrote the replies; a customer receives everything they didn't send.
+    const received = viewer.role === "GARAGE" ? !m.fromGarage && m.senderId !== viewer.userId : m.senderId !== viewer.userId
+    if (!m.readAt && received) t.unread += 1
     threads.set(key, t)
   }
   const picked = [...threads.entries()].slice(0, limit)

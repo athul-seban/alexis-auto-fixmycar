@@ -51,9 +51,11 @@ export async function changePassword(userId: string, input: z.infer<typeof chang
     return { status: 400, body: { error: "Choose a password you haven't used before." } }
   }
 
+  // sessionVersion + 1 revokes every existing session, so a hijacked session (the reason people change a password)
+  // dies with the old one. That includes the caller's own: the UI signs them out and they log in with the new password.
   await prisma.user.update({
     where: { id: userId },
-    data: { password: await bcrypt.hash(next, 12), failedLoginAttempts: 0, lockedUntil: null },
+    data: { password: await bcrypt.hash(next, 12), failedLoginAttempts: 0, lockedUntil: null, sessionVersion: { increment: 1 } },
   })
   // Security notice (always sent, not subject to notification preferences). Best effort: never fails the change.
   try {

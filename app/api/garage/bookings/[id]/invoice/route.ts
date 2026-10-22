@@ -22,7 +22,7 @@ export const GET = withGarage<Params>("Garage invoice GET", async (_req, { garag
       "Cache-Control": "no-store",
     },
   })
-})
+}, { permission: "invoices.issue" })
 
 const emailSchema = z.object({ to: z.string().trim().toLowerCase().email("Enter a valid email address").max(200).optional() })
 
@@ -53,5 +53,5 @@ export const POST = withGarage<Params>(
     await recordBookingEvent(prisma, { bookingId: id, actorType: "GARAGE", type: "NOTE", detail: `Invoice ${invoice.number} emailed to ${recipient}` })
     return NextResponse.json({ sent: true, to: recipient, number: invoice.number, skipped: result.skipped ?? false })
   },
-  { write: true }
+  { permission: "invoices.issue", write: true }
 )

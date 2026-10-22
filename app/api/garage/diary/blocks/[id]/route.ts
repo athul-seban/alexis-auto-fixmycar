@@ -11,5 +11,5 @@ export const DELETE = withGarage<{ id: string }>(
     await prisma.diaryBlock.delete({ where: { id } })
     return NextResponse.json({ success: true })
   },
-  { write: true }
+  { permission: "diary.manage", write: true }
 )

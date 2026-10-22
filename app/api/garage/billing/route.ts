@@ -39,7 +39,7 @@ export const GET = withGarage("Garage billing GET", async (_req, { garage }) => 
     products: { credits: CREDIT_PACK, featured: FEATURED_PRODUCT },
     transactions,
   })
-})
+}, { permission: "billing.view" })
 
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("subscribe"), plan: z.enum(["PRO", "PREMIUM"]) }),
@@ -76,5 +76,5 @@ export const POST = withGarage(
       throw err
     }
   },
-  { write: true }
+  { permission: "billing.manage", write: true }
 )

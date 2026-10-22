@@ -40,6 +40,16 @@ export function tooManyRequests(retryAfter: number): Response {
 export const isLoopback = (ip: string) => ip === "::1" || ip === "127.0.0.1" || ip === "::ffff:127.0.0.1"
 
 /**
+ * Limit by an arbitrary stable key (a user id, a garage id, an email...). Returns a ready 429 response when limited,
+ * else null. Use it where an IP isn't the right unit: uploads, invites and publishing are limited per account so that
+ * one person on a shared connection doesn't lock out colleagues, and a moved IP doesn't reset the allowance.
+ */
+export async function limitByKey(name: string, key: string, limit: number, windowMs: number): Promise<Response | null> {
+  const r = await rateLimit(`${name}:key:${key}`, limit, windowMs)
+  return r.ok ? null : tooManyRequests(r.retryAfter)
+}
+
+/**
  * Limit by caller IP (hashed, never stored raw). Returns a ready 429 response when limited, else null.
  * An unknown IP (no proxy headers) is not limited, otherwise everyone behind a header-less proxy would share one
  * bucket and lock each other out. Loopback addresses are skipped too: they only occur in local dev and tests

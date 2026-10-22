@@ -25,7 +25,7 @@ export const GET = withGarage("Garage settings GET", async (_req, { userId, gara
     stripe: { connected: Boolean(garage.stripeAccountId), enabled: garage.stripeChargesEnabled },
     smsAvailable: smsConfigured(),
   })
-})
+}, { permission: "member" })
 
 const patchSchema = z
   .object({
@@ -59,5 +59,5 @@ export const PATCH = withGarage(
     await prisma.garage.update({ where: { id: garage.id }, data: { portalSettings: serializePortalSettings(next) } })
     return NextResponse.json({ settings: next })
   },
-  { write: true }
+  { permission: "settings.edit", write: true }
 )

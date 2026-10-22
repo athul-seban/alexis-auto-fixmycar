@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
+import { requireSession } from "@/lib/session"
 import { z } from "zod"
 
 const updateSchema = z.object({
@@ -22,10 +21,9 @@ interface Params {
 
 export async function PATCH(req: Request, props: Params) {
   const params = await props.params
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
 
   try {
     const vehicle = await prisma.vehicle.findFirst({ where: { id: params.id, ownerId: user.id } })
@@ -56,10 +54,9 @@ export async function PATCH(req: Request, props: Params) {
 
 export async function DELETE(_req: Request, props: Params) {
   const params = await props.params
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
 
   try {
     const vehicle = await prisma.vehicle.findFirst({ where: { id: params.id, ownerId: user.id } })

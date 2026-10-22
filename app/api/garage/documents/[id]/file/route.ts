@@ -8,4 +8,4 @@ export const GET = withGarage<{ id: string }>("Garage document file GET", async 
   const doc = await prisma.garageDocument.findFirst({ where: { id, garageId: garage.id } })
   if (!doc) return NextResponse.json({ error: "Document not found" }, { status: 404 })
   return streamDocument(doc.url, doc.name)
-})
+}, { permission: "documents.manage" })

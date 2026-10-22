@@ -23,7 +23,8 @@ const valid = (n: string, over: Record<string, unknown> = {}) => ({ garageName: 
 
 async function cleanup() {
   await prisma.verificationToken.deleteMany({ where: { identifier: { startsWith: PREFIX } } })
-  await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } }) // the garage goes with its owner
+  await prisma.user.deleteMany({ where: { email: { startsWith: PREFIX } } }) // the garage and membership go with its owner
+  await prisma.organisation.deleteMany({ where: { name: { startsWith: PREFIX } } })
   await prisma.auditLog.deleteMany({ where: { action: { in: ["GARAGE_INVITED", "GARAGE_INVITE_RESENT"] }, detail: { contains: PREFIX } } })
 }
 
@@ -53,9 +54,13 @@ describe("POST /api/admin/garages/invite — inviting", () => {
     const body = await res.json()
     expect(body.emailSent).toBe(true)
 
-    const user = await prisma.user.findUnique({ where: { email: email("a") }, include: { garage: true } })
+    const user = await prisma.user.findUnique({ where: { email: email("a") }, include: { garage: { include: { organisation: { include: { roles: true } } } }, memberships: { include: { assignments: true } } } })
     expect(user).toMatchObject({ role: "GARAGE", password: null, name: "Sam Owner" })
     expect(user?.garage).toMatchObject({ name: `${PREFIX}Garage a`, status: "PENDING", city: "Derby", email: email("a"), isVerified: false })
+    // the invited owner is the Owner of a real business, not just the login of a garage
+    expect(user?.garage?.organisation?.roles.map((r) => r.presetKey).sort()).toEqual(["manager", "owner", "staff"])
+    expect(user?.memberships).toHaveLength(1)
+    expect(user?.memberships[0].assignments[0]).toMatchObject({ scopeKey: "*", garageId: null })
 
     const token = await prisma.verificationToken.findFirst({ where: { identifier: email("a") } })
     expect(token).not.toBeNull()

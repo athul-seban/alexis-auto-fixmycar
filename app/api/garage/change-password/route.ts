@@ -7,4 +7,4 @@ import { changePassword, changePasswordSchema } from "@/lib/change-password"
 export const POST = withGarage("Garage change-password POST", async (req, { userId }) => {
   const result = await changePassword(userId, changePasswordSchema.parse(await req.json()))
   return NextResponse.json(result.body, { status: result.status })
-})
+}, { permission: "member" })

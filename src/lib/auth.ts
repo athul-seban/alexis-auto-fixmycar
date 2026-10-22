@@ -9,6 +9,9 @@ import { prisma } from "./prisma"
 const MAX_FAILED_ATTEMPTS = 5
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000
 const SESSION_RECHECK_MS = 60 * 1000
+// A valid bcrypt hash (cost 12, same as real passwords) of a throwaway string. Compared against when the email isn't
+// registered so that unknown and known emails take the same time to answer. It matches nothing a person could type.
+const DUMMY_HASH = "$2a$12$z2Na007PQkdOFVDB.QJfzeJglxw2nsqLGvbMvD9hWxLB1uDwLeScu"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,
@@ -39,23 +42,18 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email.trim().toLowerCase() },
         })
 
-        if (!user || !user.password) return null
+        // Always run bcrypt, against a throwaway hash when there's no such user (or no password, e.g. Google-only), so
+        // the response time doesn't reveal whether an email has an account. And check the password BEFORE saying
+        // anything about the account's state: "suspended" and "locked" are only revealed to someone who knows the
+        // password, so these messages can't be used to find out which emails are registered.
+        const passwordMatch = await bcrypt.compare(credentials.password, user?.password ?? DUMMY_HASH)
+        if (!user?.password) return null
 
-        if (user.suspendedAt) {
-          throw new Error("This account has been suspended. Contact support for help.")
-        }
-
-        if (user.lockedUntil && user.lockedUntil > new Date()) {
-          const minutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000)
-          throw new Error(`Too many failed attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`)
-        }
-
-        const passwordMatch = await bcrypt.compare(
-          credentials.password,
-          user.password
-        )
+        const locked = user.lockedUntil !== null && user.lockedUntil > new Date()
 
         if (!passwordMatch) {
+          // A locked account isn't counted again (the 5th failure already told the visitor).
+          if (locked) return null
           const attempts = user.failedLoginAttempts + 1
           const lockingOut = attempts >= MAX_FAILED_ATTEMPTS
           await prisma.user.update({
@@ -69,6 +67,15 @@ export const authOptions: NextAuthOptions = {
             throw new Error("Too many failed attempts. Try again in 15 minutes.")
           }
           return null
+        }
+
+        if (user.suspendedAt) {
+          throw new Error("This account has been suspended. Contact support for help.")
+        }
+
+        if (locked && user.lockedUntil) {
+          const minutes = Math.ceil((user.lockedUntil.getTime() - Date.now()) / 60000)
+          throw new Error(`Too many failed attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`)
         }
 
         if (user.failedLoginAttempts > 0 || user.lockedUntil) {
@@ -120,10 +127,14 @@ export const authOptions: NextAuthOptions = {
       return token
     },
     async session({ session, token }) {
+      // A revoked token (suspended or deleted user, "sign out everywhere") must look signed out. An empty session
+      // makes getServerSession() return null, so every `if (!session)` guard rejects it. Returning a session with
+      // an undefined id instead let routes like /api/notifications run `where: { userId: undefined }`, which Prisma
+      // drops, and return every user's rows.
+      if (token.invalid || !token.id || !token.role) return {} as typeof session
       if (session.user) {
-        // A revoked token yields a session with no id/role, so every guard treats it as signed out.
-        (session.user as any).role = token.invalid ? undefined : token.role
-        ;(session.user as any).id = token.invalid ? undefined : token.id
+        session.user.role = token.role
+        session.user.id = token.id
         if (token.name !== undefined) session.user.name = token.name as string | null
         if (token.picture !== undefined) session.user.image = token.picture as string | null
       }

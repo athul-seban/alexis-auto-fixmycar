@@ -2,7 +2,7 @@ import { manageUrl } from "@/lib/portal/links"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { withGarage } from "@/lib/garage-auth"
+import { forbidden, withGarage } from "@/lib/garage-auth"
 import { SERVICE_TYPES } from "@/lib/constants"
 import { parseOpeningHours } from "@/lib/garage-mapper"
 import { sendMail } from "@/lib/mail"
@@ -19,11 +19,13 @@ import { normalisePhone } from "@/lib/portal/phone"
 import { londonDateString, londonTimeString, formatLondonDateTime } from "@/lib/portal/tz"
 import { getServiceLabel } from "@/lib/utils"
 
-export const GET = withGarage("Garage bookings GET", async (req, { garage }) => {
+export const GET = withGarage("Garage bookings GET", async (req, { garage, can }) => {
   const parsed = parseBookingsQuery(new URL(req.url).searchParams)
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 })
   const q = parsed.value
   const now = new Date()
+  // Viewing is bookings.view (the route gate); downloading the whole list is a separate, rarer permission.
+  if (q.format === "csv" && !can("bookings.export")) return forbidden()
 
   let where = buildBookingsWhere(garage.id, q, now)
   if (q.outcome === "pending") {
@@ -86,7 +88,7 @@ export const GET = withGarage("Garage bookings GET", async (req, { garage }) => 
     totalPages: Math.max(1, Math.ceil(total / q.pageSize)),
     counts,
   })
-})
+}, { permission: "bookings.view" })
 
 const createSchema = z
   .object({
@@ -206,7 +208,7 @@ export const POST = withGarage(
     }
     return NextResponse.json({ booking: toBookingRow(await loadRow(booking.id)), warnings }, { status: 201 })
   },
-  { write: true }
+  { permission: "bookings.manage", write: true }
 )
 
 async function loadRow(id: string) {

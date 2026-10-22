@@ -10,6 +10,8 @@ import { getMessages } from "@/lib/i18n/server"
 import { makeTranslator } from "@/lib/i18n/messages"
 import { messageReceivedEmail } from "@/lib/email-templates"
 import { isFirstUnreadFromSender, markThreadRead } from "@/lib/messaging"
+import { can } from "@/lib/org/access"
+import { accessToLocation } from "@/lib/org/resolve"
 import { getServiceLabel } from "@/lib/utils"
 import { z } from "zod"
 import { isAdmin } from "@/lib/roles"
@@ -102,9 +104,11 @@ export async function GET(req: Request) {
     const thread = await resolveThreadParty(parsed.quoteId, parsed.bookingId)
     if (!thread) return NextResponse.json({ error: "Thread not found" }, { status: 404 })
 
-    const garage = user.role === "GARAGE" ? await prisma.garage.findUnique({ where: { userId: user.id } }) : null
+    // Staff may read a thread when they can open the location it belongs to (not just the one they have selected) and
+    // hold messages.view there.
+    const garageAccess = user.role === "GARAGE" ? await accessToLocation(user.id, thread.garageId) : null
     const isOwnerParty = user.role === "OWNER" && user.id === thread.ownerId
-    const isGarageParty = user.role === "GARAGE" && garage?.id === thread.garageId
+    const isGarageParty = !!garageAccess && can(garageAccess.access, "messages.view")
     if (!isOwnerParty && !isGarageParty && !isAdmin(user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
@@ -115,7 +119,7 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "asc" },
     })
     // Opening the thread reads it (an admin looking in doesn't count as the recipient reading it).
-    if (!isAdmin(user.role)) await markThreadRead(user.id, parsed.quoteId ? { quoteId: parsed.quoteId } : { bookingId: parsed.bookingId! })
+    if (!isAdmin(user.role)) await markThreadRead(user.id, parsed.quoteId ? { quoteId: parsed.quoteId } : { bookingId: parsed.bookingId! }, isGarageParty ? "GARAGE" : "CUSTOMER")
 
     return NextResponse.json({ messages })
   } catch (err) {
@@ -137,9 +141,9 @@ export async function POST(req: Request) {
     const thread = await resolveThreadParty(data.quoteId, data.bookingId)
     if (!thread) return NextResponse.json({ error: "Thread not found" }, { status: 404 })
 
-    const garage = user.role === "GARAGE" ? await prisma.garage.findUnique({ where: { userId: user.id } }) : null
+    const garageAccess = user.role === "GARAGE" ? await accessToLocation(user.id, thread.garageId) : null
     const isOwnerParty = user.role === "OWNER" && user.id === thread.ownerId
-    const isGarageParty = user.role === "GARAGE" && garage?.id === thread.garageId
+    const isGarageParty = !!garageAccess && can(garageAccess.access, "messages.reply")
     if (!isOwnerParty && !isGarageParty) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
@@ -158,6 +162,8 @@ export async function POST(req: Request) {
         senderId: user.id,
         garageId: thread.garageId,
         body: data.body,
+        // Recorded now, so "who sent this" survives that staff member leaving or changing role.
+        fromGarage: isGarageParty,
       },
       include: { sender: { select: { id: true, name: true, role: true, image: true } } },
     })

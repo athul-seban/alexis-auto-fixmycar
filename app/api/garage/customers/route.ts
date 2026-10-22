@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { withGarage } from "@/lib/garage-auth"
+import { forbidden, withGarage } from "@/lib/garage-auth"
 import { CSV_MAX_ROWS, toCsv } from "@/lib/portal/csv"
 import { buildCustomers, CUSTOMER_SORTS, searchCustomers, sortCustomers, type Customer } from "@/lib/portal/customers"
 import { loadCustomerRows, loadRedirects } from "@/lib/portal/customers-db"
@@ -22,9 +22,11 @@ const wire = (c: Customer) => ({
   nextBooking: c.nextBooking?.toISOString() ?? null,
 })
 
-export const GET = withGarage("Garage customers GET", async (req, { garage }) => {
+export const GET = withGarage("Garage customers GET", async (req, { garage, can }) => {
   const sp = Object.fromEntries(new URL(req.url).searchParams)
   const q = querySchema.parse(sp)
+  // Viewing is customers.view (the route gate); downloading the whole list is a separate, rarer permission.
+  if (q.format === "csv" && !can("customers.export")) return forbidden()
   const sort = q.sort as (typeof CUSTOMER_SORTS)[number]
   // Names read A→Z by default; everything else is biggest/most recent first.
   const dir = q.dir ?? (sort === "name" ? "asc" : "desc")
@@ -55,4 +57,4 @@ export const GET = withGarage("Garage customers GET", async (req, { garage }) =>
     // Whole-garage figures for the header (not affected by search).
     summary: { customers: all.length, repeat: all.filter((c) => c.completed >= 2).length, spend: Math.round(all.reduce((s, c) => s + c.spend, 0) * 100) / 100 },
   })
-})
+}, { permission: "customers.view" })

@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma"
 import { authOptions } from "@/lib/auth"
 import { PLACEHOLDER_LEAD_MS, createBooking, transitionBooking, type Actor } from "@/lib/portal/booking-service"
 import { handleRouteError } from "@/lib/portal/route-errors"
+import { forbidden } from "@/lib/garage-auth"
+import { can } from "@/lib/org/access"
+import { accessToLocation, garageFailureResponse, resolveActiveGarage } from "@/lib/org/resolve"
 import { z } from "zod"
 import { isAdmin } from "@/lib/roles"
 
@@ -46,8 +49,10 @@ export async function GET(req: Request) {
     }
 
     if (user.role === "GARAGE") {
-      const garage = await prisma.garage.findUnique({ where: { userId: user.id } })
-      if (!garage) return NextResponse.json({ error: "Garage not found" }, { status: 404 })
+      const resolved = await resolveActiveGarage(user.id, req)
+      if (!resolved.ok) return garageFailureResponse(resolved.failure)
+      if (!can(resolved.value.access, "bookings.view")) return forbidden()
+      const garage = resolved.value.garage
 
       const bookings = await prisma.booking.findMany({
         where: { garageId: garage.id, ...(status ? { status: status as any } : {}) },
@@ -128,8 +133,10 @@ export async function PATCH(req: Request) {
 
     let actor: Actor
     if (user.role === "GARAGE") {
-      const garage = await prisma.garage.findUnique({ where: { userId: user.id } })
-      if (!garage || garage.id !== booking.garageId) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      // Staff may change a booking at any location they hold with bookings.manage (not only the one they have selected).
+      const here = await accessToLocation(user.id, booking.garageId)
+      if (!here || !can(here.access, "bookings.manage")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      const garage = here.garage
       // Suspended garages are read-only (same rule as the portal's { write: true } routes).
       if (garage.status === "SUSPENDED") {
         return NextResponse.json({ error: "Your garage is suspended — the portal is read-only", code: "GARAGE_SUSPENDED" }, { status: 403 })

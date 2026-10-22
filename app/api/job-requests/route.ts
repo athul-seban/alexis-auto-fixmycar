@@ -12,6 +12,9 @@ import { garageEnquiryEmail, jobRequestGuestConfirmation } from "@/lib/email-tem
 import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { respondDeadline } from "@/lib/portal/quote-pricing"
 import { autoQuoteJob } from "@/lib/portal/quote-request-service"
+import { forbidden } from "@/lib/garage-auth"
+import { can } from "@/lib/org/access"
+import { garageFailureResponse, resolveActiveGarage } from "@/lib/org/resolve"
 import { z } from "zod"
 import { SERVICE_TYPES } from "@/lib/constants"
 
@@ -125,7 +128,7 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(req?: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
@@ -133,8 +136,10 @@ export async function GET() {
   if (user.role !== "GARAGE") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {
-    const garage = await prisma.garage.findUnique({ where: { userId: user.id } })
-    if (!garage) return NextResponse.json({ error: "Garage not found" }, { status: 404 })
+    const resolved = await resolveActiveGarage(user.id, req)
+    if (!resolved.ok) return garageFailureResponse(resolved.failure)
+    if (!can(resolved.value.access, "enquiries.view")) return forbidden()
+    const garage = resolved.value.garage
 
     const jobs = await findMatchingJobRequestsForGarage(garage)
     const mapped = jobs.map((job) => ({

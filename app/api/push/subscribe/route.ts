@@ -4,6 +4,7 @@ import { z } from "zod"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { pushConfigured } from "@/lib/push"
+import { garageFailureResponse, resolveActiveGarage } from "@/lib/org/resolve"
 
 const subscribeSchema = z.object({
   endpoint: z.string().url().max(1000).refine((u) => u.startsWith("https://"), "Push endpoints are always https"),
@@ -11,15 +12,15 @@ const subscribeSchema = z.object({
 })
 const unsubscribeSchema = z.object({ endpoint: z.string().url().max(1000) })
 
-/** Who a subscription belongs to: a garage account's pushes go to its garage, everyone else's to the user. */
-async function owner(): Promise<{ userId: string } | { garageId: string } | NextResponse> {
+/** Who a subscription belongs to: a garage account's pushes go to the location it is acting on, everyone else's to the user. */
+async function owner(req?: Request): Promise<{ userId: string } | { garageId: string } | NextResponse> {
   const session = await getServerSession(authOptions)
   const user = session?.user as { id?: string; role?: string } | undefined
   if (!user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (user.role === "GARAGE") {
-    const garage = await prisma.garage.findUnique({ where: { userId: user.id }, select: { id: true } })
-    if (!garage) return NextResponse.json({ error: "Garage profile not found" }, { status: 404 })
-    return { garageId: garage.id }
+    const resolved = await resolveActiveGarage(user.id, req)
+    if (!resolved.ok) return garageFailureResponse(resolved.failure)
+    return { garageId: resolved.value.garage.id }
   }
   if (user.role === "OWNER") return { userId: user.id }
   return NextResponse.json({ error: "Forbidden" }, { status: 403 })
@@ -30,7 +31,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const who = await owner()
+  const who = await owner(req)
   if (who instanceof NextResponse) return who
   if (!pushConfigured()) return NextResponse.json({ error: "Push notifications aren't set up on this platform yet." }, { status: 409 })
 
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const who = await owner()
+  const who = await owner(req)
   if (who instanceof NextResponse) return who
   try {
     const { endpoint } = unsubscribeSchema.parse(await req.json())

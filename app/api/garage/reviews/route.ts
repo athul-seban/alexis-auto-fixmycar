@@ -73,4 +73,4 @@ export const GET = withGarage("Garage reviews GET", async (req, { garage }) => {
     // The headline figures customers see on the public listing.
     summary: { average: garage.averageRating, total: garage.totalReviews },
   })
-})
+}, { permission: "reviews.view" })

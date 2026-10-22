@@ -1,12 +1,13 @@
 // Run by Vercel Cron (see vercel.json). Vercel sends `Authorization: Bearer $CRON_SECRET` when the CRON_SECRET
 // environment variable is set, which is what this route checks, so it also can't be invoked by the public.
 import { NextResponse } from "next/server"
+import { isCronRequest } from "@/lib/cron-auth"
 import { sendDueBookingReminders, sendDueSmsReminders } from "@/lib/portal/reminders"
 import { sendDueReviewRequests } from "@/lib/portal/review-requests"
 import { expireDueRequests } from "@/lib/portal/quote-request-service"
 
 export async function GET(req: Request) {
-  if (!process.env.CRON_SECRET || req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isCronRequest(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   try {

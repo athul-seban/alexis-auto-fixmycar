@@ -73,4 +73,4 @@ export const GET = withGarage("Garage diary GET", async (req, { garage }) => {
     technicians,
     capacity: garageCapacity(technicians.filter((t) => t.isActive).length, settings.bays),
   })
-})
+}, { permission: "diary.view" })

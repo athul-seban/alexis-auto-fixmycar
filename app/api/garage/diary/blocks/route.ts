@@ -64,5 +64,5 @@ export const POST = withGarage(
       { status: 201 }
     )
   },
-  { write: true }
+  { permission: "diary.manage", write: true }
 )

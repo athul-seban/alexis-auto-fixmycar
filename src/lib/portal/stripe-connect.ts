@@ -2,6 +2,7 @@ import type Stripe from "stripe"
 import { prisma } from "@/lib/prisma"
 import { getStripe } from "@/lib/stripe"
 import { absoluteUrl } from "@/lib/portal/links"
+import { syncOrganisationBilling } from "@/lib/org/billing"
 
 const RETURN_PATH = "/garage-dashboard/website"
 
@@ -32,6 +33,8 @@ export async function startConnectOnboarding(garage: { id: string; email: string
     const claimed = await prisma.garage.updateMany({ where: { id: garage.id, stripeAccountId: null }, data: { stripeAccountId: accountId } })
     if (claimed.count === 0) {
       accountId = (await prisma.garage.findUniqueOrThrow({ where: { id: garage.id }, select: { stripeAccountId: true } })).stripeAccountId!
+    } else {
+      await syncOrganisationBilling(garage.id)
     }
   }
 
@@ -48,6 +51,7 @@ export async function startConnectOnboarding(garage: { id: string; email: string
 export async function applyAccountState(account: Pick<Stripe.Account, "id" | "charges_enabled" | "payouts_enabled" | "details_submitted">): Promise<boolean> {
   const enabled = canTakePayments(account)
   await prisma.garage.updateMany({ where: { stripeAccountId: account.id }, data: { stripeChargesEnabled: enabled } })
+  for (const g of await prisma.garage.findMany({ where: { stripeAccountId: account.id }, select: { id: true } })) await syncOrganisationBilling(g.id)
   return enabled
 }
 

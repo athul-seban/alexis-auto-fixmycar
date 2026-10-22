@@ -14,7 +14,7 @@ export const GET = withGarage("Garage stripe status GET", async (_req, { garage 
     console.error("[stripe connect] status refresh failed:", err)
     return NextResponse.json({ available: true, connected: Boolean(garage.stripeAccountId), enabled: garage.stripeChargesEnabled })
   }
-})
+}, { permission: "billing.view" })
 
 /** Start (or resume) onboarding; the response is the Stripe-hosted URL to send the garage to. */
 export const POST = withGarage(
@@ -24,5 +24,5 @@ export const POST = withGarage(
     const url = await startConnectOnboarding(garage)
     return NextResponse.json({ url })
   },
-  { write: true }
+  { permission: "billing.manage", write: true }
 )

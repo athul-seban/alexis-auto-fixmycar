@@ -4,6 +4,7 @@ import { getStripe } from "@/lib/stripe"
 import { notifyGarage } from "@/lib/notifications"
 import { absoluteUrl } from "@/lib/portal/links"
 import { CREDIT_PACK, extendFeatured, FEATURED_PRODUCT, isPlanId, PLANS, type PlanId } from "@/lib/portal/plans"
+import { organisationIdOf, syncOrganisationBilling } from "@/lib/org/billing"
 
 // What the platform charges garages: monthly plans (Stripe Billing), pay-per-lead credit packs and featured
 // placement (one-off Checkout payments). All charged to the platform's own Stripe account, not the garage's
@@ -26,6 +27,7 @@ export async function ensureCustomer(garage: BillingGarage): Promise<string> {
     await stripe.customers.del(customer.id).catch(() => {})
     return (await prisma.garage.findUniqueOrThrow({ where: { id: garage.id }, select: { stripeCustomerId: true } })).stripeCustomerId!
   }
+  await syncOrganisationBilling(garage.id)
   return customer.id
 }
 
@@ -124,6 +126,7 @@ export async function applySubscription(sub: Stripe.Subscription): Promise<void>
       plan: ended || !plan ? (ended ? "FREE" : garage.plan) : plan,
     },
   })
+  await syncOrganisationBilling(garage.id)
 }
 
 /** A one-off payment (credits or featured placement) completed. The event id was already de-duplicated by the caller. */
@@ -135,14 +138,16 @@ export async function fulfilCheckout(session: Stripe.Checkout.Session, now = new
   if (kind === "credits") {
     try {
       // The unique session id makes this grant happen once even if the event is redelivered under a new event id.
+      const organisationId = await organisationIdOf(garageId)
       await prisma.$transaction([
-        prisma.leadCreditTransaction.create({ data: { garageId, delta: CREDIT_PACK.credits, reason: "PURCHASE", stripeSessionId: session.id } }),
+        prisma.leadCreditTransaction.create({ data: { garageId, organisationId, delta: CREDIT_PACK.credits, reason: "PURCHASE", stripeSessionId: session.id } }),
         prisma.garage.update({ where: { id: garageId }, data: { leadCredits: { increment: CREDIT_PACK.credits } } }),
       ])
     } catch (err: any) {
       if (err?.code === "P2002") return
       throw err
     }
+    await syncOrganisationBilling(garageId)
     await notifyGarage({ garageId, type: "GARAGE_STATUS_CHANGED", title: "Lead credits added", body: `${CREDIT_PACK.credits} credits are ready to use.`, link: "/garage-dashboard/billing" })
   } else if (kind === "featured") {
     const garage = await prisma.garage.findUnique({ where: { id: garageId }, select: { featuredUntil: true } })
@@ -171,12 +176,14 @@ export async function handleBillingEvent(event: Stripe.Event): Promise<void> {
 export async function spendLeadCredit(garageId: string, jobRequestId: string): Promise<boolean> {
   const taken = await prisma.garage.updateMany({ where: { id: garageId, leadCredits: { gt: 0 } }, data: { leadCredits: { decrement: 1 } } })
   if (taken.count === 0) return false
-  await prisma.leadCreditTransaction.create({ data: { garageId, delta: -1, reason: "LEAD", jobRequestId } })
+  await prisma.leadCreditTransaction.create({ data: { garageId, organisationId: await organisationIdOf(garageId), delta: -1, reason: "LEAD", jobRequestId } })
+  await syncOrganisationBilling(garageId)
   return true
 }
 
 /** Give back a credit spent on an answer that then failed to save. */
 export async function refundLeadCredit(garageId: string, jobRequestId: string): Promise<void> {
   await prisma.garage.update({ where: { id: garageId }, data: { leadCredits: { increment: 1 } } })
-  await prisma.leadCreditTransaction.create({ data: { garageId, delta: 1, reason: "REFUND", jobRequestId } })
+  await prisma.leadCreditTransaction.create({ data: { garageId, organisationId: await organisationIdOf(garageId), delta: 1, reason: "REFUND", jobRequestId } })
+  await syncOrganisationBilling(garageId)
 }

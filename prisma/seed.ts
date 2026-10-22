@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client"
+import { backfillOrganisations } from "../src/lib/org/backfill"
 import bcrypt from "bcryptjs"
 import crypto from "crypto"
 import { backfillBookings } from "../src/lib/portal/backfill"
@@ -334,7 +335,9 @@ async function main() {
     garageIdBySlug[g.slug] = garage.id
   }
 
-  console.log(`✅ Seeded ${garages.length} garages (password for all garage logins: garage123)`)
+  // Every garage is the first location of its own business (the same upgrade production gets; idempotent).
+  const businesses = await backfillOrganisations()
+  console.log(`✅ Seeded ${garages.length} garages (password for all garage logins: garage123); ${businesses.created} new business(es)`)
 
   const ownerPassword = await bcrypt.hash("owner123", 10)
   const ownerIdByEmail: Record<string, string> = {}

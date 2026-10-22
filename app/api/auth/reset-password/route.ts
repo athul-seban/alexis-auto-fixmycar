@@ -31,7 +31,8 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 12)
     await prisma.user.update({
       where: { id: user.id },
-      data: { password: hashedPassword, failedLoginAttempts: 0, lockedUntil: null },
+      // sessionVersion + 1: a reset usually follows a suspected compromise, so every existing session must die.
+      data: { password: hashedPassword, failedLoginAttempts: 0, lockedUntil: null, sessionVersion: { increment: 1 } },
     })
 
     await prisma.verificationToken.delete({ where: { token } }).catch(() => {})

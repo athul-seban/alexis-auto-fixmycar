@@ -27,7 +27,7 @@ export const PATCH = withGarage<Params>(
     })
     return NextResponse.json({ technician })
   },
-  { write: true }
+  { permission: "technicians.manage", write: true }
 )
 
 // Deleting a technician who has bookings would orphan history in the diary, so they're
@@ -46,5 +46,5 @@ export const DELETE = withGarage<Params>(
     await prisma.technician.delete({ where: { id } })
     return NextResponse.json({ success: true, deactivated: false })
   },
-  { write: true }
+  { permission: "technicians.manage", write: true }
 )

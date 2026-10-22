@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit"
 import { isSuperAdmin } from "@/lib/roles"
 import { slugify } from "@/lib/utils"
 import { sendGarageInvite } from "@/lib/garage-invite"
+import { createBusiness } from "@/lib/org/create"
 
 // Onboard a garage that someone else owns. The super admin supplies only the business name, the owner and a city;
 // the owner sets their own password from the emailed link and fills in the rest of the profile. The garage starts
@@ -41,20 +42,17 @@ export async function POST(req: Request) {
   for (let n = 1; await prisma.garage.findUnique({ where: { slug }, select: { id: true } }); n++) slug = `${baseSlug}-${n}`
 
   // address/postcode/phone are required columns; blank until the owner completes their profile (readiness flags them).
-  const user = await prisma.user.create({
-    data: {
-      name: data.ownerName,
-      email: data.email,
-      role: "GARAGE",
-      garage: { create: { name: data.garageName, slug, email: data.email, phone: "", address: "", city: data.city, postcode: "", status: "PENDING" } },
-    },
-    select: { id: true, garage: { select: { id: true, slug: true } } },
+  // The owner gets the business, its roles, this first location and the Owner role together.
+  const created = await createBusiness({
+    owner: { data: { name: data.ownerName, email: data.email } },
+    location: { name: data.garageName, slug, email: data.email, phone: "", address: "", city: data.city, postcode: "", status: "PENDING" },
   })
+  const garage = { id: created.garage.id, slug: created.garage.slug }
 
   const invite = await sendGarageInvite({ email: data.email, name: data.ownerName }, data.garageName)
-  await audit(session, { action: "GARAGE_INVITED", targetType: "GARAGE", targetId: user.garage!.id, detail: `${data.garageName} · ${data.email}${invite.sent ? "" : " · email not sent"}` })
+  await audit(session, { action: "GARAGE_INVITED", targetType: "GARAGE", targetId: garage.id, detail: `${data.garageName} · ${data.email}${invite.sent ? "" : " · email not sent"}` })
 
-  return NextResponse.json({ garage: user.garage, emailSent: invite.sent, ...(invite.devUrl ? { devUrl: invite.devUrl } : {}) }, { status: 201 })
+  return NextResponse.json({ garage, emailSent: invite.sent, ...(invite.devUrl ? { devUrl: invite.devUrl } : {}) }, { status: 201 })
 }
 
 const resendSchema = z.object({ garageId: z.string().min(1) })

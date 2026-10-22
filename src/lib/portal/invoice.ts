@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib"
 import { prisma } from "@/lib/prisma"
 import { BookingError } from "@/lib/portal/booking-error"
+import { syncOrganisationBilling } from "@/lib/org/billing"
 import { formatPhone } from "@/lib/portal/phone"
 import { formatLondonDate, londonDateString } from "@/lib/portal/tz"
 import { formatCurrency, getServiceLabel } from "@/lib/utils"
@@ -75,7 +76,7 @@ export function buildInvoiceModel(b: InvoiceSource): InvoiceModel {
  * sequence has no gaps and no duplicates however many requests arrive at once.
  */
 export async function ensureInvoiceNumber(bookingId: string, garageId: string): Promise<{ number: string; issuedAt: Date }> {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // The transaction opens with its write (the claim), so concurrent callers queue for the write lock instead of
     // all reading first and then failing to upgrade (SQLite) or racing past each other (Postgres).
     const issuedAt = new Date()
@@ -98,6 +99,9 @@ export async function ensureInvoiceNumber(bookingId: string, garageId: string): 
     await tx.booking.update({ where: { id: bookingId }, data: { invoiceNumber: number } })
     return { number, issuedAt }
   })
+  // The counter moved on the garage; keep the business's copy of it in step (it takes over as the single sequence later).
+  await syncOrganisationBilling(garageId)
+  return result
 }
 
 /** Load a booking and produce its invoice model, assigning the number on first use. */

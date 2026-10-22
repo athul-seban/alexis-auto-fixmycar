@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { FieldError, FieldLabel, NativeSelect, TextInput } from "@/components/ui/form-controls"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -196,7 +197,9 @@ function AccountCard({ account }: { account: SettingsResponse["account"] }) {
     setSaving(false)
     if (!res.ok) return setError(res.error ?? "Couldn't change your password")
     setCurrent(""); setNext(""); setConfirm("")
-    toast("Password changed")
+    toast("Password changed. Please sign in again.")
+    // Changing the password ends every session, including this one, so go straight to the sign-in page.
+    await signOut({ callbackUrl: "/login" })
   }
 
   return (

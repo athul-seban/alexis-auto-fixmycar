@@ -27,5 +27,5 @@ export const POST = withGarage<{ id: string }>(
     if (claimed.count === 0) return NextResponse.json({ error: "This review has already been disputed." }, { status: 409 })
     return NextResponse.json({ success: true }, { status: 201 })
   },
-  { write: true }
+  { permission: "reviews.reply", write: true }
 )

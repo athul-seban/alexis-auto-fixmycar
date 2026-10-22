@@ -45,7 +45,7 @@ export const POST = withGarage(
     })
     return NextResponse.json({ key: target })
   },
-  { write: true }
+  { permission: "customers.manage", write: true }
 )
 
 /** Undo a merge: `?from=<key>` splits that identity back out as its own customer. */
@@ -57,5 +57,5 @@ export const DELETE = withGarage(
     if (removed.count === 0) throw new BookingError("NOT_FOUND", "That customer isn't merged")
     return NextResponse.json({ key: from })
   },
-  { write: true }
+  { permission: "customers.manage", write: true }
 )

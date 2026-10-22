@@ -21,5 +21,5 @@ export const PUT = withGarage(
     const note = await prisma.customerNote.upsert({ where, create: { garageId: garage.id, customerKey: key, body }, update: { body } })
     return NextResponse.json({ note: { body: note.body, updatedAt: note.updatedAt.toISOString() } })
   },
-  { write: true }
+  { permission: "customers.manage", write: true }
 )

@@ -37,6 +37,8 @@ model User {
   notifications Notification[]
   pushSubscriptions PushSubscription[]
   articles      Article[]
+  memberships   Membership[]
+  technicianProfiles Technician[]
 }
 
 model Account {
@@ -106,6 +108,7 @@ model Vehicle {
 model Garage {
   id                 String    @id @default(cuid())
   userId             String    @unique
+  organisationId     String?   // the business this location belongs to; null until backfilled
   name               String
   slug               String    @unique
   description        String?
@@ -150,6 +153,7 @@ model Garage {
   updatedAt          DateTime  @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Restrict) // a business can never cascade away
   quotes       Quote[]
   bookings     Booking[]
   reviews      Review[]
@@ -165,6 +169,9 @@ model Garage {
   pushSubscriptions PushSubscription[]
   creditTransactions LeadCreditTransaction[]
   documents     GarageDocument[]
+  roleAssignments RoleAssignment[]
+
+  @@index([organisationId])
 }
 
 model Quote {
@@ -385,6 +392,7 @@ model Message {
   garageId    String
   body        String
   readAt      DateTime?
+  fromGarage  Boolean  @default(false) // sent from the garage side (any staff member); recorded when written
   createdAt   DateTime @default(now())
 
   sender User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
@@ -422,14 +430,18 @@ model Technician {
   color     String   @default("#1E3A5F")
   isActive  Boolean  @default(true)
   sortOrder Int      @default(0)
+  userId    String?  // the login of a technician who signs in and sees only their own jobs
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   garage      Garage       @relation(fields: [garageId], references: [id], onDelete: Cascade)
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   bookings    Booking[]
   diaryBlocks DiaryBlock[]
 
+  @@unique([garageId, userId])
   @@index([garageId])
+  @@index([userId])
 }
 
 model ServicePrice {
@@ -506,10 +518,12 @@ model AuditLog {
   targetType String // GARAGE | USER | REVIEW
   targetId   String
   detail     String?
+  organisationId String? // set for actions inside a garage business, so it can see its own trail
   createdAt  DateTime @default(now())
 
   @@index([createdAt])
   @@index([targetType, targetId])
+  @@index([organisationId, createdAt])
 }
 
 // Stripe webhook events already handled, so a redelivered event is a no-op (webhooks are at-least-once).
@@ -575,11 +589,13 @@ model LeadCreditTransaction {
   reason          String   // PURCHASE | LEAD | GRANT | REFUND
   jobRequestId    String?
   stripeSessionId String?  @unique
+  organisationId  String?  // the business whose balance this moved (garageId = the location that answered)
   createdAt       DateTime @default(now())
 
   garage Garage @relation(fields: [garageId], references: [id], onDelete: Cascade)
 
   @@index([garageId, createdAt])
+  @@index([organisationId, createdAt])
 }
 
 // Verification paperwork a garage uploads (insurance, trade certificates...) for an admin to review.
@@ -643,6 +659,120 @@ model PlatformSetting {
   value       String
   updatedById String?
   updatedAt   DateTime @updatedAt
+}
+
+// ---- Garage businesses, locations, staff and roles ----------------------------------------------------------------
+// A BUSINESS (Organisation) owns one or more LOCATIONS (Garage rows: every child table still keys on garageId), its
+// staff (Membership), its roles and the billing relationship. Access is decided by Membership + RoleAssignment; the
+// legacy Garage.userId login keeps working for garages with organisationId = null (not yet backfilled).
+model Organisation {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique // internal handle; the website subdomain lives on OrganisationSite
+  legalName    String?
+  vatNumber    String?
+  logo         String?
+  description  String?
+  website      String?
+  contactEmail String?
+  contactPhone String?
+  // Billing belongs to the business. While a business has a single location these are mirrored onto its Garage row,
+  // so an older build still sees the same values (see src/lib/org/billing.ts).
+  plan                  String    @default("FREE") // FREE | PRO | PREMIUM (src/lib/portal/plans.ts)
+  stripeCustomerId      String?   @unique
+  stripeSubscriptionId  String?   @unique
+  subscriptionStatus    String?
+  subscriptionPeriodEnd DateTime?
+  leadCredits           Int       @default(0)
+  stripeAccountId       String?   @unique
+  stripeChargesEnabled  Boolean   @default(false)
+  invoiceCounter        Int       @default(0)
+  suspendedAt           DateTime? // admin kill switch for the whole business
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  locations   Garage[]
+  roles       Role[]
+  memberships Membership[]
+  invites     StaffInvite[]
+}
+
+// A named set of permissions inside one business. System roles (owner, manager, staff) are created with the business;
+// presets (src/lib/org/presets.ts) are copied in when a garage admin enables them; custom roles have no presetKey.
+model Role {
+  id             String    @id @default(cuid())
+  organisationId String
+  presetKey      String? // owner | manager | staff | a preset key; null for a custom role
+  name           String
+  description    String?
+  permissions    String    @default("[]") // JSON array of permission keys (src/lib/org/permissions.ts)
+  isSystem       Boolean   @default(false) // owner / manager / staff: can be edited (not owner) but never deleted or disabled
+  isEnabled      Boolean   @default(true) // a disabled role can't be assigned
+  presetVersion  Int       @default(0) // the preset version this role was copied from, to offer "update available"
+  editedAt       DateTime? // set when a garage admin changes a preset's permissions, so it is never auto-synced
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organisation Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  assignments  RoleAssignment[]
+
+  @@unique([organisationId, presetKey]) // NULLs are distinct: any number of custom roles, each preset at most once
+  @@index([organisationId])
+}
+
+// "This person works for this business." What they may do comes from their RoleAssignments.
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String
+  organisationId String
+  status         String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  invitedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  assignments  RoleAssignment[]
+
+  @@unique([userId, organisationId])
+  @@index([organisationId])
+}
+
+// A role held at one location, or at all of them. scopeKey is the garageId, or "*" for all locations (including ones
+// added later). It is never null, so the unique key below is airtight (a nullable garageId would allow duplicates).
+model RoleAssignment {
+  id           String   @id @default(cuid())
+  membershipId String
+  roleId       String
+  garageId     String?
+  scopeKey     String
+  createdAt    DateTime @default(now())
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Restrict) // a role in use can't be deleted
+  garage     Garage?    @relation(fields: [garageId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, roleId, scopeKey])
+  @@index([roleId])
+  @@index([garageId])
+}
+
+// An emailed invitation to join a business as staff. Only the sha-256 of the token is stored.
+model StaffInvite {
+  id             String    @id @default(cuid())
+  organisationId String
+  email          String
+  assignments    String    @default("[]") // JSON: [{ roleId, garageIds: string[] | null }] (null = all locations)
+  tokenHash      String    @unique
+  invitedById    String?
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId, email])
 }
 
 // Addresses that must not get marketing-type email (review requests, reminders, offers). scope = "ALL" or a garage id.

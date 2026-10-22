@@ -61,5 +61,5 @@ export const PATCH = withGarage<Params>(
 
     throw new BookingError("NOT_FOUND", "Unknown enquiry type")
   },
-  { write: true }
+  { permission: "enquiries.respond", write: true }
 )

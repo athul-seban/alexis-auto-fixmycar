@@ -55,5 +55,5 @@ export const POST = withGarage(
     }
     return NextResponse.json(result)
   },
-  { write: true }
+  { permission: "bookings.manage", write: true }
 )

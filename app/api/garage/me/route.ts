@@ -1,26 +1,26 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
+import { withGarage } from "@/lib/garage-auth"
+import { permissionList } from "@/lib/org/access"
 import { toGarageProfile, parseServiceList } from "@/lib/garage-mapper"
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+/**
+ * The location the portal is acting on, plus what the signed-in person may do there: the business, the locations they can
+ * switch between and their permission keys. The browser uses the keys only to hide things they can't use; every route
+ * re-checks them on the server.
+ */
+export const GET = withGarage(
+  "Garage me GET",
+  async (_req, { garage, organisation, access, locations }) => {
+    const profile = toGarageProfile(garage as never)
+    const verificationBadges = parseServiceList(garage.verificationBadges)
 
-  const user = session.user as any
-  if (user.role !== "GARAGE") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-  try {
-    const garage = await prisma.garage.findUnique({ where: { userId: user.id } })
-    if (!garage) return NextResponse.json({ error: "Garage not found" }, { status: 404 })
-
-    const profile = toGarageProfile(garage as any)
-    const verificationBadges = parseServiceList((garage as any).verificationBadges)
-
-    return NextResponse.json({ garage: { ...profile, verificationBadges } })
-  } catch (err) {
-    console.error("Garage me GET error:", err)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
-}
+    return NextResponse.json({
+      garage: { ...profile, verificationBadges },
+      organisation: organisation ? { id: organisation.id, name: organisation.name } : null,
+      locations,
+      permissions: permissionList(access),
+      isOwner: access.isOwner,
+    })
+  },
+  { permission: "member" }
+)

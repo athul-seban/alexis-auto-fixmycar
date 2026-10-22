@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
 import { prisma } from "@/lib/prisma"
-import { authOptions } from "@/lib/auth"
+import { requireSession } from "@/lib/session"
+import { resolveActiveGarage } from "@/lib/org/resolve"
 import { z } from "zod"
 
 const markReadSchema = z.object({
@@ -9,17 +9,23 @@ const markReadSchema = z.object({
   all: z.boolean().optional(),
 })
 
-export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+/**
+ * Whose notifications to read or mark: a customer's are their own; a garage login sees the ACTIVE location's (shared by
+ * everyone who works there). With no usable location the filter matches nothing, never everything.
+ */
+async function ownerFilter(user: { id: string; role: string }, req?: Request) {
+  if (user.role !== "GARAGE") return { userId: user.id }
+  const resolved = await resolveActiveGarage(user.id, req)
+  return { garageId: resolved.ok ? resolved.value.garage.id : "__none__" }
+}
 
-  const user = session.user as any
+export async function GET(req?: Request) {
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
 
   try {
-    const where =
-      user.role === "GARAGE"
-        ? { garageId: (await prisma.garage.findUnique({ where: { userId: user.id } }))?.id ?? "__none__" }
-        : { userId: user.id }
+    const where = await ownerFilter(user, req)
 
     const [notifications, unreadCount] = await Promise.all([
       prisma.notification.findMany({
@@ -38,19 +44,15 @@ export async function GET() {
 }
 
 export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const user = session.user as any
+  const auth = await requireSession()
+  if (!auth.ok) return auth.response
+  const { user } = auth
 
   try {
     const body = await req.json()
     const data = markReadSchema.parse(body)
 
-    const where =
-      user.role === "GARAGE"
-        ? { garageId: (await prisma.garage.findUnique({ where: { userId: user.id } }))?.id ?? "__none__" }
-        : { userId: user.id }
+    const where = await ownerFilter(user, req)
 
     if (data.all) {
       await prisma.notification.updateMany({

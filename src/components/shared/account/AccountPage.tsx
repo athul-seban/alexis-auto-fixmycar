@@ -169,10 +169,12 @@ function PasswordPanel({ hasPassword }: { hasPassword: boolean }) {
     const res = await sendJson("/api/account/change-password", "POST", { current, next })
     setBusy(false)
     if (!res.ok) return setError(res.error ?? "Couldn't change password")
-    toast("Password changed")
+    toast("Password changed. Please sign in again.")
     setCurrent("")
     setNext("")
     setConfirm("")
+    // Changing the password ends every session, including this one, so go straight to the sign-in page.
+    await signOut({ callbackUrl: "/login" })
   }
 
   return (

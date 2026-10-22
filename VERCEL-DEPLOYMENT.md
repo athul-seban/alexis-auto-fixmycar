@@ -118,3 +118,37 @@ card, switch plan and cancel.
 
 Suggested order: apply the schema, deploy, create the Stripe prices, check the Billing page as a test garage, agree the
 plan limits with the client, then set `PLANS_ENFORCED=true`.
+
+## Garage businesses, locations and permissions (phase 1)
+
+Every garage becomes the first location of its own **business**, and access is decided by roles and permissions instead of
+by "this login owns this garage". Nothing changes for existing garages: after the backfill each owner is the business's
+Owner with every permission. New staff, extra locations and websites come in later phases (behind flags).
+
+Additive schema changes (both schema files): new tables `Organisation`, `Role`, `Membership`, `RoleAssignment`,
+`StaffInvite`; new columns `Garage.organisationId`, `Message.fromGarage`, `LeadCreditTransaction.organisationId`,
+`AuditLog.organisationId`, `Technician.userId`. **Nothing is dropped or altered**; `Garage.userId` and every billing
+column are untouched (billing is mirrored onto the business, the garage columns stay the source of truth).
+
+Order (same rule as above: schema first, then code; old code against the new schema is fine, so a revert needs no database change):
+
+1. **Back up** (Neon branch or snapshot).
+2. **Rehearse on a Neon branch of production**: `npx prisma migrate diff --from-url <branch-url> --to-schema-datamodel prisma/schema.prod.prisma --script`
+   must show only `CREATE TABLE`, `ALTER TABLE ... ADD COLUMN` and `CREATE INDEX`. Run steps 3 to 6 against the branch first.
+3. `npx prisma db push --schema=prisma/schema.prod.prisma` (never `--accept-data-loss`). It must not prompt.
+4. Deploy the code. Until the backfill runs, every garage still works through the legacy path (its login is the owner).
+5. Backfill. The script uses whichever Prisma client was generated last, so generate the Postgres one first and, afterwards,
+   the local one again:
+   ```bash
+   npx prisma generate --schema=prisma/schema.prod.prisma
+   npm run db:backfill-orgs -- --dry-run     # read the counts: one business per garage
+   npm run db:backfill-orgs
+   npm run db:backfill-orgs -- --verify      # must print "OK: every invariant holds"
+   npx prisma generate                        # back to the local (sqlite) client
+   ```
+   It is idempotent. Run it once more after the deploy has been live for a while to catch garages registered in between.
+6. Smoke test as the demo/owner login: dashboard, bookings, messages, billing, a profile edit and a logo upload.
+
+Fixed in the same release (security): a revoked or suspended session used to see everyone's notifications and could touch
+any vehicle by id; the language switcher was an open redirect; uploads trusted the browser's file type; changing or
+resetting a password now signs out every session; sign-in no longer reveals which emails exist.

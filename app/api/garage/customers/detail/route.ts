@@ -31,4 +31,4 @@ export const GET = withGarage("Garage customer detail GET", async (req, { garage
     note: note ? { body: note.body, updatedAt: note.updatedAt.toISOString() } : null,
     bookings: recent.map((b) => ({ ...b, scheduledAt: b.scheduledAt.toISOString() })),
   })
-})
+}, { permission: "customers.view" })

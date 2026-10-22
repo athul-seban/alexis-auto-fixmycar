@@ -9,15 +9,21 @@ import { leadDecision, monthStart } from "@/lib/portal/plans"
 import { refundLeadCredit, spendLeadCredit } from "@/lib/portal/billing-service"
 import { parseWorks, resolveQuoteLines } from "@/lib/portal/quote-pricing"
 import { expireDueRequests } from "@/lib/portal/quote-request-service"
+import { forbidden } from "@/lib/garage-auth"
+import { can } from "@/lib/org/access"
+import { garageFailureResponse, resolveActiveGarage } from "@/lib/org/resolve"
 import { z } from "zod"
+
+// Upper bound for any single amount a garage can quote: well above any real repair, low enough to stop absurd values.
+const MAX_AMOUNT = 100_000
 
 const respondSchema = z.object({
   // A request with several works needs an amount for each one in items; a single work may just send price.
-  price: z.number().positive().optional(),
-  items: z.array(z.object({ serviceType: z.string(), price: z.number().positive() })).max(20).optional(),
-  laborCost: z.number().positive().optional(),
-  partsCost: z.number().positive().optional(),
-  message: z.string().optional(),
+  price: z.number().positive().max(MAX_AMOUNT).optional(),
+  items: z.array(z.object({ serviceType: z.string().max(60), price: z.number().positive().max(MAX_AMOUNT) })).max(20).optional(),
+  laborCost: z.number().positive().max(MAX_AMOUNT).optional(),
+  partsCost: z.number().positive().max(MAX_AMOUNT).optional(),
+  message: z.string().max(2000).optional(),
   validDays: z.number().min(1).max(30).default(7),
 })
 
@@ -34,8 +40,11 @@ export async function POST(req: Request, props: Params) {
   if (user.role !== "GARAGE") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {
-    const garage = await prisma.garage.findUnique({ where: { userId: user.id } })
-    if (!garage) return NextResponse.json({ error: "Garage not found" }, { status: 404 })
+    const resolved = await resolveActiveGarage(user.id, req)
+    if (!resolved.ok) return garageFailureResponse(resolved.failure)
+    // Quoting spends the business's lead credits, so it is its own permission (not implied by seeing enquiries).
+    if (!can(resolved.value.access, "enquiries.respond")) return forbidden()
+    const garage = resolved.value.garage
 
     // Only live (approved) garages may quote on marketplace jobs.
     if (garage.status !== "APPROVED") {

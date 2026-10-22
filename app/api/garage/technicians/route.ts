@@ -10,7 +10,7 @@ export const GET = withGarage("Garage technicians GET", async (_req, { garage })
     select: TECHNICIAN_SELECT,
   })
   return NextResponse.json({ technicians })
-})
+}, { permission: { anyOf: ["bookings.view", "diary.view"] } })
 
 export const POST = withGarage(
   "Garage technicians POST",
@@ -31,5 +31,5 @@ export const POST = withGarage(
     })
     return NextResponse.json({ technician }, { status: 201 })
   },
-  { write: true }
+  { permission: "technicians.manage", write: true }
 )

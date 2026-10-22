@@ -7,6 +7,9 @@ import { SERVICE_TYPES } from "@/lib/constants"
 import { openingHoursSchema } from "@/lib/portal/opening-hours"
 import { handleRouteError } from "@/lib/portal/route-errors"
 import { getPublicGarage } from "@/lib/public-garage"
+import { isOwnGarageImageUrl } from "@/lib/image-sniff"
+import { can } from "@/lib/org/access"
+import { accessToLocation } from "@/lib/org/resolve"
 import { z } from "zod"
 
 interface Params {
@@ -54,18 +57,22 @@ export async function PATCH(req: Request, props: Params) {
   if (user.role !== "GARAGE") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {
-    const garage = await prisma.garage.findFirst({
-      where: { id: params.id, userId: user.id },
-    })
-
-    if (!garage) {
+    // Editing a location's profile needs profile.edit AT THAT LOCATION (a member can hold several).
+    const here = await accessToLocation(user.id, params.id)
+    if (!here || !can(here.access, "profile.edit")) {
       return NextResponse.json({ error: "Garage not found or unauthorized" }, { status: 403 })
     }
+    const garage = here.garage
     if (garage.status === "SUSPENDED") {
       return NextResponse.json({ error: "Your garage is suspended — the portal is read-only", code: "GARAGE_SUSPENDED" }, { status: 403 })
     }
 
     const data = patchSchema.parse(await req.json())
+    // The logo is uploaded through /api/upload, which stores it under the garage's own folder; an arbitrary URL here would
+    // let a profile point at any third-party image (tracking pixels, hotlinked or hostile content).
+    if (data.logo && !isOwnGarageImageUrl(data.logo, garage.id)) {
+      return NextResponse.json({ error: "Upload the logo as an image instead of linking to one" }, { status: 400 })
+    }
     const updated = await prisma.garage.update({
       where: { id: params.id },
       data: {

@@ -35,5 +35,5 @@ export const PATCH = withGarage<{ id: string }>(
       review: { id: updated.id, reply: updated.reply, repliedAt: updated.repliedAt?.toISOString() ?? null },
     })
   },
-  { write: true }
+  { permission: "reviews.reply", write: true }
 )

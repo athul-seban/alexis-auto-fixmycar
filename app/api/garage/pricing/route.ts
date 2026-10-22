@@ -9,7 +9,7 @@ import { getServiceLabel } from "@/lib/utils"
 
 export const GET = withGarage("Garage pricing GET", async (_req, { garage }) => {
   return NextResponse.json({ services: await loadPricing(garage.id, garage.services) })
-})
+}, { permission: "pricing.view" })
 
 export const PUT = withGarage(
   "Garage pricing PUT",
@@ -36,5 +36,5 @@ export const PUT = withGarage(
     )
     return NextResponse.json({ services: await loadPricing(garage.id, garage.services) })
   },
-  { write: true }
+  { permission: "pricing.edit", write: true }
 )

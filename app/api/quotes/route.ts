@@ -12,26 +12,32 @@ import { parsePortalSettings } from "@/lib/portal/portal-settings"
 import { parseWorks, resolveQuoteLines, respondDeadline } from "@/lib/portal/quote-pricing"
 import { autoQuoteQuote, expireDueRequests } from "@/lib/portal/quote-request-service"
 import { getServiceLabel } from "@/lib/utils"
+import { forbidden } from "@/lib/garage-auth"
+import { can } from "@/lib/org/access"
+import { garageFailureResponse, resolveActiveGarage } from "@/lib/org/resolve"
 import { z } from "zod"
 import { SERVICE_TYPES } from "@/lib/constants"
 
+// Upper bound for any single amount a garage can quote: well above any real repair, low enough to stop absurd values.
+const MAX_AMOUNT = 100_000
+
 const createSchema = z.object({
-  vehicleId: z.string(),
-  garageId: z.string(),
+  vehicleId: z.string().max(64),
+  garageId: z.string().max(64),
   // One or more works. serviceType is still accepted for a single work (older clients).
   serviceType: z.enum(SERVICE_TYPES).optional(),
   services: z.array(z.enum(SERVICE_TYPES)).min(1).max(SERVICE_TYPES.length).optional(),
-  description: z.string().min(10),
+  description: z.string().min(10).max(2000),
 })
 
 const respondSchema = z.object({
-  quoteId: z.string(),
+  quoteId: z.string().max(64),
   // A request with several works needs an amount for each one in items; a single work may just send price.
-  price: z.number().positive().optional(),
-  items: z.array(z.object({ serviceType: z.string(), price: z.number().positive() })).max(20).optional(),
-  laborCost: z.number().positive().optional(),
-  partsCost: z.number().positive().optional(),
-  notes: z.string().optional(),
+  price: z.number().positive().max(MAX_AMOUNT).optional(),
+  items: z.array(z.object({ serviceType: z.string().max(60), price: z.number().positive().max(MAX_AMOUNT) })).max(20).optional(),
+  laborCost: z.number().positive().max(MAX_AMOUNT).optional(),
+  partsCost: z.number().positive().max(MAX_AMOUNT).optional(),
+  notes: z.string().max(2000).optional(),
   validDays: z.number().min(1).max(30).default(7),
 })
 
@@ -58,8 +64,10 @@ export async function GET(req: Request) {
     }
 
     if (role === "GARAGE") {
-      const garage = await prisma.garage.findUnique({ where: { userId: user.id } })
-      if (!garage) return NextResponse.json({ error: "Garage not found" }, { status: 404 })
+      const resolved = await resolveActiveGarage(user.id, req)
+      if (!resolved.ok) return garageFailureResponse(resolved.failure)
+      if (!can(resolved.value.access, "enquiries.view")) return forbidden()
+      const garage = resolved.value.garage
 
       const quotes = await prisma.quote.findMany({
         where: { garageId: garage.id },
@@ -84,7 +92,9 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const user = session.user as any
-  const body = await req.json()
+  // Parsed before the try (which maps errors to 500s), and a malformed body is the caller's mistake: 400, not a crash.
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
 
   try {
     if (user.role === "OWNER" && body.action === "request") {
@@ -147,8 +157,10 @@ export async function POST(req: Request) {
 
     if (user.role === "GARAGE" && body.action === "respond") {
       const data = respondSchema.parse(body)
-      const garage = await prisma.garage.findUnique({ where: { userId: user.id } })
-      if (!garage) return NextResponse.json({ error: "Garage not found" }, { status: 404 })
+      const resolved = await resolveActiveGarage(user.id, req)
+      if (!resolved.ok) return garageFailureResponse(resolved.failure)
+      if (!can(resolved.value.access, "enquiries.respond")) return forbidden()
+      const garage = resolved.value.garage
 
       // A garage that missed its deadline can no longer quote by hand (the request has closed or become an estimate).
       await expireDueRequests({ garageId: garage.id })

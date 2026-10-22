@@ -110,7 +110,9 @@ describe("booking changes by the garage text the customer", () => {
   it("texts on confirm, reschedule and cancel", async () => {
     const { garage, booking } = await setup({ startInHours: 72 })
     await transitionBooking({ bookingId: booking.id, to: "CONFIRMED", actor: { role: "GARAGE", garageId: garage.id } })
-    await rescheduleBooking({ bookingId: booking.id, garageId: garage.id, scheduledAt: new Date(booking.scheduledAt.getTime() + DAY), allowOverlap: true })
+    // `now: noon` is the same fixed clock the booking was created against. Without it the move is checked against the
+    // real clock and fails as "moved into the past" once real time passes the hard-coded date above.
+    await rescheduleBooking({ bookingId: booking.id, garageId: garage.id, scheduledAt: new Date(booking.scheduledAt.getTime() + DAY), allowOverlap: true, now: noon })
     await transitionBooking({ bookingId: booking.id, to: "CANCELLED", actor: { role: "GARAGE", garageId: garage.id } })
     expect(sendSms).toHaveBeenCalledTimes(3)
     expect(sendSms.mock.calls.map((c) => c[0].body).join("|")).toMatch(/confirmed.*moved.*cancelled/i)
