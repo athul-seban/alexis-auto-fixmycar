@@ -10,6 +10,7 @@ import { parseContent } from "@/lib/site/content"
 import { buildPreviewSite } from "@/lib/site/public"
 import { publishForAdmin, siteAddress, siteReadiness } from "@/lib/site/site-service"
 import { parseTheme } from "@/lib/site/theme"
+import { contentForTier, siteTier } from "@/lib/site/tier"
 
 // What a platform admin does with business websites: approve a site's first publish (or ask for changes), and switch any
 // site off or back on. Admin routes check the role; this module applies the rules and tells the business.
@@ -85,7 +86,7 @@ export async function listSites(opts: { status: string; q?: string; page: number
 
 /** What an admin reviews: the site's draft (or its published copy once nothing is pending) with the live locations. */
 export async function loadSiteForAdminPreview(siteId: string) {
-  const site = await prisma.organisationSite.findUnique({ where: { id: siteId }, include: { organisation: { select: { id: true, name: true } } } })
+  const site = await prisma.organisationSite.findUnique({ where: { id: siteId }, include: { organisation: { select: { id: true, name: true, plan: true, subscriptionStatus: true } } } })
   if (!site) return null
   return buildPreviewSite({
     siteId: site.id,
@@ -93,7 +94,8 @@ export async function loadSiteForAdminPreview(siteId: string) {
     businessName: site.organisation.name,
     logo: site.logo,
     theme: parseTheme(site.draftTheme ?? site.theme),
-    content: parseContent(site.draftContent ?? site.content, site.organisation.name),
+    // As visitors would see it: the advanced design only if the business has it.
+    content: contentForTier(parseContent(site.draftContent ?? site.content, site.organisation.name), siteTier(site.organisation)),
   })
 }
 

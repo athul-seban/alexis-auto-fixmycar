@@ -56,6 +56,57 @@ async function setup() {
 }
 const state = async () => (await siteGet(req(""))).json()
 
+describe("the advanced website (Website Pro)", () => {
+  const pro = (c: Record<string, unknown>) => ({ ...c, pro: { ...(c.pro as object), heroLayout: "split", heroHeight: "tall", hideCredit: true } })
+
+  it("reports what the business may use", async () => {
+    await setup()
+    expect((await state()).tier).toMatchObject({ advanced: true, enforced: false })
+    vi.stubEnv("PLANS_ENFORCED", "true")
+    expect((await state()).tier).toMatchObject({ advanced: false, enforced: true, proPlan: { label: "Premium", priceGbpPerMonth: 59 } })
+  })
+
+  it("saves advanced settings when plans aren't charged, and when the business is on Premium", async () => {
+    const s = await setup()
+    let st = await state()
+    expect((await sitePatch(req("", json("PATCH", { expectedVersion: st.site.version, content: pro(st.content) })))).status).toBe(200)
+    expect((await state()).content.pro).toMatchObject({ heroLayout: "split", hideCredit: true })
+
+    vi.stubEnv("PLANS_ENFORCED", "true")
+    await prisma.organisation.update({ where: { id: s.organisation!.id }, data: { plan: "PREMIUM", subscriptionStatus: "active" } })
+    st = await state()
+    expect((await sitePatch(req("", json("PATCH", { expectedVersion: st.site.version, content: { ...st.content, pro: { ...st.content.pro, heroHeight: "compact" } } })))).status).toBe(200)
+    expect((await state()).content.pro.heroHeight).toBe("compact")
+  })
+
+  it("accepts the request from a business without the plan but leaves the advanced settings as they were", async () => {
+    await setup()
+    vi.stubEnv("PLANS_ENFORCED", "true")
+    const st = await state()
+    const content = pro(st.content) as unknown as { hero: { headline: string } }
+    content.hero.headline = "Changed headline"
+    const res = await sitePatch(req("", json("PATCH", { expectedVersion: st.site.version, content })))
+    expect(res.status).toBe(200) // not an error: the page is simply saved without the settings it can't use
+    const after = await state()
+    expect(after.content.hero.headline).toBe("Changed headline")
+    expect(after.content.pro).toEqual(st.content.pro)
+  })
+
+  it("rejects a section photo that isn't the business's own upload, even with the plan", async () => {
+    await setup()
+    const st = await state()
+    const res = await sitePatch(req("", json("PATCH", { expectedVersion: st.site.version, content: { ...st.content, pro: { ...st.content.pro, aboutImageUrl: "https://evil.example.com/x.jpg" } } })))
+    expect(res.status).toBe(400)
+  })
+
+  it("stores a section photo upload under the business's own folder", async () => {
+    const s = await setup()
+    const res = await upload(PNG, "section", "about.png")
+    expect(res.status).toBe(201)
+    expect((await res.json()).url).toContain(`/orgs/${s.organisation!.id}/section-`)
+  })
+})
+
 describe("who may edit the website", () => {
   it("the owner can; a manager can't (the website is the whole business's, not a branch's)", async () => {
     const s = await setup()

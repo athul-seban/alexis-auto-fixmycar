@@ -1,10 +1,10 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { prisma } from "@/lib/prisma"
 import { cleanupPrefix, makeGarage, makeLocation, makeWalkInBooking } from "@/test/fixtures"
 import { OrgError } from "@/lib/org/org-error"
 import { defaultContent } from "@/lib/site/content"
 import { DEFAULT_THEME } from "@/lib/site/theme"
-import { MAX_LABELS_PER_SITE, MAX_REVISIONS, checkAddress, ensureSite, getEditorState, requestPublish, rollback, saveDraft, setAddress, unpublish, withdrawSubmission } from "@/lib/site/site-service"
+import { MAX_LABELS_PER_SITE, MAX_REVISIONS, checkAddress, ensureSite, getEditorState, previewParts, requestPublish, rollback, saveDraft, setAddress, unpublish, withdrawSubmission } from "@/lib/site/site-service"
 import { applySiteAction, listSites } from "@/lib/site/site-admin"
 import { loadPublicSite } from "@/lib/site/public"
 
@@ -130,6 +130,106 @@ describe("editing the draft", () => {
     const sa = await getEditorState(a.ctx)
     await saveDraft(b.ctx, { expectedVersion: (await getEditorState(b.ctx)).site.version, theme: { ...DEFAULT_THEME, brand: "#ABCDEF" } })
     expect((await getEditorState(a.ctx)).theme.brand).toBe(sa.theme.brand)
+  })
+})
+
+describe("the advanced website (Website Pro)", () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  /** The owner's context after the business's plan changed (the context carries a snapshot of the business row). */
+  const onPlan = async (s: Awaited<ReturnType<typeof setup>>, plan: string, subscriptionStatus: string | null) => {
+    await prisma.organisation.update({ where: { id: s.org.id }, data: { plan, subscriptionStatus } })
+    return { ...s.ctx, organisation: await prisma.organisation.findUniqueOrThrow({ where: { id: s.org.id } }) }
+  }
+  const proContent = (base: ReturnType<typeof defaultContent>) => ({ ...base, pro: { ...base.pro, heroLayout: "split" as const, heroHeight: "tall" as const, hideCredit: true, announcement: { show: true, text: "Closed Monday", href: "" } } })
+
+  it("tells the builder what the business has: everything while plans aren't charged, Premium's perk once they are", async () => {
+    const s = await setup()
+    expect((await getEditorState(s.ctx)).tier).toMatchObject({ advanced: true, enforced: false })
+    vi.stubEnv("PLANS_ENFORCED", "true")
+    expect((await getEditorState(s.ctx)).tier).toMatchObject({ advanced: false, enforced: true, currentPlanLabel: "Free", proPlan: { label: "Premium", priceGbpPerMonth: 59 } })
+    const premium = await onPlan(s, "PREMIUM", "active")
+    expect((await getEditorState(premium)).tier).toMatchObject({ advanced: true, currentPlanLabel: "Premium" })
+  })
+
+  it("saves advanced settings for a business that has them", async () => {
+    const s = await setup()
+    vi.stubEnv("PLANS_ENFORCED", "true")
+    const ctx = await onPlan(s, "PREMIUM", "active")
+    const state = await getEditorState(ctx)
+    await saveDraft(ctx, { expectedVersion: state.site.version, content: proContent(state.content) })
+    expect((await getEditorState(ctx)).content.pro).toMatchObject({ heroLayout: "split", heroHeight: "tall", hideCredit: true })
+  })
+
+  it("ignores advanced settings from a business without them, while saving its ordinary edits", async () => {
+    const s = await setup()
+    vi.stubEnv("PLANS_ENFORCED", "true")
+    const state = await getEditorState(s.ctx)
+    const sent = proContent(state.content)
+    sent.hero.headline = "New headline"
+    await saveDraft(s.ctx, { expectedVersion: state.site.version, content: sent })
+    const after = await getEditorState(s.ctx)
+    expect(after.content.hero.headline).toBe("New headline")
+    expect(after.content.pro).toEqual(state.content.pro) // untouched
+  })
+
+  it("keeps what a business saved while it had the plan, shows visitors the basic design once it lapses, and brings it back on upgrade", async () => {
+    const s = await setup()
+    vi.stubEnv("PLANS_ENFORCED", "true")
+    const premium = await onPlan(s, "PREMIUM", "active")
+    const { address } = await publishedSite({ ...s, ctx: premium })
+    const state = await getEditorState(premium)
+    await saveDraft(premium, { expectedVersion: state.site.version, content: proContent(state.content) })
+    await requestPublish(premium)
+    const live = async () => {
+      const r = await loadPublicSite(address)
+      if (r.state !== "ok") throw new Error("expected a live site")
+      return r.site.content.pro
+    }
+    expect(await live()).toMatchObject({ heroLayout: "split", hideCredit: true })
+
+    // The subscription ends: the design visitors see is the basic one, and so is the preview. The saved choices remain.
+    const lapsed = await onPlan(s, "PREMIUM", "canceled")
+    expect(await live()).toMatchObject({ heroLayout: "standard", heroHeight: "standard", hideCredit: false, announcement: { show: false } })
+    expect((await previewParts(lapsed)).content.pro).toMatchObject({ heroLayout: "standard", hideCredit: false })
+    expect((await getEditorState(lapsed)).content.pro).toMatchObject({ heroLayout: "split", hideCredit: true }) // still stored, shown locked
+
+    // A save while lapsed keeps them too, then upgrading restores the design on the live site.
+    const lapsedState = await getEditorState(lapsed)
+    await saveDraft(lapsed, { expectedVersion: lapsedState.site.version, content: { ...lapsedState.content, pro: { ...lapsedState.content.pro, heroLayout: "standard", hideCredit: false } } })
+    expect((await getEditorState(lapsed)).content.pro).toMatchObject({ heroLayout: "split", hideCredit: true })
+    await onPlan(s, "PREMIUM", "active")
+    expect(await live()).toMatchObject({ heroLayout: "split", hideCredit: true })
+  })
+
+  it("shows everyone's saved advanced design while plans aren't charged", async () => {
+    const s = await setup()
+    const { address } = await publishedSite(s)
+    const state = await getEditorState(s.ctx)
+    await saveDraft(s.ctx, { expectedVersion: state.site.version, content: proContent(state.content) })
+    await requestPublish(s.ctx)
+    const r = await loadPublicSite(address)
+    expect(r.state === "ok" && r.site.content.pro.heroLayout).toBe("split")
+  })
+})
+
+describe("the trust figures on a site", () => {
+  it("come from the business's real locations: review-weighted rating, review count, verification", async () => {
+    const s = await setup()
+    const { address } = await publishedSite(s)
+    await prisma.garage.update({ where: { id: s.garage.id }, data: { averageRating: 4.5, totalReviews: 20, isVerified: true } })
+    const second = await makeLocation(PREFIX, s.org.id, { key: "second", status: "APPROVED" })
+    await prisma.garage.update({ where: { id: second.id }, data: { averageRating: 3.5, totalReviews: 10, isVerified: false } })
+    const r = await loadPublicSite(address)
+    expect(r.state === "ok" && r.site.trust).toEqual({ rating: 4.2, reviewCount: 30, verified: true })
+  })
+
+  it("show no rating when nobody has reviewed it, and never invent one", async () => {
+    const s = await setup()
+    const { address } = await publishedSite(s)
+    await prisma.garage.update({ where: { id: s.garage.id }, data: { averageRating: 5, totalReviews: 0, isVerified: false } })
+    const r = await loadPublicSite(address)
+    expect(r.state === "ok" && r.site.trust).toEqual({ rating: null, reviewCount: 0, verified: false })
   })
 })
 

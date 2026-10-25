@@ -20,9 +20,56 @@ const link = z
   .max(300)
   .refine((v) => v === "" || /^https:\/\/[^\s"'<>\\]+$/i.test(v), "Use a full address starting with https://")
 
+/**
+ * How dark the layer over a banner photo is. Text on a photo can't be checked, so every option is dark enough to read white (or
+ * brand-contrast) text on any picture: there is deliberately no "no overlay" or "light" choice.
+ */
+export const OVERLAY_KEYS = ["dark", "darker", "brand"] as const
+export const ALIGN_KEYS = ["left", "center"] as const
+export const HERO_LAYOUT_KEYS = ["standard", "split"] as const
+export const HERO_HEIGHT_KEYS = ["compact", "standard", "tall"] as const
+export const HERO_FOCUS_KEYS = ["top", "center", "bottom"] as const
+
+const imageUrl = z.string().trim().max(500).nullable()
+
+/**
+ * Settings of the ADVANCED website ("Website Pro", see src/lib/site/tier.ts). They live together so a business without the
+ * plan can be shown the basic design by swapping in `defaultPro()`. Every field has a default, so content saved before
+ * these existed still reads.
+ */
+export const proSchema = z
+  .object({
+    heroLayout: z.enum(HERO_LAYOUT_KEYS).default("standard"),
+    heroHeight: z.enum(HERO_HEIGHT_KEYS).default("standard"),
+    heroFocus: z.enum(HERO_FOCUS_KEYS).default("center"),
+    aboutImageUrl: imageUrl.default(null),
+    contactImageUrl: imageUrl.default(null),
+    announcement: z.object({ show: z.boolean().default(false), text: text(140).default(""), href: link.default("") }).default({}),
+    hideCredit: z.boolean().default(false),
+  })
+  .default({})
+export type ProSettings = z.infer<typeof proSchema>
+
+export const defaultPro = (): ProSettings => ({
+  heroLayout: "standard",
+  heroHeight: "standard",
+  heroFocus: "center",
+  aboutImageUrl: null,
+  contactImageUrl: null,
+  announcement: { show: false, text: "", href: "" },
+  hideCredit: false,
+})
+
 export const siteContentSchema = z.object({
   seo: z.object({ title: text(70), description: text(160) }),
-  hero: z.object({ headline: text(90), subheadline: text(220), ctaLabel: text(30), imageUrl: z.string().trim().max(500).nullable() }),
+  hero: z.object({
+    headline: text(90),
+    subheadline: text(220),
+    ctaLabel: text(30),
+    imageUrl,
+    overlay: z.enum(OVERLAY_KEYS).default("dark"),
+    align: z.enum(ALIGN_KEYS).default("left"),
+  }),
   about: z.object({ show: z.boolean(), title: text(60), body: text(4000) }),
   services: z.object({ show: z.boolean(), title: text(60), intro: text(300) }),
   locations: z.object({ title: text(60), intro: text(300) }),
@@ -36,6 +83,7 @@ export const siteContentSchema = z.object({
     showHours: z.boolean(),
   }),
   social: z.object({ facebook: link, instagram: link, x: link, youtube: link, tiktok: link }),
+  pro: proSchema,
 })
 export type SiteContent = z.infer<typeof siteContentSchema>
 
@@ -52,7 +100,7 @@ export const SOCIAL_HOSTS: Record<keyof SiteContent["social"], string[]> = {
 export function defaultContent(businessName: string): SiteContent {
   return {
     seo: { title: businessName.slice(0, 70), description: `${businessName}: MOTs, servicing and repairs. Book online or get a quote.`.slice(0, 160) },
-    hero: { headline: businessName.slice(0, 90), subheadline: "MOTs, servicing and repairs you can trust.", ctaLabel: "Book online", imageUrl: null },
+    hero: { headline: businessName.slice(0, 90), subheadline: "MOTs, servicing and repairs you can trust.", ctaLabel: "Book online", imageUrl: null, overlay: "dark", align: "left" },
     about: { show: true, title: "About us", body: "" },
     services: { show: true, title: "What we do", intro: "" },
     locations: { title: "Find us", intro: "" },
@@ -61,6 +109,7 @@ export function defaultContent(businessName: string): SiteContent {
     faq: { show: false, title: "Questions", items: [] },
     contact: { title: "Get in touch", message: "", email: "", showHours: true },
     social: { facebook: "", instagram: "", x: "", youtube: "", tiktok: "" },
+    pro: defaultPro(),
   }
 }
 
@@ -93,7 +142,7 @@ export function contentProblems(content: SiteContent, organisationId: string): s
   const problems: string[] = []
   if (contentBytes(content) > MAX_CONTENT_BYTES) problems.push("The website is too long. Shorten some text or remove some photos.")
 
-  const images = [content.hero.imageUrl, ...content.gallery.images.map((i) => i.url)].filter((u): u is string => !!u)
+  const images = [content.hero.imageUrl, content.pro.aboutImageUrl, content.pro.contactImageUrl, ...content.gallery.images.map((i) => i.url)].filter((u): u is string => !!u)
   if (images.some((u) => !isOwnOrgImageUrl(u, organisationId))) problems.push("Photos must be uploaded here; you can't link to another website's image.")
 
   for (const key of Object.keys(SOCIAL_HOSTS) as (keyof SiteContent["social"])[]) {

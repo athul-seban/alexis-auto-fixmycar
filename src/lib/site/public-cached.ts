@@ -9,8 +9,15 @@ import { loadPublicSite, type PublicSite, type PublicSiteResult } from "@/lib/si
 
 export const SITE_CACHE_SECONDS = 60
 
+/**
+ * Part of every cache key. The cache outlives a deploy (it lives on disk locally and in the platform's data cache), so after
+ * the shape of what is cached changes, the old entries would be handed to code that expects the new shape and crash it. Raise
+ * this number whenever PublicSite (src/lib/site/public.ts) or the content it carries gains, loses or renames a field.
+ */
+export const SITE_CACHE_VERSION = 2
+
 export function getPublicSite(label: string): Promise<PublicSiteResult> {
-  return unstable_cache(() => loadPublicSite(label), ["public-site", label], { tags: [siteLabelTag(label)], revalidate: SITE_CACHE_SECONDS })()
+  return unstable_cache(() => loadPublicSite(label), ["public-site", `v${SITE_CACHE_VERSION}`, label], { tags: [siteLabelTag(label)], revalidate: SITE_CACHE_SECONDS })()
 }
 
 /** The published site for an address, or a real 404; an old address redirects (301/308) to the current one. */

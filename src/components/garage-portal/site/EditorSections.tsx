@@ -4,9 +4,13 @@ import { useState } from "react"
 import { Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { FieldLabel, NativeSelect, TextInput } from "@/components/ui/form-controls"
-import { MAX_FAQ_ITEMS, MAX_GALLERY_IMAGES, type SiteContent } from "@/lib/site/content"
+import { ALIGN_KEYS, HERO_FOCUS_KEYS, HERO_HEIGHT_KEYS, HERO_LAYOUT_KEYS, MAX_FAQ_ITEMS, MAX_GALLERY_IMAGES, OVERLAY_KEYS, type ProSettings, type SiteContent } from "@/lib/site/content"
+import { STYLE_PRESETS, presetFor } from "@/lib/site/presets"
+import type { SiteTier } from "@/lib/site/tier"
 import { FONT_KEYS, MIN_CONTRAST, RADIUS_KEYS, contrast, deriveTheme, type SiteTheme } from "@/lib/site/theme"
 import { Card, Field, ImageField, Toggle, uploadImage } from "@/components/garage-portal/site/fields"
+import { ProGate } from "@/components/garage-portal/site/ProPanel"
+import { cn } from "@/lib/utils"
 
 export interface Draft {
   theme: SiteTheme
@@ -24,7 +28,15 @@ interface Props {
   onVersion: (version: number) => void
   /** The site's own address (host only), shown in the search result preview. */
   siteHost?: string
+  /** What the business may use: the advanced ("Website Pro") controls are locked without it. */
+  tier: SiteTier
 }
+
+const OVERLAY_LABEL: Record<(typeof OVERLAY_KEYS)[number], string> = { dark: "Dark", darker: "Darker", brand: "Your main colour" }
+const ALIGN_LABEL: Record<(typeof ALIGN_KEYS)[number], string> = { left: "Left", center: "Centred" }
+const LAYOUT_LABEL: Record<(typeof HERO_LAYOUT_KEYS)[number], string> = { standard: "Full-width photo", split: "Words beside a framed photo" }
+const HEIGHT_LABEL: Record<(typeof HERO_HEIGHT_KEYS)[number], string> = { compact: "Compact", standard: "Standard", tall: "Tall" }
+const FOCUS_LABEL: Record<(typeof HERO_FOCUS_KEYS)[number], string> = { top: "Top of the photo", center: "Middle of the photo", bottom: "Bottom of the photo" }
 
 const FONT_LABEL: Record<(typeof FONT_KEYS)[number], string> = { sans: "Clean (sans-serif)", serif: "Classic (serif)", rounded: "Friendly (rounded)" }
 const RADIUS_LABEL: Record<(typeof RADIUS_KEYS)[number], string> = { none: "Square", sm: "Slightly rounded", md: "Rounded", lg: "Very rounded" }
@@ -59,10 +71,12 @@ function ColourField({ label, value, onChange }: { label: string; value: string;
   )
 }
 
-export function EditorSections({ draft, setDraft, locations, onError, onVersion, siteHost }: Props) {
+export function EditorSections({ draft, setDraft, locations, onError, onVersion, siteHost, tier }: Props) {
   const { theme, content: c } = draft
   const d = deriveTheme(theme)
+  const activePreset = presetFor(theme)
   const set = <K extends keyof SiteContent>(key: K, patch: Partial<SiteContent[K]>) => setDraft({ ...draft, content: { ...c, [key]: { ...c[key], ...patch } } })
+  const setPro = (patch: Partial<ProSettings>) => set("pro", patch)
   const setTheme = (patch: Partial<SiteTheme>) => setDraft({ ...draft, theme: { ...theme, ...patch } })
   const live = locations.filter((l) => l.status === "APPROVED")
   const [galleryBusy, setGalleryBusy] = useState(false)
@@ -100,6 +114,33 @@ export function EditorSections({ draft, setDraft, locations, onError, onVersion,
           }}
           onRemove={() => setDraft({ ...draft, logo: null })}
         />
+        <div>
+          <p className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">Start from a ready-made style (you can change anything after)</p>
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {STYLE_PRESETS.map((p) => {
+              const on = activePreset?.id === p.id
+              return (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => setTheme(p.theme)}
+                    className={cn("flex w-full cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E3A5F]", on ? "border-[#1E3A5F] bg-blue-50 dark:border-blue-400 dark:bg-blue-500/10" : "border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5")}
+                  >
+                    <span className="flex flex-shrink-0 -space-x-1" aria-hidden>
+                      <span className="h-6 w-6 rounded-full border border-white" style={{ background: p.theme.brand }} />
+                      <span className="h-6 w-6 rounded-full border border-white" style={{ background: p.theme.accent }} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-slate-900 dark:text-white">{p.name}</span>
+                      <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{p.blurb}</span>
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <ColourField label="Main colour" value={theme.brand} onChange={(v) => setTheme({ brand: v })} />
           <ColourField label="Button colour" value={theme.accent} onChange={(v) => setTheme({ accent: v })} />
@@ -141,13 +182,66 @@ export function EditorSections({ draft, setDraft, locations, onError, onVersion,
         <Field label="Headline" value={c.hero.headline} max={90} onChange={(v) => set("hero", { headline: v })} />
         <Field label="Line under the headline" value={c.hero.subheadline} max={220} multiline rows={2} onChange={(v) => set("hero", { subheadline: v })} />
         <Field label="Main button text" value={c.hero.ctaLabel} max={30} hint="Shown when a location takes online booking." onChange={(v) => set("hero", { ctaLabel: v })} />
-        <ImageField label="Banner photo (optional)" url={c.hero.imageUrl} kind="hero" hint="Wide photos work best. Text is laid over it, so choose one that isn't too busy." onError={onError} onUploaded={(url) => set("hero", { imageUrl: url })} onRemove={() => set("hero", { imageUrl: null })} />
+        <ImageField label="Banner photo (optional)" url={c.hero.imageUrl} kind="hero" hint="Becomes the background of the banner. Wide photos work best." onError={onError} onUploaded={(url) => set("hero", { imageUrl: url })} onRemove={() => set("hero", { imageUrl: null })} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {c.hero.imageUrl ? (
+            <div>
+              <FieldLabel htmlFor="hero-overlay">Layer over the photo</FieldLabel>
+              <NativeSelect id="hero-overlay" value={c.hero.overlay} onChange={(e) => set("hero", { overlay: e.target.value as SiteContent["hero"]["overlay"] })}>
+                {OVERLAY_KEYS.map((k) => (
+                  <option key={k} value={k}>{OVERLAY_LABEL[k]}</option>
+                ))}
+              </NativeSelect>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Every choice is dark enough for the words to read on any photo.</p>
+            </div>
+          ) : null}
+          <div>
+            <FieldLabel htmlFor="hero-align">Where the words sit</FieldLabel>
+            <NativeSelect id="hero-align" value={c.hero.align} onChange={(e) => set("hero", { align: e.target.value as SiteContent["hero"]["align"] })}>
+              {ALIGN_KEYS.map((k) => (
+                <option key={k} value={k}>{ALIGN_LABEL[k]}</option>
+              ))}
+            </NativeSelect>
+          </div>
+        </div>
+        <ProGate tier={tier} title="Banner design">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <FieldLabel htmlFor="hero-layout">Layout</FieldLabel>
+              <NativeSelect id="hero-layout" value={c.pro.heroLayout} onChange={(e) => setPro({ heroLayout: e.target.value as ProSettings["heroLayout"] })}>
+                {HERO_LAYOUT_KEYS.map((k) => (
+                  <option key={k} value={k}>{LAYOUT_LABEL[k]}</option>
+                ))}
+              </NativeSelect>
+              {c.pro.heroLayout === "split" && !c.hero.imageUrl ? <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">Add a banner photo to use this layout.</p> : null}
+            </div>
+            <div>
+              <FieldLabel htmlFor="hero-height">Height</FieldLabel>
+              <NativeSelect id="hero-height" value={c.pro.heroHeight} onChange={(e) => setPro({ heroHeight: e.target.value as ProSettings["heroHeight"] })}>
+                {HERO_HEIGHT_KEYS.map((k) => (
+                  <option key={k} value={k}>{HEIGHT_LABEL[k]}</option>
+                ))}
+              </NativeSelect>
+            </div>
+            <div>
+              <FieldLabel htmlFor="hero-focus">Show</FieldLabel>
+              <NativeSelect id="hero-focus" value={c.pro.heroFocus} onChange={(e) => setPro({ heroFocus: e.target.value as ProSettings["heroFocus"] })}>
+                {HERO_FOCUS_KEYS.map((k) => (
+                  <option key={k} value={k}>{FOCUS_LABEL[k]}</option>
+                ))}
+              </NativeSelect>
+            </div>
+          </div>
+        </ProGate>
       </Card>
 
       <Card title="About us">
         <Toggle label="Show this section" checked={c.about.show} onChange={(v) => set("about", { show: v })} hint="Only appears once you've written something." />
         <Field label="Heading" value={c.about.title} max={60} onChange={(v) => set("about", { title: v })} />
         <Field label="Your story" value={c.about.body} max={4000} multiline rows={8} hint="Plain text. You can use **bold**, *italic*, - bullet lists, and [links](https://example.com)." onChange={(v) => set("about", { body: v })} />
+        <ProGate tier={tier} title="Photo with your story">
+          <ImageField label="Photo beside your story" url={c.pro.aboutImageUrl} kind="section" hint="Shown next to the text on a wide screen, above it on a phone." onError={onError} onUploaded={(url) => setPro({ aboutImageUrl: url })} onRemove={() => setPro({ aboutImageUrl: null })} />
+        </ProGate>
       </Card>
 
       <Card title="Services" description="The services are listed automatically from what your locations offer.">
@@ -239,6 +333,18 @@ export function EditorSections({ draft, setDraft, locations, onError, onVersion,
             <Field key={k} label={k === "x" ? "X (Twitter) link" : `${k[0].toUpperCase()}${k.slice(1)} link`} value={c.social[k]} max={300} placeholder="https://" onChange={(v) => set("social", { [k]: v })} />
           ))}
         </div>
+        <ProGate tier={tier} title="Photo behind your contact details">
+          <ImageField label="Background photo" url={c.pro.contactImageUrl} kind="section" hint="Sits behind a dark layer, so the phone number always reads." onError={onError} onUploaded={(url) => setPro({ contactImageUrl: url })} onRemove={() => setPro({ contactImageUrl: null })} />
+        </ProGate>
+      </Card>
+
+      <Card title="Notice bar and finishing touches" description="A short message above everything else, and the small print at the bottom.">
+        <ProGate tier={tier} title="Notice bar and credit line">
+          <Toggle label="Show a notice bar" checked={c.pro.announcement.show} onChange={(v) => setPro({ announcement: { ...c.pro.announcement, show: v } })} hint="For holiday opening hours, a special offer or a closure." />
+          <Field label="Notice" value={c.pro.announcement.text} max={140} onChange={(v) => setPro({ announcement: { ...c.pro.announcement, text: v } })} placeholder="Closed Monday 28 December. Back on Tuesday." />
+          <Field label="Link (optional)" value={c.pro.announcement.href} max={300} placeholder="https://" hint="Turns the notice into a link. It must start with https://" onChange={(v) => setPro({ announcement: { ...c.pro.announcement, href: v } })} />
+          <Toggle label="Remove “Bookings and quotes by Quote My Garage”" checked={c.pro.hideCredit} onChange={(v) => setPro({ hideCredit: v })} hint="Takes the line out of the footer. Your booking and quote buttons keep working." />
+        </ProGate>
       </Card>
 
       <Card title="How you appear in search results" description="What Google shows for your website.">

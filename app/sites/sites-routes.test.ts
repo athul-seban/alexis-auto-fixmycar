@@ -18,7 +18,7 @@ import { GET as robots } from "./[label]/robots.txt/route"
 
 const site = (over: Partial<PublicSite> = {}): PublicSite => ({
   siteId: "s1", organisationId: "o1", label: "acme", businessName: "Acme Motors", logo: null, theme: DEFAULT_THEME, content: defaultContent("Acme Motors"),
-  locations: [], reviews: [], services: [], updatedAt: "2026-10-22T10:00:00.000Z", ...over,
+  locations: [], reviews: [], services: [], trust: { rating: null, reviewCount: 0, verified: false }, updatedAt: "2026-10-22T10:00:00.000Z", ...over,
 })
 
 const params = (label: string) => ({ params: Promise.resolve({ label }) })

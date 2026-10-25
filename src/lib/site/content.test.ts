@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { MAX_CONTENT_BYTES, MAX_FAQ_ITEMS, MAX_GALLERY_IMAGES, contentBytes, contentProblems, defaultContent, parseContent, publishProblems, siteContentSchema } from "./content"
+import { MAX_CONTENT_BYTES, MAX_FAQ_ITEMS, MAX_GALLERY_IMAGES, contentBytes, contentProblems, defaultContent, defaultPro, parseContent, publishProblems, siteContentSchema } from "./content"
 
 const ORG = "orgabc123"
 const own = (name: string) => `https://abc123.public.blob.vercel-storage.com/orgs/${ORG}/${name}`
@@ -114,6 +114,51 @@ describe("contentProblems", () => {
     // Force it over with an oversized object the schema would reject anyway: the size check still stops it.
     const huge = { ...c, about: { ...c.about, body: "x".repeat(MAX_CONTENT_BYTES + 1) } }
     expect(contentProblems(huge as typeof c, ORG).join(" ")).toMatch(/too long/)
+  })
+})
+
+describe("the background and advanced settings", () => {
+  it("reads content saved before they existed: the banner gets its defaults and the advanced block is off", () => {
+    const old = base() as unknown as Record<string, unknown>
+    const oldHero: Record<string, unknown> = { ...base().hero }
+    delete oldHero.overlay
+    delete oldHero.align
+    old.hero = oldHero
+    delete old.pro
+    const parsed = parseContent(JSON.stringify(old), "Acme Motors")
+    expect(parsed.hero).toMatchObject({ overlay: "dark", align: "left" })
+    expect(parsed.pro).toEqual(defaultPro())
+    expect(parsed.hero.headline).toBe("Acme Motors") // the rest of the hero survived
+  })
+
+  it("only accepts the listed choices", () => {
+    const set = (mut: (c: ReturnType<typeof base>) => void) => {
+      const c = base()
+      mut(c)
+      return siteContentSchema.safeParse(c).success
+    }
+    expect(set((c) => (c.hero.overlay = "brand"))).toBe(true)
+    expect(set((c) => ((c.hero as { overlay: string }).overlay = "none"))).toBe(false) // no way to remove the dark layer
+    expect(set((c) => ((c.hero as { overlay: string }).overlay = "light"))).toBe(false)
+    expect(set((c) => ((c.hero as { align: string }).align = "right"))).toBe(false)
+    expect(set((c) => ((c.pro as { heroLayout: string }).heroLayout = "carousel"))).toBe(false)
+    expect(set((c) => ((c.pro as { heroHeight: string }).heroHeight = "huge"))).toBe(false)
+    expect(set((c) => (c.pro.announcement.text = "x".repeat(141)))).toBe(false)
+    expect(set((c) => (c.pro.announcement.href = "http://insecure.example"))).toBe(false)
+    expect(set((c) => (c.pro.announcement.href = "javascript:alert(1)"))).toBe(false)
+    expect(set((c) => (c.pro.announcement.href = "https://acme.example/offer"))).toBe(true)
+  })
+
+  it("refuses section photos that aren't the business's own uploads", () => {
+    const c = base()
+    c.pro.aboutImageUrl = own("about.jpg")
+    c.pro.contactImageUrl = own("contact.jpg")
+    expect(contentProblems(c, ORG)).toEqual([])
+    for (const field of ["aboutImageUrl", "contactImageUrl"] as const) {
+      const bad = base()
+      bad.pro[field] = "https://evil.example.com/x.jpg"
+      expect(contentProblems(bad, ORG).join(" "), field).toMatch(/uploaded here/)
+    }
   })
 })
 

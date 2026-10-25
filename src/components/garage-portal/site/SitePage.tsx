@@ -11,7 +11,9 @@ import { activeLocationHeaders } from "@/lib/org/active-location-client"
 import { sendJson, useApi } from "@/hooks/use-api"
 import { cn, formatDate, formatDateTime } from "@/lib/utils"
 import type { SiteContent } from "@/lib/site/content"
+import type { SiteTier } from "@/lib/site/tier"
 import type { SiteTheme } from "@/lib/site/theme"
+import { ProPanel } from "@/components/garage-portal/site/ProPanel"
 import { PageHeader, Panel } from "@/components/garage-portal/shared/PageHeader"
 import { Card } from "@/components/garage-portal/site/fields"
 import { EditorSections, type Draft } from "@/components/garage-portal/site/EditorSections"
@@ -25,6 +27,7 @@ interface EditorState {
   problems: string[]
   revisions: { id: string; version: number; createdAt: string; note: string | null }[]
   websiteDomainConfigured: boolean
+  tier: SiteTier
 }
 
 function hostOf(url: string | null): string | undefined {
@@ -177,10 +180,13 @@ function Editor({ state, reload }: { state: EditorState; reload: () => void }) {
 
       <AddressCard state={state} onSaved={reload} />
 
+      <ProPanel tier={state.tier} />
+
       <EditorSections
         draft={draft}
         setDraft={setDraft}
         locations={state.locations}
+        tier={state.tier}
         siteHost={hostOf(state.address.url)}
         onError={onError}
         onVersion={(v) => {

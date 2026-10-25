@@ -11,10 +11,11 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024 // a website image: 2 MB is plenty and kee
 const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const
 
 /**
- * Upload a website image: the logo, the hero photo or a gallery photo. Stored under orgs/<business id>/ (the only place the
+ * Upload a website image: the logo, the banner photo, a section photo (beside About or behind the contact details) or a gallery
+ * photo. Stored under orgs/<business id>/ (the only place the
  * site may point at). JPEG, PNG and WebP only: the type is read from the file's bytes, never from its name or the browser's
- * claim, and SVG is refused (it can carry script). The logo is saved against the site straight away; a hero or gallery
- * photo is just stored and its address returned, to be placed on the page and saved with the draft.
+ * claim, and SVG is refused (it can carry script). The logo is saved against the site straight away; any other photo is just
+ * stored and its address returned, to be placed on the page and saved with the draft.
  */
 export const POST = withGarage(
   "Garage site upload POST",
@@ -29,7 +30,8 @@ export const POST = withGarage(
 
     const form = await req.formData()
     const file = form.get("file")
-    const kind = form.get("kind") === "logo" ? "logo" : form.get("kind") === "hero" ? "hero" : "gallery"
+    const asked = form.get("kind")
+    const kind = asked === "logo" || asked === "hero" || asked === "section" ? asked : "gallery"
     if (!(file instanceof File)) return NextResponse.json({ error: "No file provided" }, { status: 400 })
     if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "Images can be at most 2 MB" }, { status: 400 })
 

@@ -33,6 +33,16 @@ describe("plan enforcement", () => {
     expect(hasFeature(pro, "sms")).toBe(true)
   })
 
+  it("keeps the advanced website to Premium, and unlocks it for everyone while plans aren't enforced", () => {
+    const premium = { plan: "PREMIUM", subscriptionStatus: "active" }
+    expect(hasFeature(free, "websitePro")).toBe(true) // not enforced yet
+    process.env.PLANS_ENFORCED = "true"
+    expect(hasFeature(free, "websitePro")).toBe(false)
+    expect(hasFeature(pro, "websitePro")).toBe(false)
+    expect(hasFeature(premium, "websitePro")).toBe(true)
+    expect(hasFeature({ ...premium, subscriptionStatus: "canceled" }, "websitePro")).toBe(false)
+  })
+
   it("allows leads up to the monthly limit, then spends credits, then blocks", () => {
     process.env.PLANS_ENFORCED = "true"
     const limit = PLANS.FREE.leadsPerMonth!

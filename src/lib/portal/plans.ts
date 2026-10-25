@@ -5,7 +5,8 @@
 
 export type PlanId = "FREE" | "PRO" | "PREMIUM"
 
-export type PlanFeature = "insights" | "sms" | "deposits" | "widget"
+/** `websitePro` is the advanced business website (see src/lib/site/tier.ts): extra hero layouts, section photos, an announcement bar and no platform credit line. */
+export type PlanFeature = "insights" | "sms" | "deposits" | "widget" | "websitePro"
 
 export interface PlanDef {
   id: PlanId
@@ -27,8 +28,8 @@ export const PLANS: Record<PlanId, PlanDef> = {
     priceGbpPerMonth: 0,
     priceEnv: null,
     leadsPerMonth: 3,
-    features: { insights: false, sms: false, deposits: false, widget: true },
-    blurb: "A listing and your first few leads each month.",
+    features: { insights: false, sms: false, deposits: false, widget: true, websitePro: false },
+    blurb: "A listing, a simple website and your first few leads each month.",
   },
   PRO: {
     id: "PRO",
@@ -36,7 +37,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     priceGbpPerMonth: 29,
     priceEnv: "STRIPE_PRICE_PRO",
     leadsPerMonth: 20,
-    features: { insights: true, sms: true, deposits: true, widget: true },
+    features: { insights: true, sms: true, deposits: true, widget: true, websitePro: false },
     blurb: "More leads, online deposits, text reminders and insights.",
   },
   PREMIUM: {
@@ -45,8 +46,8 @@ export const PLANS: Record<PlanId, PlanDef> = {
     priceGbpPerMonth: 59,
     priceEnv: "STRIPE_PRICE_PREMIUM",
     leadsPerMonth: null,
-    features: { insights: true, sms: true, deposits: true, widget: true },
-    blurb: "Unlimited leads and everything in Pro.",
+    features: { insights: true, sms: true, deposits: true, widget: true, websitePro: true },
+    blurb: "Unlimited leads, the advanced website and everything in Pro.",
   },
 }
 

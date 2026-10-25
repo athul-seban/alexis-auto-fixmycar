@@ -66,7 +66,7 @@ export function Toggle({ label, checked, onChange, hint }: { label: string; chec
 export type UploadResult = { ok: true; url: string; version?: number } | { ok: false; error: string }
 
 /** Sends one image to the website's upload endpoint. The server checks the bytes, the size and the folder. */
-export async function uploadImage(file: File, kind: "logo" | "hero" | "gallery"): Promise<UploadResult> {
+export async function uploadImage(file: File, kind: "logo" | "hero" | "gallery" | "section"): Promise<UploadResult> {
   const form = new FormData()
   form.set("file", file)
   form.set("kind", kind)
@@ -82,7 +82,7 @@ export async function uploadImage(file: File, kind: "logo" | "hero" | "gallery")
 }
 
 /** A picture with Change and Remove. Uploading happens on pick; the address comes back and is handed to the editor. */
-export function ImageField({ label, url, kind, onUploaded, onRemove, hint, onError, square }: { label: string; url: string | null; kind: "logo" | "hero"; onUploaded: (url: string, version?: number) => void; onRemove: () => void; hint?: string; onError: (message: string) => void; square?: boolean }) {
+export function ImageField({ label, url, kind, onUploaded, onRemove, hint, onError, square }: { label: string; url: string | null; kind: "logo" | "hero" | "section"; onUploaded: (url: string, version?: number) => void; onRemove: () => void; hint?: string; onError: (message: string) => void; square?: boolean }) {
   const input = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
 

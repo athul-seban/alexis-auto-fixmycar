@@ -10,6 +10,7 @@ import { parseLabel, subdomainProblem, suggestLabel } from "@/lib/org/subdomain"
 import { invalidateSite } from "@/lib/site/cache"
 import { contentProblems, defaultContent, parseContent, publishProblems, siteContentSchema, type SiteContent } from "@/lib/site/content"
 import { DEFAULT_THEME, parseTheme, themeSchema, type SiteTheme } from "@/lib/site/theme"
+import { contentForTier, mergeSavedContent, siteTier, type SiteTier } from "@/lib/site/tier"
 
 // A business's website: edit a draft, choose an address, send it for review the first time, publish (later edits go live
 // straight away), roll back, take it down. Every rule lives here; the routes only authorise and call.
@@ -105,6 +106,8 @@ export interface EditorState {
   problems: string[]
   revisions: { id: string; version: number; createdAt: string; note: string | null }[]
   websiteDomainConfigured: boolean
+  /** Basic or advanced ("Website Pro"): what this business may use, and what to tell it about upgrading. */
+  tier: SiteTier
 }
 
 /** What is wrong with the site's readiness: missing address, missing text, no live location, switched off. */
@@ -152,6 +155,7 @@ export async function getEditorState(ctx: Ctx): Promise<EditorState> {
     problems: await readiness(site, org.id, content, active?.host ?? null),
     revisions: revisions.map((r) => ({ id: r.id, version: r.version, createdAt: r.createdAt.toISOString(), note: r.note })),
     websiteDomainConfigured: Boolean(rootDomain()),
+    tier: siteTier(org),
   }
 }
 
@@ -162,14 +166,17 @@ export async function saveDraft(ctx: Ctx, input: SaveDraftInput): Promise<{ vers
   const org = business(ctx)
   const site = await ensureSite(org.id, org.name)
 
-  if (input.content) {
-    const problems = contentProblems(input.content, org.id)
+  // A business without the advanced website can't change its advanced settings: what it had saved is kept (and comes back if
+  // it upgrades), whatever the request says. Everything else it sends is saved as usual.
+  const content = input.content ? mergeSavedContent(input.content, parseContent(site.draftContent ?? site.content, org.name), siteTier(org)) : undefined
+  if (content) {
+    const problems = contentProblems(content, org.id)
     if (problems.length > 0) throw new OrgError("INVALID_INPUT", problems[0], { problems })
   }
   if (input.logo && !isOwnOrgImageUrl(input.logo, org.id)) throw new OrgError("INVALID_INPUT", "The logo must be uploaded here; you can't link to another website's image.")
 
   const data: Prisma.OrganisationSiteUpdateManyMutationInput = { version: { increment: 1 } }
-  if (input.content) data.draftContent = JSON.stringify(input.content)
+  if (content) data.draftContent = JSON.stringify(content)
   if (input.theme) data.draftTheme = JSON.stringify(input.theme)
   if (input.logo !== undefined) data.logo = input.logo
 
@@ -326,7 +333,9 @@ export async function rollback(ctx: Ctx, revisionId: string): Promise<void> {
 export async function previewParts(ctx: Ctx): Promise<{ theme: SiteTheme; content: SiteContent; logo: string | null; siteId: string }> {
   const org = business(ctx)
   const site = await ensureSite(org.id, org.name)
-  return { theme: parseTheme(site.draftTheme ?? site.theme), content: parseContent(site.draftContent ?? site.content, org.name), logo: site.logo, siteId: site.id }
+  // What a visitor would see: a business without the advanced website previews the basic design.
+  const content = contentForTier(parseContent(site.draftContent ?? site.content, org.name), siteTier(org))
+  return { theme: parseTheme(site.draftTheme ?? site.theme), content, logo: site.logo, siteId: site.id }
 }
 
 // Used by the admin module (site-admin.ts) so both go live the same way.
